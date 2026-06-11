@@ -21,39 +21,40 @@
             --text:         #f4f4f5;
             --text-muted:   #71717a;
             --radius:       16px;
+            /* mic verde */
+            --mic-green:    #22c55e;
+            --mic-green-dim:#15803d;
+            --mic-green-glow:rgba(34,197,94,0.55);
         }
 
         html, body {
             height: 100%;
+            width: 100%;
             background: var(--bg);
             font-family: 'Inter', system-ui, sans-serif;
             color: var(--text);
             overflow: hidden;
         }
 
-        /* ── Layout ─────────────────────────────────────────── */
+        /* ── Fullscreen wrapper ──────────────────────────────── */
         #app {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            height: 100vh;
-            gap: 28px;
-            padding: 24px;
+            background: #000;
         }
 
-        /* ── Avatar container ───────────────────────────────── */
+        /* ── Avatar ocupa toda la pantalla ──────────────────── */
         #avatar-wrap {
             position: relative;
-            width: min(480px, 90vw);
-            aspect-ratio: 1 / 1;
-            border-radius: var(--radius);
+            width: 100%;
+            height: 100%;
             overflow: hidden;
             background: var(--surface);
-            border: 1px solid var(--border);
-            box-shadow:
-                0 0 0 1px rgba(99,102,241,0.1),
-                0 20px 60px rgba(0,0,0,0.6);
         }
 
         #video {
@@ -63,45 +64,44 @@
             display: block;
         }
 
-        /* Gradient overlay at bottom */
+        /* Gradient overlay at bottom (para legibilidad del mic) */
         #avatar-wrap::after {
             content: '';
             position: absolute;
             inset: auto 0 0 0;
-            height: 40%;
-            background: linear-gradient(to top, rgba(9,9,11,0.85), transparent);
+            height: 30%;
+            background: linear-gradient(to top, rgba(0,0,0,0.65), transparent);
             pointer-events: none;
         }
 
-        /* Speaking indicator */
+        /* Speaking indicator (ring sobre el borde de la pantalla) */
         #speaking-ring {
             position: absolute;
-            inset: -4px;
-            border-radius: calc(var(--radius) + 4px);
-            border: 2px solid var(--accent);
+            inset: 0;
+            border: 4px solid var(--accent);
             opacity: 0;
             transition: opacity 0.3s;
             pointer-events: none;
-            box-shadow: 0 0 20px rgba(99,102,241,0.5), inset 0 0 20px rgba(99,102,241,0.1);
+            box-shadow: inset 0 0 40px rgba(99,102,241,0.15);
         }
         .avatar-speaking #speaking-ring { opacity: 1; animation: ring-pulse 1.5s ease-in-out infinite; }
 
         @keyframes ring-pulse {
-            0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.5), inset 0 0 20px rgba(99,102,241,0.1); }
-            50%       { box-shadow: 0 0 40px rgba(129,140,248,0.8), inset 0 0 30px rgba(129,140,248,0.2); }
+            0%, 100% { box-shadow: inset 0 0 40px rgba(99,102,241,0.15), 0 0 30px rgba(99,102,241,0.4); }
+            50%       { box-shadow: inset 0 0 60px rgba(129,140,248,0.3), 0 0 50px rgba(129,140,248,0.7); }
         }
 
         /* ── Status badge ───────────────────────────────────── */
         #status-badge {
             position: absolute;
-            bottom: 16px;
+            top: 20px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10;
+            z-index: 20;
             display: flex;
             align-items: center;
             gap: 7px;
-            background: rgba(24,24,27,0.85);
+            background: rgba(9,9,11,0.75);
             backdrop-filter: blur(12px);
             border: 1px solid var(--border);
             border-radius: 999px;
@@ -132,13 +132,18 @@
             0%, 100% { opacity: 1; } 50% { opacity: 0.2; }
         }
 
-        /* ── Transcript area ────────────────────────────────── */
+        /* ── Transcript overlay (sobre el video, arriba-izquierda) */
         #transcript-wrap {
-            width: min(480px, 90vw);
-            min-height: 52px;
+            position: absolute;
+            bottom: 130px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            width: min(500px, 88vw);
             display: flex;
             flex-direction: column;
             gap: 6px;
+            pointer-events: none;
         }
 
         .transcript-line {
@@ -159,77 +164,114 @@
             margin-top: 2px;
             flex-shrink: 0;
             width: 32px;
+            text-shadow: 0 1px 4px rgba(0,0,0,0.8);
         }
 
         .transcript-text {
             font-size: 13px;
             color: var(--text);
             line-height: 1.5;
+            text-shadow: 0 1px 6px rgba(0,0,0,0.9);
         }
         .transcript-text.dim { color: var(--text-muted); }
 
-        /* ── Controls ───────────────────────────────────────── */
-        #controls {
-            display: flex;
-            align-items: center;
-            gap: 20px;
-        }
-
-        /* Mic button */
+        /* ── Botón MIC (sobre el avatar, abajo-centro) ──────── */
         #btn-mic {
-            position: relative;
-            width: 72px; height: 72px;
+            position: absolute;
+            bottom: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+
+            width: 88px; height: 88px;
             border-radius: 50%;
             border: none;
             cursor: pointer;
-            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
-            box-shadow: 0 4px 24px rgba(99,102,241,0.45);
+
+            /* VERDE */
+            background: linear-gradient(135deg, var(--mic-green), var(--mic-green-dim));
+            box-shadow: 0 4px 28px var(--mic-green-glow), 0 0 0 4px rgba(34,197,94,0.15);
+
             display: flex; align-items: center; justify-content: center;
             transition: transform 0.15s, box-shadow 0.15s;
             outline: none;
         }
 
-        #btn-mic:hover  { transform: scale(1.06); box-shadow: 0 6px 32px rgba(99,102,241,0.6); }
-        #btn-mic:active { transform: scale(0.96); }
+        #btn-mic:hover  {
+            transform: translateX(-50%) scale(1.07);
+            box-shadow: 0 6px 38px rgba(34,197,94,0.75), 0 0 0 6px rgba(34,197,94,0.2);
+        }
+        #btn-mic:active {
+            transform: translateX(-50%) scale(0.95);
+        }
 
         #btn-mic.listening {
             background: linear-gradient(135deg, var(--danger), #b91c1c);
-            box-shadow: 0 4px 24px rgba(239,68,68,0.5);
+            box-shadow: 0 4px 28px rgba(239,68,68,0.6), 0 0 0 4px rgba(239,68,68,0.15);
             animation: mic-pulse 1.2s ease-in-out infinite;
+        }
+        #btn-mic.listening:hover  {
+            transform: translateX(-50%) scale(1.07);
+        }
+        #btn-mic.listening:active {
+            transform: translateX(-50%) scale(0.95);
         }
 
         @keyframes mic-pulse {
-            0%, 100% { box-shadow: 0 4px 24px rgba(239,68,68,0.5); }
-            50%       { box-shadow: 0 4px 40px rgba(239,68,68,0.9), 0 0 0 12px rgba(239,68,68,0.12); }
+            0%, 100% { box-shadow: 0 4px 28px rgba(239,68,68,0.6), 0 0 0 4px rgba(239,68,68,0.15); }
+            50%       { box-shadow: 0 4px 46px rgba(239,68,68,0.95), 0 0 0 14px rgba(239,68,68,0.12); }
         }
 
-        #btn-mic svg { width: 28px; height: 28px; fill: white; pointer-events: none; }
+        #btn-mic svg { width: 34px; height: 34px; fill: white; pointer-events: none; }
 
         #btn-mic.disabled-btn {
-            opacity: 0.4;
+            opacity: 0.35;
             cursor: not-allowed;
             pointer-events: none;
         }
 
-        /* Connect button */
+        /* ── Botón conectar (bottom-left, discreto) ─────────── */
         #btn-connect {
-            height: 44px;
-            padding: 0 20px;
+            position: absolute;
+            bottom: 52px;
+            left: 24px;
+            z-index: 30;
+
+            height: 40px;
+            padding: 0 16px;
             border-radius: 999px;
             border: 1px solid var(--border);
-            background: var(--surface);
+            background: rgba(24,24,27,0.8);
+            backdrop-filter: blur(10px);
             color: var(--text);
             font-family: inherit;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 500;
             cursor: pointer;
             transition: background 0.2s, border-color 0.2s;
             display: flex; align-items: center; gap: 8px;
         }
-        #btn-connect:hover { background: #27272a; border-color: rgba(255,255,255,0.15); }
+        #btn-connect:hover { background: rgba(39,39,42,0.9); border-color: rgba(255,255,255,0.15); }
         #btn-connect.connected { border-color: rgba(34,197,94,0.4); color: #86efac; }
 
-        /* ── Hidden audio ───────────────────────────────────── */
+        /* ── Botón PANTALLA COMPLETA (esquina sup-derecha, invisible) */
+        #btn-fullscreen {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 50;
+            width: 56px;
+            height: 56px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            opacity: 0;  /* invisible */
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* Pequeño hover hint opcional — quítalo si prefieres que sea 100% invisible */
+        /* #btn-fullscreen:hover { opacity: 0.15; background: white; border-radius: 0 0 0 8px; } */
+
+        /* ── Hidden audio / inputs ──────────────────────────── */
         audio { display: none; }
         input[type=hidden] { display: none; }
     </style>
@@ -245,42 +287,46 @@
 
 <div id="app">
 
-    <!-- Avatar -->
+    <!-- Avatar fullscreen -->
     <div id="avatar-wrap">
         <video id="video" autoplay playsinline muted></video>
         <div id="speaking-ring"></div>
+
+        <!-- Status badge (arriba-centro) -->
         <div id="status-badge">
             <div id="status-dot"></div>
             <span id="status-text">Conectando…</span>
         </div>
-    </div>
 
-    <!-- Transcript -->
-    <div id="transcript-wrap">
-        <div id="user-line" class="transcript-line" style="display:none">
-            <span class="transcript-label">Tú</span>
-            <span id="user-text" class="transcript-text dim"></span>
+        <!-- Transcript (sobre video, encima del mic) -->
+        <div id="transcript-wrap">
+            <div id="user-line" class="transcript-line" style="display:none">
+                <span class="transcript-label">Tú</span>
+                <span id="user-text" class="transcript-text dim"></span>
+            </div>
         </div>
-    </div>
 
-    <!-- Controls -->
-    <div id="controls">
-        <button id="btn-connect" onclick="connectRTC()">
-            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
-                <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13z"/>
-                <path d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z"/>
-            </svg>
-            Conectar avatar
-        </button>
-
-        <button id="btn-mic" class="disabled-btn" onclick="toggleMic()" title="Mantén presionado para hablar">
+        <!-- Botón MIC (overlay, abajo-centro) -->
+        <button id="btn-mic" class="disabled-btn" onclick="toggleMic()" title="Presiona para hablar">
             <!-- Mic icon -->
             <svg id="icon-mic" viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.364 9.364a1 1 0 0 1 1 1A7.364 7.364 0 0 1 13 18.92V21h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.08A7.364 7.364 0 0 1 4.636 11.364a1 1 0 0 1 2 0A5.364 5.364 0 0 0 12 16.727a5.364 5.364 0 0 0 5.364-5.363 1 1 0 0 1 1-1z"/></svg>
             <!-- Stop icon (hidden) -->
             <svg id="icon-stop" viewBox="0 0 24 24" style="display:none"><path d="M6 6h12v12H6z"/></svg>
         </button>
-    </div>
 
+        <!-- Botón conectar (discreto, bottom-left) -->
+        <button id="btn-connect" onclick="connectRTC()">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="14" height="14">
+                <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13z"/>
+                <path d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z"/>
+            </svg>
+            Conectar
+        </button>
+
+        <!-- Botón invisible fullscreen (esquina sup-derecha) -->
+        <button id="btn-fullscreen" onclick="toggleFullscreen()" title="Pantalla completa" aria-label="Pantalla completa"></button>
+
+    </div>
 </div>
 
 <!-- WebRTC client -->
@@ -308,12 +354,32 @@ function setUserText(text, dim = false) {
     span.className     = 'transcript-text' + (dim ? ' dim' : '');
 }
 
+// ─── Pantalla completa ─────────────────────────────────────────────────────
+function toggleFullscreen() {
+    const el = document.documentElement;
+    if (!document.fullscreenElement &&
+        !document.webkitFullscreenElement &&
+        !document.mozFullScreenElement) {
+        const req = el.requestFullscreen
+               || el.webkitRequestFullscreen
+               || el.mozRequestFullScreen
+               || el.msRequestFullscreen;
+        if (req) req.call(el);
+    } else {
+        const exit = document.exitFullscreen
+                  || document.webkitExitFullscreen
+                  || document.mozCancelFullScreen
+                  || document.msExitFullscreen;
+        if (exit) exit.call(document);
+    }
+}
+
 // ─── WebRTC ────────────────────────────────────────────────────────────────
 function connectRTC() {
     if (isConnected) return;
     setState('connecting', 'Conectando…');
     start();   // client.js
-    document.getElementById('btn-connect').textContent = 'Conectado';
+    document.getElementById('btn-connect').textContent = '✓ Conectado';
     document.getElementById('btn-connect').classList.add('connected');
     isConnected = true;
 
