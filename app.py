@@ -128,7 +128,8 @@ def main():
         global_avatars[opt.avatar_id] = load_avatar(opt.avatar_id) 
         warm_up(opt.batch_size,model)      
     elif opt.model == 'wav2lip':
-        model = load_model("./models/wav2lip.pth")
+        opt.modelres = 256  # wav2lip256.pth requiere imágenes de 256x256
+        model = load_model("./models/wav2lip256.pth")
         global_avatars[opt.avatar_id] = load_avatar(opt.avatar_id)
         warm_up(opt.batch_size,model,256)
     elif opt.model == 'ultralight':

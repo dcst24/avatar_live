@@ -1,59 +1,107 @@
+###############################################################################
+#  LLM integration — Ollama (Qwen)
+#  Endpoint: http://200.29.189.27:65535/api/chat
+###############################################################################
+
 import time
-import os
+import requests
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from avatars.base_avatar import BaseAvatar
 from utils.logger import logger
 
-def llm_response(message,avatar_session:'BaseAvatar',datainfo:dict={}):
+# ─── Configuración del LLM ────────────────────────────────────────────────────
+OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
+OLLAMA_MODEL = "qwen3-vl:32b-instruct"
+
+SYSTEM_PROMPT = '''
+    "Eres un asistente virtual amigable para ayudar con la ubicacion de pasillos en base a una consulta de productos. "
+    "Responde siempre en español, de forma concisa y conversacional. "
+    "Evita listas y bullets; habla de forma natural como en una conversación."
+    "No uses emojis en las respuestas"
+    "La respuesta debe ser, el [producto] se encuentra en el pasillo [numero de pasillo]"
+    "La lista de productos es: "
+    "Martillo -> Pasillo 44"
+    "Destornillador -> Pasillo 44"
+    "Alicate -> Pasillo 44"
+    "Llave inglesa -> Pasillo 45"
+    "Taladro -> Pasillo 46"
+    "Brocas -> Pasillo 46"
+    "Serrucho -> Pasillo 32"
+    "Sierra circular -> Pasillo 33"
+    "Lija -> Pasillo 34"
+    "Pintura blanca -> Pasillo 48"
+    "Rodillo de pintura -> Pasillo 48"
+    "Brocha -> Pasillo 48"
+    "Silicona -> Pasillo 62"
+    "Sellador -> Pasillo 62"
+    "Cinta americana -> Pasillo 63"
+    "Huincha aisladora -> Pasillo 63"
+    "Tornillos -> Pasillo 40"
+    "Tarugos -> Pasillo 40"
+    "Clavos -> Pasillo 41"
+    "Ampolleta LED -> Pasillo 20"
+    "Alargador eléctrico -> Pasillo 21"
+    "Enchufe múltiple -> Pasillo 21"
+'''
+
+# Caracteres de puntuación donde se cortará el texto para enviar al avatar
+# (el avatar empieza a hablar por fragmentos, sin esperar la respuesta completa)
+SENTENCE_ENDINGS = set(",.!;:，。！？：；\n")
+MIN_CHUNK_LEN = 12  # caracteres mínimos antes de enviar un fragmento
+
+
+def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
+    """
+    Envía `message` al LLM y alimenta al avatar con los fragmentos de respuesta
+    a medida que van llegando (chunking por puntuación).
+    """
     try:
-        opt = avatar_session.opt
         start = time.perf_counter()
-        from openai import OpenAI
-        client = OpenAI(
-            # 如果您没有配置环境变量，请在此处用您的API Key进行替换
-            api_key=os.getenv("DASHSCOPE_API_KEY"),
-            # 填写DashScope SDK的base_url
-            base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
-        )
-        end = time.perf_counter()
-        logger.info(f"llm Time init: {end-start}s,{message}")
-        completion = client.chat.completions.create(
-            model="qwen-plus",
-            messages=[{'role': 'system', 'content': '你是一个知识助手，尽量以简短、口语化的方式输出'},
-                    {'role': 'user', 'content': message}],
-            stream=True,
-            # 通过以下设置，在流式输出的最后一行展示token使用信息
-            stream_options={"include_usage": True}
-        )
-        result=""
-        first = True
-        for chunk in completion:
-            if len(chunk.choices)>0:
-                #print(chunk.choices[0].delta.content)
-                if first:
-                    end = time.perf_counter()
-                    logger.info(f"llm Time to first chunk: {end-start}s")
-                    first = False
-                msg = chunk.choices[0].delta.content
-                if msg is None:
-                    continue
-                lastpos=0
-                #msglist = re.split('[,.!;:，。！?]',msg)
-                for i, char in enumerate(msg):
-                    if char in ",.!;:，。！？：；" :
-                        result = result+msg[lastpos:i+1]
-                        lastpos = i+1
-                        if len(result)>10:
-                            logger.info(result)
-                            avatar_session.put_msg_txt(result,datainfo)
-                            result=""
-                result = result+msg[lastpos:]
-        end = time.perf_counter()
-        logger.info(f"llm Time to last chunk: {end-start}s")
-        if result:
-            avatar_session.put_msg_txt(result,datainfo)
-        
-    except Exception as e:
-        logger.exception('llm exceptiopn:')
-        return   
+        logger.info(f"[LLM] Enviando mensaje: {message}")
+
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": message},
+            ],
+            "temperature": 0.7,
+            "stream": False,
+            "keep_alive": "7200m",
+        }
+
+        response = requests.post(OLLAMA_URL, json=payload, timeout=120)
+        response.raise_for_status()
+
+        elapsed = time.perf_counter() - start
+        data = response.json()
+
+        # La API de Ollama devuelve: { "message": { "role": "assistant", "content": "..." } }
+        full_text: str = data["message"]["content"]
+        logger.info(f"[LLM] Respuesta en {elapsed:.2f}s: {full_text[:120]}...")
+
+        # Dividir en fragmentos por puntuación para alimentar al avatar progresivamente
+        chunk = ""
+        for char in full_text:
+            chunk += char
+            if char in SENTENCE_ENDINGS and len(chunk) >= MIN_CHUNK_LEN:
+                fragment = chunk.strip()
+                if fragment:
+                    logger.info(f"[LLM] -> avatar: {fragment}")
+                    avatar_session.put_msg_txt(fragment, datainfo)
+                chunk = ""
+
+        # Enviar cualquier texto restante al final
+        if chunk.strip():
+            logger.info(f"[LLM] -> avatar (ultimo): {chunk.strip()}")
+            avatar_session.put_msg_txt(chunk.strip(), datainfo)
+
+    except requests.exceptions.Timeout:
+        logger.error("[LLM] Timeout al conectar con Ollama (>120s)")
+    except requests.exceptions.ConnectionError as e:
+        logger.error(f"[LLM] No se pudo conectar a Ollama: {e}")
+    except KeyError as e:
+        logger.error(f"[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
+    except Exception:
+        logger.exception("[LLM] Error inesperado:")

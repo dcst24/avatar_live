@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asistente Virtual</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --accent:       #6366f1;
+            --accent-glow:  #818cf8;
+            --accent-dim:   #4338ca;
+            --danger:       #ef4444;
+            --bg:           #09090b;
+            --surface:      #18181b;
+            --border:       rgba(255,255,255,0.08);
+            --text:         #f4f4f5;
+            --text-muted:   #71717a;
+            --radius:       16px;
+        }
+
+        html, body {
+            height: 100%;
+            background: var(--bg);
+            font-family: 'Inter', system-ui, sans-serif;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ── Layout ─────────────────────────────────────────── */
+        #app {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            gap: 28px;
+            padding: 24px;
+        }
+
+        /* ── Avatar container ───────────────────────────────── */
+        #avatar-wrap {
+            position: relative;
+            width: min(480px, 90vw);
+            aspect-ratio: 1 / 1;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            box-shadow:
+                0 0 0 1px rgba(99,102,241,0.1),
+                0 20px 60px rgba(0,0,0,0.6);
+        }
+
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* Gradient overlay at bottom */
+        #avatar-wrap::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 40%;
+            background: linear-gradient(to top, rgba(9,9,11,0.85), transparent);
+            pointer-events: none;
+        }
+
+        /* Speaking indicator */
+        #speaking-ring {
+            position: absolute;
+            inset: -4px;
+            border-radius: calc(var(--radius) + 4px);
+            border: 2px solid var(--accent);
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            box-shadow: 0 0 20px rgba(99,102,241,0.5), inset 0 0 20px rgba(99,102,241,0.1);
+        }
+        .avatar-speaking #speaking-ring { opacity: 1; animation: ring-pulse 1.5s ease-in-out infinite; }
+
+        @keyframes ring-pulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(99,102,241,0.5), inset 0 0 20px rgba(99,102,241,0.1); }
+            50%       { box-shadow: 0 0 40px rgba(129,140,248,0.8), inset 0 0 30px rgba(129,140,248,0.2); }
+        }
+
+        /* ── Status badge ───────────────────────────────────── */
+        #status-badge {
+            position: absolute;
+            bottom: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(24,24,27,0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            transition: opacity 0.3s;
+        }
+
+        #status-dot {
+            width: 7px; height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+
+        /* Status variants */
+        body.state-connecting  #status-dot { background: #f59e0b; animation: dot-blink 1s ease-in-out infinite; }
+        body.state-ready       #status-dot { background: #22c55e; }
+        body.state-listening   #status-dot { background: var(--accent-glow); animation: dot-blink 0.6s ease-in-out infinite; }
+        body.state-processing  #status-dot { background: #f59e0b; animation: dot-blink 0.4s linear infinite; }
+        body.state-speaking    #status-dot { background: #22c55e; animation: dot-blink 0.8s ease-in-out infinite; }
+
+        @keyframes dot-blink {
+            0%, 100% { opacity: 1; } 50% { opacity: 0.2; }
+        }
+
+        /* ── Transcript area ────────────────────────────────── */
+        #transcript-wrap {
+            width: min(480px, 90vw);
+            min-height: 52px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .transcript-line {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: fadein 0.3s ease;
+        }
+
+        @keyframes fadein { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+        .transcript-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: 32px;
+        }
+
+        .transcript-text {
+            font-size: 13px;
+            color: var(--text);
+            line-height: 1.5;
+        }
+        .transcript-text.dim { color: var(--text-muted); }
+
+        /* ── Controls ───────────────────────────────────────── */
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        /* Mic button */
+        #btn-mic {
+            position: relative;
+            width: 72px; height: 72px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+            box-shadow: 0 4px 24px rgba(99,102,241,0.45);
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+
+        #btn-mic:hover  { transform: scale(1.06); box-shadow: 0 6px 32px rgba(99,102,241,0.6); }
+        #btn-mic:active { transform: scale(0.96); }
+
+        #btn-mic.listening {
+            background: linear-gradient(135deg, var(--danger), #b91c1c);
+            box-shadow: 0 4px 24px rgba(239,68,68,0.5);
+            animation: mic-pulse 1.2s ease-in-out infinite;
+        }
+
+        @keyframes mic-pulse {
+            0%, 100% { box-shadow: 0 4px 24px rgba(239,68,68,0.5); }
+            50%       { box-shadow: 0 4px 40px rgba(239,68,68,0.9), 0 0 0 12px rgba(239,68,68,0.12); }
+        }
+
+        #btn-mic svg { width: 28px; height: 28px; fill: white; pointer-events: none; }
+
+        #btn-mic.disabled-btn {
+            opacity: 0.4;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Connect button */
+        #btn-connect {
+            height: 44px;
+            padding: 0 20px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: var(--surface);
+            color: var(--text);
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            display: flex; align-items: center; gap: 8px;
+        }
+        #btn-connect:hover { background: #27272a; border-color: rgba(255,255,255,0.15); }
+        #btn-connect.connected { border-color: rgba(34,197,94,0.4); color: #86efac; }
+
+        /* ── Hidden audio ───────────────────────────────────── */
+        audio { display: none; }
+        input[type=hidden] { display: none; }
+    </style>
+</head>
+<body class="state-connecting">
+
+<!-- Elementos requeridos por client.js -->
+<input type="hidden" id="sessionid" value="0">
+<audio id="audio" autoplay></audio>
+<input type="checkbox" id="use-stun" style="display:none">
+<button id="start" style="display:none"></button>
+<button id="stop"  style="display:none"></button>
+
+<div id="app">
+
+    <!-- Avatar -->
+    <div id="avatar-wrap">
+        <video id="video" autoplay playsinline muted></video>
+        <div id="speaking-ring"></div>
+        <div id="status-badge">
+            <div id="status-dot"></div>
+            <span id="status-text">Conectando…</span>
+        </div>
+    </div>
+
+    <!-- Transcript -->
+    <div id="transcript-wrap">
+        <div id="user-line" class="transcript-line" style="display:none">
+            <span class="transcript-label">Tú</span>
+            <span id="user-text" class="transcript-text dim"></span>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div id="controls">
+        <button id="btn-connect" onclick="connectRTC()">
+            <svg viewBox="0 0 20 20" fill="currentColor" width="16" height="16">
+                <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13z"/>
+                <path d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z"/>
+            </svg>
+            Conectar avatar
+        </button>
+
+        <button id="btn-mic" class="disabled-btn" onclick="toggleMic()" title="Mantén presionado para hablar">
+            <!-- Mic icon -->
+            <svg id="icon-mic" viewBox="0 0 24 24"><path d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.364 9.364a1 1 0 0 1 1 1A7.364 7.364 0 0 1 13 18.92V21h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.08A7.364 7.364 0 0 1 4.636 11.364a1 1 0 0 1 2 0A5.364 5.364 0 0 0 12 16.727a5.364 5.364 0 0 0 5.364-5.363 1 1 0 0 1 1-1z"/></svg>
+            <!-- Stop icon (hidden) -->
+            <svg id="icon-stop" viewBox="0 0 24 24" style="display:none"><path d="M6 6h12v12H6z"/></svg>
+        </button>
+    </div>
+
+</div>
+
+<!-- WebRTC client -->
+<script src="client.js"></script>
+
+<script>
+// ─── Estado ────────────────────────────────────────────────────────────────
+let isConnected   = false;
+let isListening   = false;
+let recognition   = null;
+let isSpeaking    = false;
+let speakCheckInterval = null;
+
+// ─── Estado UI ─────────────────────────────────────────────────────────────
+function setState(state, text) {
+    document.body.className = 'state-' + state;
+    document.getElementById('status-text').textContent = text;
+}
+
+function setUserText(text, dim = false) {
+    const line = document.getElementById('user-line');
+    const span = document.getElementById('user-text');
+    line.style.display = text ? 'flex' : 'none';
+    span.textContent   = text;
+    span.className     = 'transcript-text' + (dim ? ' dim' : '');
+}
+
+// ─── WebRTC ────────────────────────────────────────────────────────────────
+function connectRTC() {
+    if (isConnected) return;
+    setState('connecting', 'Conectando…');
+    start();   // client.js
+    document.getElementById('btn-connect').textContent = 'Conectado';
+    document.getElementById('btn-connect').classList.add('connected');
+    isConnected = true;
+
+    // Habilitar micrófono tras conexión exitosa
+    setTimeout(() => {
+        document.getElementById('btn-mic').classList.remove('disabled-btn');
+        setState('ready', 'Listo — presiona el micrófono');
+        startSpeakingMonitor();
+    }, 2500);
+}
+
+// ─── Monitor de "avatar hablando" ──────────────────────────────────────────
+function startSpeakingMonitor() {
+    speakCheckInterval = setInterval(async () => {
+        if (!isConnected || isListening) return;
+        try {
+            const sessionid = document.getElementById('sessionid').value;
+            const res  = await fetch('/is_speaking', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionid })
+            });
+            const data = await res.json();
+            const speaking = data.data;
+            if (speaking !== isSpeaking) {
+                isSpeaking = speaking;
+                const wrap = document.getElementById('avatar-wrap');
+                if (speaking) {
+                    wrap.classList.add('avatar-speaking');
+                    setState('speaking', 'Hablando…');
+                } else {
+                    wrap.classList.remove('avatar-speaking');
+                    setState('ready', 'Listo — presiona el micrófono');
+                }
+            }
+        } catch (_) { /* silencio */ }
+    }, 800);
+}
+
+// ─── Speech Recognition ────────────────────────────────────────────────────
+function setupRecognition() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+        alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
+        return null;
+    }
+
+    const rec = new SpeechRec();
+    rec.lang              = 'es-CL';
+    rec.interimResults    = true;
+    rec.continuous        = false;
+    rec.maxAlternatives   = 1;
+
+    rec.onstart = () => {
+        isListening = true;
+        setState('listening', 'Escuchando…');
+        const btn = document.getElementById('btn-mic');
+        btn.classList.add('listening');
+        document.getElementById('icon-mic').style.display  = 'none';
+        document.getElementById('icon-stop').style.display = 'block';
+        setUserText('…', true);
+    };
+
+    rec.onresult = (event) => {
+        let interim = '';
+        let final   = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+            const t = event.results[i][0].transcript;
+            if (event.results[i].isFinal) final += t;
+            else interim += t;
+        }
+        setUserText(final || interim, !final);
+        if (final) sendToLLM(final.trim());
+    };
+
+    rec.onerror = (e) => {
+        console.error('STT error:', e.error);
+        if (e.error !== 'no-speech') {
+            setState('ready', 'Error de micrófono — intenta de nuevo');
+        }
+        stopListening();
+    };
+
+    rec.onend = () => {
+        stopListening();
+    };
+
+    return rec;
+}
+
+function stopListening() {
+    isListening = false;
+    const btn = document.getElementById('btn-mic');
+    btn.classList.remove('listening');
+    document.getElementById('icon-mic').style.display  = 'block';
+    document.getElementById('icon-stop').style.display = 'none';
+    if (!isSpeaking) setState('ready', 'Listo — presiona el micrófono');
+}
+
+function toggleMic() {
+    if (!isConnected) {
+        setState('connecting', 'Conecta el avatar primero');
+        return;
+    }
+    if (isSpeaking) {
+        // Interrumpir al avatar si está hablando
+        interruptAvatar();
+        return;
+    }
+    if (isListening) {
+        if (recognition) recognition.stop();
+        return;
+    }
+    recognition = setupRecognition();
+    if (recognition) recognition.start();
+}
+
+// ─── Enviar al LLM / backend ───────────────────────────────────────────────
+async function sendToLLM(text) {
+    if (!text) return;
+    setState('processing', 'Procesando…');
+    setUserText(text, false);
+
+    const sessionid = document.getElementById('sessionid').value;
+    try {
+        await fetch('/human', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text,
+                type:      'chat',
+                interrupt: true,
+                sessionid: String(sessionid)
+            })
+        });
+    } catch (err) {
+        console.error('Error al enviar al backend:', err);
+        setState('ready', 'Error de red — intenta de nuevo');
+    }
+}
+
+// ─── Interrumpir avatar ────────────────────────────────────────────────────
+async function interruptAvatar() {
+    const sessionid = document.getElementById('sessionid').value;
+    try {
+        await fetch('/interrupt_talk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sessionid: String(sessionid) })
+        });
+    } catch (_) {}
+    // Tras interrumpir, abrir micrófono
+    setTimeout(() => {
+        recognition = setupRecognition();
+        if (recognition) recognition.start();
+    }, 300);
+}
+
+// ─── Auto-conectar al cargar ───────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+    // Delay para que el servidor termine de registrar la sesión WebRTC
+    setTimeout(connectRTC, 800);
+});
+</script>
+</body>
+</html>

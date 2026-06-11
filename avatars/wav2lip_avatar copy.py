@@ -102,9 +102,12 @@ class LipReal(BaseAvatar):
     def __init__(self, opt, model, avatar):
         super().__init__(opt)
 
+        #self.fps = opt.fps # 20 ms per frame
+        
+        # self.batch_size = opt.batch_size
+        # self.idx = 0
+        # self.res_frame_queue = Queue(self.batch_size*2)
         self.model = model
-        # Resolución esperada por el modelo (wav2lip256.pth → 256, wav2lip.pth → 96)
-        self.modelres = getattr(opt, 'modelres', 256)
 
         self.frame_list_cycle,self.face_list_cycle,self.coord_list_cycle = avatar
 
@@ -119,15 +122,11 @@ class LipReal(BaseAvatar):
         for i in range(self.batch_size):
             idx = mirror_index(length, index + i)
             face = self.face_list_cycle[idx]
-            # Redimensionar al tamaño esperado por el modelo si es necesario
-            # (ej: avatar preparado en 96px con modelo wav2lip256.pth que requiere 256px)
-            if face.shape[0] != self.modelres or face.shape[1] != self.modelres:
-                face = cv2.resize(face, (self.modelres, self.modelres))
             img_batch.append(face)
         img_batch, audiofeat_batch = np.asarray(img_batch), np.asarray(audiofeat_batch)
 
         img_masked = img_batch.copy()
-        img_masked[:, self.modelres//2:] = 0
+        img_masked[:, face.shape[0]//2:] = 0
 
         img_batch = np.concatenate((img_masked, img_batch), axis=3) / 255.
         audiofeat_batch = np.reshape(audiofeat_batch, [len(audiofeat_batch), audiofeat_batch.shape[1], audiofeat_batch.shape[2], 1])
