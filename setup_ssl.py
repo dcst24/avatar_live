@@ -21,8 +21,8 @@ import sys
 import ssl
 
 # Rutas de los certificados generados por mkcert
-DEFAULT_CERT = os.path.join(os.path.dirname(__file__), "ssl", "localhost+2.pem")
-DEFAULT_KEY  = os.path.join(os.path.dirname(__file__), "ssl", "localhost+2-key.pem")
+DEFAULT_CERT = os.path.join(os.path.dirname(__file__), "ssl", "localhost+3.pem")
+DEFAULT_KEY  = os.path.join(os.path.dirname(__file__), "ssl", "localhost+3-key.pem")
 
 
 def check_certs(cert_path: str, key_path: str):
