@@ -509,12 +509,13 @@ async function logAudioDevices() {
     }
 }
 
-// ─── Pedir permiso de micrófono explícitamente via getUserMedia ────────────
-// IMPORTANTE: En Android con mic externo (USB/Bluetooth), SpeechRecognition
-// puede fallar con "audio-capture" si no hay un stream getUserMedia previo
-// que "despierte" el dispositivo de audio correcto.
-// Esta función pide permiso primero, lista los dispositivos, y luego
-// devuelve el control para iniciar SpeechRecognition.
+// ─── Pedir permiso de micrófono y fijar routing al dispositivo correcto ────
+// ESTRATEGIA PARA MIC EXTERNO EN ANDROID:
+// 1. getUserMedia abre el mic externo y MANTIENE el stream abierto.
+// 2. Mientras el stream está activo, Android bloquea el routing en ese
+//    dispositivo. SpeechRecognition (que corre en el mismo proceso Chrome)
+//    hereda ese routing y usa el mismo hardware.
+// 3. Al terminar (stopListening), cerramos el stream.
 async function requestMicPermission() {
     LOG('requestMicPermission: solicitando getUserMedia...');
     try {
@@ -524,23 +525,41 @@ async function requestMicPermission() {
             _micStream = null;
         }
 
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        // Pedir audio sin restricciones (que Android elija el default actual del SO)
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl:  true
+            },
+            video: false
+        });
+
         _micStream = stream;
         const tracks = stream.getAudioTracks();
         LOG(`getUserMedia OK — tracks de audio: ${tracks.length}`);
+
+        let activeMicLabel = '(desconocido)';
         tracks.forEach((t, i) => {
             const settings = t.getSettings();
+            activeMicLabel = t.label || activeMicLabel;
             LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" enabled=${t.enabled} readyState=${t.readyState}`);
         });
 
-        // Listar todos los dispositivos ahora que tenemos permiso (los labels aparecen)
+        // Mostrar en el status badge qué micrófono está activo
+        const short = activeMicLabel.length > 28
+            ? activeMicLabel.slice(0, 26) + '…'
+            : activeMicLabel;
+        setState('listening', `🎙 ${short}`);
+        LOG('Mic activo:', activeMicLabel);
+
+        // Listar todos los dispositivos (con labels visibles ahora que tenemos permiso)
         await logAudioDevices();
 
-        // Detener el stream inmediatamente — SpeechRecognition abrirá el suyo propio.
-        // Dejar el stream abierto compite con SpeechRecognition en algunos Android.
-        stream.getTracks().forEach(t => t.stop());
-        _micStream = null;
-        LOG('Stream getUserMedia detenido — SpeechRecognition puede tomar el mic');
+        // ⚠ NO cerramos el stream aquí.
+        // El stream se mantiene abierto para que Android rutee SpeechRecognition
+        // por el mismo dispositivo. Se cierra en stopListening().
+        LOG('Stream getUserMedia ACTIVO — SpeechRecognition usará el mismo dispositivo');
         return true;
     } catch (e) {
         ERR('getUserMedia falló:', e.name, e.message);
@@ -643,9 +662,38 @@ function setupRecognition() {
     return rec;
 }
 
+// ─── Forzar parada de recognition (con fallback abort) ────────────────────
+// En Android con mic externo, recognition.stop() a veces no dispara onend
+// y el botón queda bloqueado. Este wrapper espera 2.5 s y fuerza abort + UI reset.
+let _stopTimeout = null;
+function forceStopRecognition() {
+    if (!recognition) { stopListening(); return; }
+    LOG('forceStopRecognition: llamando stop()...');
+    recognition.stop();
+
+    // Timeout de seguridad: si onend no dispara en 2.5 s → abortar manualmente
+    clearTimeout(_stopTimeout);
+    _stopTimeout = setTimeout(() => {
+        if (isListening) {
+            WARN('forceStopRecognition: onend no disparó en 2.5s → abort() forzado');
+            try { recognition.abort(); } catch(e) { LOG('abort() excepción (ignorada):', e.name); }
+            stopListening();
+        }
+    }, 2500);
+}
+
 function stopListening() {
     LOG('stopListening');
     isListening = false;
+    clearTimeout(_stopTimeout); // cancelar el abort de seguridad si onend llegó a tiempo
+
+    // Cerrar el stream getUserMedia que mantenía el routing del mic externo
+    if (_micStream) {
+        _micStream.getTracks().forEach(t => { t.stop(); LOG('Track detenido:', t.label); });
+        _micStream = null;
+        LOG('Stream getUserMedia cerrado');
+    }
+
     const btn = document.getElementById('btn-mic');
     btn.classList.remove('listening');
     document.getElementById('icon-mic').style.display  = 'block';
@@ -678,17 +726,18 @@ function toggleMic() {
     }
     if (isListening) {
         LOG('toggleMic: ya escuchando → deteniendo recognition');
-        if (recognition) recognition.stop();
+        forceStopRecognition();
         return;
     }
 
     // FIX MICRÓFONO EXTERNO ANDROID:
-    // Pedir getUserMedia primero para "despertar" el dispositivo correcto,
-    // luego iniciar SpeechRecognition.
+    // 1. getUserMedia abre el mic y MANTIENE el stream para fijar el routing.
+    // 2. Luego SpeechRecognition arranca sobre ese mismo dispositivo.
     setState('listening', 'Preparando micrófono…');
     requestMicPermission().then(ok => {
         if (!ok) {
             LOG('requestMicPermission falló — no iniciando SpeechRecognition');
+            stopListening();
             return;
         }
         LOG('Permiso OK — iniciando SpeechRecognition');
