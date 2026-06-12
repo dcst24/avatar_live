@@ -384,7 +384,15 @@ let recognition        = null;
 let isSpeaking         = false;
 let speakCheckInterval = null;
 let _audioUnlocked     = false;
-let _micStream         = null;   // stream getUserMedia activo (libera al terminar)
+let _micStream         = null;    // stream getUserMedia activo
+let _mediaRecorder     = null;    // fallback MediaRecorder para POS/iMin
+let _audioChunks       = [];      // chunks grabados
+let _recTimerInterval  = null;    // timer de duración visible en UI
+let _recSeconds        = 0;
+// Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
+let _useFallbackASR    = !( window.SpeechRecognition || window.webkitSpeechRecognition );
+
+LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
 
 // ─── Estado UI ─────────────────────────────────────────────────────────────
 function setState(state, text) {
@@ -703,11 +711,10 @@ function stopListening() {
 
 // ─── Toggle micrófono ──────────────────────────────────────────────────────
 function toggleMic() {
-    LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking);
+    LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking, '| fallback:', _useFallbackASR);
 
-    // Desbloquear audio en primer uso del mic (fallback si se saltó el overlay)
+    // Desbloquear audio en primer uso del mic
     if (!_audioUnlocked) {
-        LOG('Audio no desbloqueado — desmutando video como fallback');
         const videoEl = document.getElementById('video');
         videoEl.muted = false;
         _audioUnlocked = true;
@@ -725,34 +732,187 @@ function toggleMic() {
         return;
     }
     if (isListening) {
-        LOG('toggleMic: ya escuchando → deteniendo recognition');
-        forceStopRecognition();
+        LOG('toggleMic: ya escuchando → deteniendo');
+        if (_useFallbackASR) {
+            stopMediaRecorderASR();
+        } else {
+            forceStopRecognition();
+        }
         return;
     }
 
-    // FIX MICRÓFONO EXTERNO ANDROID:
-    // 1. getUserMedia abre el mic y MANTIENE el stream para fijar el routing.
-    // 2. Luego SpeechRecognition arranca sobre ese mismo dispositivo.
     setState('listening', 'Preparando micrófono…');
     requestMicPermission().then(ok => {
-        if (!ok) {
-            LOG('requestMicPermission falló — no iniciando SpeechRecognition');
-            stopListening();
-            return;
-        }
-        LOG('Permiso OK — iniciando SpeechRecognition');
-        recognition = setupRecognition();
-        if (recognition) {
-            try {
-                recognition.start();
-                LOG('recognition.start() llamado');
-            } catch(e) {
-                ERR('recognition.start() lanzó excepción:', e.name, e.message);
-                stopListening();
+        if (!ok) { stopListening(); return; }
+
+        if (_useFallbackASR) {
+            // POS/iMin: usar MediaRecorder → /humanaudio
+            LOG('Usando modo MediaRecorder (fallback ASR)');
+            startMediaRecorderASR();
+        } else {
+            // Mobile/PC: usar SpeechRecognition
+            LOG('Usando modo SpeechRecognition');
+            recognition = setupRecognition();
+            if (recognition) {
+                // Auto-detección: si onaudiostart no dispara en 1.5s, el dispositivo
+                // no puede capturar audio con SpeechRecognition → cambiar a MediaRecorder
+                let _audioStarted = false;
+                const _audioDetectTimer = setTimeout(() => {
+                    if (!_audioStarted && isListening) {
+                        WARN('⚠ SpeechRecognition: onaudiostart no disparó en 1.5s → POS detectado, cambiando a MediaRecorder');
+                        _useFallbackASR = true;
+                        try { recognition.abort(); } catch(e) {}
+                        // Reiniciar con MediaRecorder
+                        setTimeout(() => {
+                            if (!isListening) startMediaRecorderASR();
+                        }, 300);
+                    }
+                }, 1500);
+
+                const _origAudioStart = recognition.onaudiostart;
+                recognition.onaudiostart = () => {
+                    _audioStarted = true;
+                    clearTimeout(_audioDetectTimer);
+                    if (_origAudioStart) _origAudioStart();
+                    LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
+                };
+
+                try {
+                    recognition.start();
+                    LOG('recognition.start() llamado');
+                } catch(e) {
+                    ERR('recognition.start() excepción:', e.name, e.message);
+                    clearTimeout(_audioDetectTimer);
+                    _useFallbackASR = true;
+                    stopListening();
+                }
             }
         }
     });
 }
+
+// ─── MediaRecorder ASR (fallback para POS/iMin) ────────────────────────────
+// Graba audio via MediaRecorder y lo envía a /humanaudio para STT en servidor
+function startMediaRecorderASR() {
+    if (!_micStream) {
+        ERR('startMediaRecorderASR: no hay stream de mic');
+        stopListening();
+        return;
+    }
+
+    // Buscar MIME type compatible (webm preferido, ogg como fallback)
+    const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
+    const mimeType  = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
+    LOG('MediaRecorder: mimeType elegido:', mimeType || '(browser default)');
+
+    try {
+        _mediaRecorder = new MediaRecorder(_micStream, mimeType ? { mimeType } : {});
+    } catch(e) {
+        ERR('MediaRecorder constructor falló:', e.name, e.message);
+        stopListening();
+        return;
+    }
+
+    _audioChunks = [];
+    _recSeconds  = 0;
+
+    _mediaRecorder.ondataavailable = (e) => {
+        if (e.data && e.data.size > 0) {
+            _audioChunks.push(e.data);
+            LOG('MediaRecorder: chunk recibido, size=', e.data.size);
+        }
+    };
+
+    _mediaRecorder.onstart = () => {
+        LOG('MediaRecorder.onstart — grabando');
+        isListening = true;
+        setState('listening', 'Escuchando… (0s)');
+        const btn = document.getElementById('btn-mic');
+        btn.classList.add('listening');
+        document.getElementById('icon-mic').style.display  = 'none';
+        document.getElementById('icon-stop').style.display = 'block';
+        setUserText('🎙 Habla ahora…', true);
+
+        // Timer de duración visible en UI
+        clearInterval(_recTimerInterval);
+        _recTimerInterval = setInterval(() => {
+            _recSeconds++;
+            setState('listening', `Escuchando… (${_recSeconds}s)`);
+        }, 1000);
+    };
+
+    _mediaRecorder.onstop = async () => {
+        LOG('MediaRecorder.onstop — procesando audio');
+        clearInterval(_recTimerInterval);
+        stopListening();
+
+        if (_audioChunks.length === 0) {
+            WARN('MediaRecorder: sin chunks de audio grabados');
+            return;
+        }
+
+        const blob = new Blob(_audioChunks, { type: _mediaRecorder.mimeType || 'audio/webm' });
+        _audioChunks = [];
+        LOG(`MediaRecorder: blob creado, size=${blob.size} bytes, type=${blob.type}`);
+
+        if (blob.size < 1000) {
+            WARN('MediaRecorder: audio demasiado corto, ignorando');
+            return;
+        }
+
+        setState('processing', 'Procesando audio…');
+        setUserText('Procesando…', true);
+
+        try {
+            const sessionid = document.getElementById('sessionid').value;
+            const form = new FormData();
+            // Determinar extensión según MIME
+            const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
+            form.append('file', blob, `audio.${ext}`);
+            form.append('sessionid', String(sessionid));
+
+            LOG(`Enviando audio a /humanaudio (${blob.size} bytes, ext=${ext})…`);
+            const res = await fetch('/humanaudio', { method: 'POST', body: form });
+            LOG('humanaudio respuesta status:', res.status);
+
+            if (!res.ok) {
+                const txt = await res.text();
+                ERR('humanaudio error:', res.status, txt);
+                setState('ready', '⚠ Error STT — intenta de nuevo');
+                return;
+            }
+
+            const data = await res.json();
+            LOG('humanaudio respuesta:', data);
+            setState('ready', 'Listo — presiona el micrófono');
+            setUserText('', false);
+        } catch(err) {
+            ERR('Error enviando audio al servidor:', err);
+            setState('ready', '⚠ Error de red');
+        }
+    };
+
+    _mediaRecorder.onerror = (e) => {
+        ERR('MediaRecorder.onerror:', e.error?.name, e.error?.message);
+        clearInterval(_recTimerInterval);
+        stopListening();
+    };
+
+    _mediaRecorder.start(500); // chunks cada 500ms
+    LOG('MediaRecorder.start(500ms chunks)');
+}
+
+function stopMediaRecorderASR() {
+    LOG('stopMediaRecorderASR');
+    clearInterval(_recTimerInterval);
+    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
+        _mediaRecorder.stop(); // dispara onstop → envía audio
+    } else {
+        WARN('MediaRecorder ya inactivo');
+        stopListening();
+    }
+}
+
 
 // ─── Enviar al LLM / backend ───────────────────────────────────────────────
 async function sendToLLM(text) {
