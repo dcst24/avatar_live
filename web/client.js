@@ -54,11 +54,21 @@ function start() {
     pc = new RTCPeerConnection(config);
 
     // connect audio / video
+    // IMPORTANTE: ambos tracks (audio + video) van al mismo elemento <video>.
+    // El video empieza con muted=true en el HTML (permite autoplay en Android sin gesto).
+    // handleTapToStart() en avatar.html desmutea tras el primer tap del usuario.
     pc.addEventListener('track', (evt) => {
-        if (evt.track.kind == 'video') {
-            document.getElementById('video').srcObject = evt.streams[0];
-        } else {
-            document.getElementById('audio').srcObject = evt.streams[0];
+        const videoEl = document.getElementById('video');
+        if (evt.streams && evt.streams[0]) {
+            if (videoEl.srcObject !== evt.streams[0]) {
+                videoEl.srcObject = evt.streams[0];
+                // play() funciona porque el video está muted al llegar los tracks.
+                // En desktop se desmutea inmediatamente en DOMContentLoaded.
+                // En Android se desmutea en el tap del overlay (handleTapToStart).
+                videoEl.play().catch(err => {
+                    console.warn('[WebRTC] play() rechazado:', err.name, '-', err.message);
+                });
+            }
         }
     });
 

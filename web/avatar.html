@@ -273,6 +273,12 @@
         /* Pequeño hover hint opcional — quítalo si prefieres que sea 100% invisible */
         /* #btn-fullscreen:hover { opacity: 0.15; background: white; border-radius: 0 0 0 8px; } */
 
+        /* ── Tap overlay animation ───────────────────────────── */
+        @keyframes tap-pulse {
+            0%, 100% { box-shadow: 0 0 30px rgba(99,102,241,0.5), 0 0 0 0 rgba(99,102,241,0.4); }
+            50%       { box-shadow: 0 0 50px rgba(99,102,241,0.8), 0 0 0 18px rgba(99,102,241,0); }
+        }
+
         /* ── Hidden audio / inputs ──────────────────────────── */
         audio { display: none; }
         input[type=hidden] { display: none; }
@@ -328,6 +334,26 @@
         <!-- Botón invisible fullscreen (esquina sup-derecha) -->
         <button id="btn-fullscreen" onclick="toggleFullscreen()" title="Pantalla completa" aria-label="Pantalla completa"></button>
 
+        <!-- Overlay tap-to-start (Android / mobile autoplay fix) -->
+        <div id="tap-overlay" onclick="handleTapToStart()" style="
+            position:absolute; inset:0; z-index:100;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:16px;
+            background:rgba(0,0,0,0.72); cursor:pointer;
+        ">
+            <div style="
+                width:80px; height:80px; border-radius:50%;
+                background:linear-gradient(135deg,#6366f1,#4338ca);
+                display:flex; align-items:center; justify-content:center;
+                box-shadow:0 0 40px rgba(99,102,241,0.6);
+                animation: tap-pulse 2s ease-in-out infinite;
+            ">
+                <!-- Play icon -->
+                <svg viewBox="0 0 24 24" fill="white" width="36" height="36"><path d="M8 5v14l11-7z"/></svg>
+            </div>
+            <p style="color:#f4f4f5;font-size:15px;font-weight:500;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.8);">Toca para iniciar</p>
+        </div>
+
     </div>
 </div>
 
@@ -374,6 +400,31 @@ function toggleFullscreen() {
                   || document.msExitFullscreen;
         if (exit) exit.call(document);
     }
+}
+
+// ─── Tap-to-start (Android autoplay fix) ──────────────────────────────────
+// Android bloquea play() si no hay gesto del usuario previo.
+// Estrategia: video empieza muted (Android siempre permite autoplay muted).
+// El overlay captura el primer tap → conecta WebRTC Y desmutea en el mismo
+// call-stack del gesto, garantizando que el navegador acepte el play().
+let _audioUnlocked = false;
+
+function handleTapToStart() {
+    const overlay = document.getElementById('tap-overlay');
+    if (overlay) overlay.style.display = 'none';
+
+    // Desmutar el video dentro del gesto del usuario
+    const videoEl = document.getElementById('video');
+    videoEl.muted = false;
+    _audioUnlocked = true;
+
+    // Si ya hay stream asignado, forzar play() ahora dentro del gesto
+    if (videoEl.srcObject) {
+        videoEl.play().catch(() => {});
+    }
+
+    // Iniciar conexión WebRTC
+    connectRTC();
 }
 
 // ─── WebRTC ────────────────────────────────────────────────────────────────
@@ -482,6 +533,13 @@ function stopListening() {
 }
 
 function toggleMic() {
+    // Desbloquear audio en primer uso del mic (fallback si se saltó el overlay)
+    if (!_audioUnlocked) {
+        const videoEl = document.getElementById('video');
+        videoEl.muted = false;
+        _audioUnlocked = true;
+        if (videoEl.srcObject) videoEl.play().catch(() => {});
+    }
     if (!isConnected) {
         setState('connecting', 'Conecta el avatar primero');
         return;
@@ -542,8 +600,20 @@ async function interruptAvatar() {
 
 // ─── Auto-conectar al cargar ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    // Delay para que el servidor termine de registrar la sesión WebRTC
-    setTimeout(connectRTC, 800);
+    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if (isMobile) {
+        // Móvil/Android: esperar tap en el overlay (handleTapToStart hace el connect).
+        // El video ya tiene muted=true en el HTML → autoplay siempre funciona.
+        // nada más que hacer aquí
+    } else {
+        // Desktop: auto-conectar. Los navegadores desktop permiten autoplay
+        // de video muted; desmutear inmediatamente ya que hay menos restricciones.
+        const overlay = document.getElementById('tap-overlay');
+        if (overlay) overlay.style.display = 'none';
+        document.getElementById('video').muted = false;
+        _audioUnlocked = true;
+        setTimeout(connectRTC, 800);
+    }
 });
 </script>
 </body>
