@@ -791,8 +791,16 @@ function toggleMic() {
     });
 }
 
-// ─── MediaRecorder ASR (fallback para POS/iMin) ────────────────────────────
-// Graba audio via MediaRecorder y lo envía a /humanaudio para STT en servidor
+// ─── WAV ASR via Web Audio API (fallback para POS/iMin) ──────────────────
+// MediaRecorder produce WebM/Opus que soundfile NO puede leer.
+// Web Audio API captura PCM crudo → lo codificamos como WAV (16-bit mono)
+// → soundfile lo lee perfectamente.
+// Esta es la misma técnica que usa la demo webrtc.github.io/samples.
+let _audioCtx        = null;
+let _audioSrc        = null;
+let _scriptProc      = null;
+let _pcmChunks       = [];   // Float32Array[]
+
 function startMediaRecorderASR() {
     if (!_micStream) {
         ERR('startMediaRecorderASR: no hay stream de mic');
@@ -800,31 +808,30 @@ function startMediaRecorderASR() {
         return;
     }
 
-    // Buscar MIME type compatible (webm preferido, ogg como fallback)
-    const mimeTypes = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg'];
-    const mimeType  = mimeTypes.find(t => MediaRecorder.isTypeSupported(t)) || '';
-    LOG('MediaRecorder: mimeType elegido:', mimeType || '(browser default)');
-
     try {
-        _mediaRecorder = new MediaRecorder(_micStream, mimeType ? { mimeType } : {});
-    } catch(e) {
-        ERR('MediaRecorder constructor falló:', e.name, e.message);
-        stopListening();
-        return;
-    }
+        // AudioContext — usamos sampleRate nativo del dispositivo.
+        // El WAV llevará el sampleRate correcto en su cabecera.
+        _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
+        _audioSrc   = _audioCtx.createMediaStreamSource(_micStream);
+        _pcmChunks  = [];
+        _recSeconds = 0;
 
-    _audioChunks = [];
-    _recSeconds  = 0;
+        const bufSize   = 4096;
+        _scriptProc = _audioCtx.createScriptProcessor(bufSize, 1, 1);
+        _scriptProc.onaudioprocess = (ev) => {
+            if (isListening) {
+                // Copiar el buffer (el original se reutiliza)
+                const data = ev.inputBuffer.getChannelData(0);
+                _pcmChunks.push(new Float32Array(data));
+            }
+        };
 
-    _mediaRecorder.ondataavailable = (e) => {
-        if (e.data && e.data.size > 0) {
-            _audioChunks.push(e.data);
-            LOG('MediaRecorder: chunk recibido, size=', e.data.size);
-        }
-    };
+        _audioSrc.connect(_scriptProc);
+        _scriptProc.connect(_audioCtx.destination);
 
-    _mediaRecorder.onstart = () => {
-        LOG('MediaRecorder.onstart — grabando');
+        LOG(`Web Audio API grabando — sampleRate=${_audioCtx.sampleRate} Hz`);
+
+        // UI
         isListening = true;
         setState('listening', 'Escuchando… (0s)');
         const btn = document.getElementById('btn-mic');
@@ -833,84 +840,112 @@ function startMediaRecorderASR() {
         document.getElementById('icon-stop').style.display = 'block';
         setUserText('🎙 Habla ahora…', true);
 
-        // Timer de duración visible en UI
         clearInterval(_recTimerInterval);
         _recTimerInterval = setInterval(() => {
             _recSeconds++;
             setState('listening', `Escuchando… (${_recSeconds}s)`);
         }, 1000);
-    };
 
-    _mediaRecorder.onstop = async () => {
-        LOG('MediaRecorder.onstop — procesando audio');
-        clearInterval(_recTimerInterval);
-        stopListening();
-
-        if (_audioChunks.length === 0) {
-            WARN('MediaRecorder: sin chunks de audio grabados');
-            return;
-        }
-
-        const blob = new Blob(_audioChunks, { type: _mediaRecorder.mimeType || 'audio/webm' });
-        _audioChunks = [];
-        LOG(`MediaRecorder: blob creado, size=${blob.size} bytes, type=${blob.type}`);
-
-        if (blob.size < 1000) {
-            WARN('MediaRecorder: audio demasiado corto, ignorando');
-            return;
-        }
-
-        setState('processing', 'Procesando audio…');
-        setUserText('Procesando…', true);
-
-        try {
-            const sessionid = document.getElementById('sessionid').value;
-            const form = new FormData();
-            // Determinar extensión según MIME
-            const ext = blob.type.includes('ogg') ? 'ogg' : 'webm';
-            form.append('file', blob, `audio.${ext}`);
-            form.append('sessionid', String(sessionid));
-
-            LOG(`Enviando audio a /humanaudio (${blob.size} bytes, ext=${ext})…`);
-            const res = await fetch('/humanaudio', { method: 'POST', body: form });
-            LOG('humanaudio respuesta status:', res.status);
-
-            if (!res.ok) {
-                const txt = await res.text();
-                ERR('humanaudio error:', res.status, txt);
-                setState('ready', '⚠ Error STT — intenta de nuevo');
-                return;
-            }
-
-            const data = await res.json();
-            LOG('humanaudio respuesta:', data);
-            setState('ready', 'Listo — presiona el micrófono');
-            setUserText('', false);
-        } catch(err) {
-            ERR('Error enviando audio al servidor:', err);
-            setState('ready', '⚠ Error de red');
-        }
-    };
-
-    _mediaRecorder.onerror = (e) => {
-        ERR('MediaRecorder.onerror:', e.error?.name, e.error?.message);
-        clearInterval(_recTimerInterval);
-        stopListening();
-    };
-
-    _mediaRecorder.start(500); // chunks cada 500ms
-    LOG('MediaRecorder.start(500ms chunks)');
-}
-
-function stopMediaRecorderASR() {
-    LOG('stopMediaRecorderASR');
-    clearInterval(_recTimerInterval);
-    if (_mediaRecorder && _mediaRecorder.state !== 'inactive') {
-        _mediaRecorder.stop(); // dispara onstop → envía audio
-    } else {
-        WARN('MediaRecorder ya inactivo');
+    } catch(e) {
+        ERR('startMediaRecorderASR (Web Audio) error:', e.name, e.message);
         stopListening();
     }
+}
+
+async function stopMediaRecorderASR() {
+    LOG('stopMediaRecorderASR (Web Audio)');
+    clearInterval(_recTimerInterval);
+
+    // Desconectar grafo de audio
+    try { if (_scriptProc) { _scriptProc.disconnect(); _scriptProc = null; } } catch(_) {}
+    try { if (_audioSrc)   { _audioSrc.disconnect();   _audioSrc   = null; } } catch(_) {}
+
+    const chunks    = _pcmChunks;
+    _pcmChunks      = [];
+    const sampleRate = _audioCtx ? _audioCtx.sampleRate : 44100;
+
+    try { if (_audioCtx) { await _audioCtx.close(); _audioCtx = null; } } catch(_) {}
+
+    stopListening();
+
+    if (chunks.length === 0) {
+        WARN('Sin datos PCM grabados');
+        return;
+    }
+
+    // Codificar PCM → WAV en el browser
+    const wavBlob = encodePCMtoWAV(chunks, sampleRate);
+    LOG(`WAV generado: ${wavBlob.size} bytes, sampleRate=${sampleRate}`);
+
+    if (wavBlob.size < 2000) {
+        WARN('Audio demasiado corto, ignorando');
+        return;
+    }
+
+    setState('processing', 'Procesando audio…');
+    setUserText('Procesando…', true);
+
+    try {
+        const sessionid = document.getElementById('sessionid').value;
+        const form = new FormData();
+        form.append('file', wavBlob, 'audio.wav');
+        form.append('sessionid', String(sessionid));
+
+        LOG(`Enviando WAV a /humanaudio (${wavBlob.size} bytes)…`);
+        const res = await fetch('/humanaudio', { method: 'POST', body: form });
+        LOG('humanaudio status:', res.status);
+
+        if (!res.ok) {
+            const txt = await res.text();
+            ERR('humanaudio error:', res.status, txt);
+            setState('ready', '⚠ Error STT — intenta de nuevo');
+            return;
+        }
+        const data = await res.json();
+        LOG('humanaudio OK:', JSON.stringify(data));
+        setState('ready', 'Listo — presiona el micrófono');
+        setUserText('', false);
+    } catch(err) {
+        ERR('Error enviando WAV:', err);
+        setState('ready', '⚠ Error de red');
+    }
+}
+
+// Codifica Float32Array[] → Blob WAV (16-bit mono, little-endian)
+function encodePCMtoWAV(pcmChunks, sampleRate) {
+    const numSamples = pcmChunks.reduce((s, c) => s + c.length, 0);
+    const buf  = new ArrayBuffer(44 + numSamples * 2);
+    const view = new DataView(buf);
+
+    function str(offset, s) {
+        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
+    }
+
+    str(0, 'RIFF');
+    view.setUint32(4,  36 + numSamples * 2, true); // tamaño total - 8
+    str(8, 'WAVE');
+    str(12, 'fmt ');
+    view.setUint32(16, 16, true);          // subchunk size
+    view.setUint16(20,  1, true);          // PCM = 1
+    view.setUint16(22,  1, true);          // mono
+    view.setUint32(24, sampleRate, true);  // sample rate
+    view.setUint32(28, sampleRate * 2, true); // byte rate (16-bit mono)
+    view.setUint16(32,  2, true);          // block align
+    view.setUint16(34, 16, true);          // bits per sample
+    str(36, 'data');
+    view.setUint32(40, numSamples * 2, true);
+
+    let offset = 44;
+    for (const chunk of pcmChunks) {
+        for (let i = 0; i < chunk.length; i++) {
+            const s = Math.max(-1, Math.min(1, chunk[i]));
+            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
+            offset += 2;
+        }
+    }
+
+    LOG(`encodePCMtoWAV: ${numSamples} samples → ${buf.byteLength} bytes`);
+    return new Blob([buf], { type: 'audio/wav' });
 }
 
 
