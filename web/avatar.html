@@ -361,15 +361,34 @@
 <script src="client.js"></script>
 
 <script>
+// ══════════════════════════════════════════════════════════════════════════════
+// DEBUG LOGGER — visible en consola del navegador (F12 → Console)
+// En Android: chrome://inspect en el PC para ver los logs del teléfono
+// ══════════════════════════════════════════════════════════════════════════════
+const LOG = (...args) => console.log('[Avatar]', ...args);
+const WARN = (...args) => console.warn('[Avatar]', ...args);
+const ERR = (...args) => console.error('[Avatar]', ...args);
+
+// ─── Info de arranque ──────────────────────────────────────────────────────
+LOG('=== INIT ===');
+LOG('UA:', navigator.userAgent);
+LOG('Secure context:', window.isSecureContext);
+LOG('SpeechRecognition:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+LOG('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+LOG('Protocol:', location.protocol, '| Host:', location.host);
+
 // ─── Estado ────────────────────────────────────────────────────────────────
-let isConnected   = false;
-let isListening   = false;
-let recognition   = null;
-let isSpeaking    = false;
+let isConnected        = false;
+let isListening        = false;
+let recognition        = null;
+let isSpeaking         = false;
 let speakCheckInterval = null;
+let _audioUnlocked     = false;
+let _micStream         = null;   // stream getUserMedia activo (libera al terminar)
 
 // ─── Estado UI ─────────────────────────────────────────────────────────────
 function setState(state, text) {
+    LOG(`setState → ${state}: "${text}"`);
     document.body.className = 'state-' + state;
     document.getElementById('status-text').textContent = text;
 }
@@ -384,6 +403,7 @@ function setUserText(text, dim = false) {
 
 // ─── Pantalla completa ─────────────────────────────────────────────────────
 function toggleFullscreen() {
+    LOG('toggleFullscreen llamado');
     const el = document.documentElement;
     if (!document.fullscreenElement &&
         !document.webkitFullscreenElement &&
@@ -392,7 +412,7 @@ function toggleFullscreen() {
                || el.webkitRequestFullscreen
                || el.mozRequestFullScreen
                || el.msRequestFullscreen;
-        if (req) req.call(el);
+        if (req) req.call(el).catch(e => WARN('Fullscreen error:', e));
     } else {
         const exit = document.exitFullscreen
                   || document.webkitExitFullscreen
@@ -403,49 +423,46 @@ function toggleFullscreen() {
 }
 
 // ─── Tap-to-start (Android autoplay fix) ──────────────────────────────────
-// Android bloquea play() si no hay gesto del usuario previo.
-// Estrategia: video empieza muted (Android siempre permite autoplay muted).
-// El overlay captura el primer tap → conecta WebRTC Y desmutea en el mismo
-// call-stack del gesto, garantizando que el navegador acepte el play().
-let _audioUnlocked = false;
-
 function handleTapToStart() {
+    LOG('handleTapToStart — tap del usuario detectado');
     const overlay = document.getElementById('tap-overlay');
     if (overlay) overlay.style.display = 'none';
 
-    // Desmutar el video dentro del gesto del usuario
     const videoEl = document.getElementById('video');
     videoEl.muted = false;
     _audioUnlocked = true;
+    LOG('Video desmutado dentro del gesto de usuario');
 
-    // Si ya hay stream asignado, forzar play() ahora dentro del gesto
     if (videoEl.srcObject) {
-        videoEl.play().catch(() => {});
+        videoEl.play()
+            .then(() => LOG('video.play() OK tras tap'))
+            .catch(e => WARN('video.play() rechazado tras tap:', e.name, e.message));
     }
 
-    // Iniciar conexión WebRTC
     connectRTC();
 }
 
 // ─── WebRTC ────────────────────────────────────────────────────────────────
 function connectRTC() {
-    if (isConnected) return;
+    if (isConnected) { LOG('connectRTC: ya conectado, ignorando'); return; }
+    LOG('connectRTC: iniciando...');
     setState('connecting', 'Conectando…');
     start();   // client.js
     document.getElementById('btn-connect').textContent = '✓ Conectado';
     document.getElementById('btn-connect').classList.add('connected');
     isConnected = true;
 
-    // Habilitar micrófono tras conexión exitosa
     setTimeout(() => {
         document.getElementById('btn-mic').classList.remove('disabled-btn');
         setState('ready', 'Listo — presiona el micrófono');
         startSpeakingMonitor();
+        LOG('Micrófono habilitado, monitor de speaking activo');
     }, 2500);
 }
 
 // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
 function startSpeakingMonitor() {
+    LOG('startSpeakingMonitor iniciado');
     speakCheckInterval = setInterval(async () => {
         if (!isConnected || isListening) return;
         try {
@@ -459,6 +476,7 @@ function startSpeakingMonitor() {
             const speaking = data.data;
             if (speaking !== isSpeaking) {
                 isSpeaking = speaking;
+                LOG('isSpeaking cambió →', speaking);
                 const wrap = document.getElementById('avatar-wrap');
                 if (speaking) {
                     wrap.classList.add('avatar-speaking');
@@ -468,25 +486,97 @@ function startSpeakingMonitor() {
                     setState('ready', 'Listo — presiona el micrófono');
                 }
             }
-        } catch (_) { /* silencio */ }
+        } catch (e) { /* silencio en prod */ }
     }, 800);
+}
+
+// ─── Listar dispositivos de audio ─────────────────────────────────────────
+async function logAudioDevices() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        WARN('enumerateDevices no disponible');
+        return;
+    }
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        LOG(`Dispositivos de entrada de audio encontrados: ${audioInputs.length}`);
+        audioInputs.forEach((d, i) => {
+            LOG(`  [${i}] deviceId="${d.deviceId}" label="${d.label || '(sin etiqueta — requiere permiso)'}"`);
+        });
+        if (audioInputs.length === 0) ERR('¡No hay dispositivos de audio de entrada!');
+    } catch (e) {
+        ERR('Error en enumerateDevices:', e);
+    }
+}
+
+// ─── Pedir permiso de micrófono explícitamente via getUserMedia ────────────
+// IMPORTANTE: En Android con mic externo (USB/Bluetooth), SpeechRecognition
+// puede fallar con "audio-capture" si no hay un stream getUserMedia previo
+// que "despierte" el dispositivo de audio correcto.
+// Esta función pide permiso primero, lista los dispositivos, y luego
+// devuelve el control para iniciar SpeechRecognition.
+async function requestMicPermission() {
+    LOG('requestMicPermission: solicitando getUserMedia...');
+    try {
+        // Liberar stream anterior si existe
+        if (_micStream) {
+            _micStream.getTracks().forEach(t => { t.stop(); LOG('Track previo detenido:', t.label); });
+            _micStream = null;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+        _micStream = stream;
+        const tracks = stream.getAudioTracks();
+        LOG(`getUserMedia OK — tracks de audio: ${tracks.length}`);
+        tracks.forEach((t, i) => {
+            const settings = t.getSettings();
+            LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" enabled=${t.enabled} readyState=${t.readyState}`);
+        });
+
+        // Listar todos los dispositivos ahora que tenemos permiso (los labels aparecen)
+        await logAudioDevices();
+
+        // Detener el stream inmediatamente — SpeechRecognition abrirá el suyo propio.
+        // Dejar el stream abierto compite con SpeechRecognition en algunos Android.
+        stream.getTracks().forEach(t => t.stop());
+        _micStream = null;
+        LOG('Stream getUserMedia detenido — SpeechRecognition puede tomar el mic');
+        return true;
+    } catch (e) {
+        ERR('getUserMedia falló:', e.name, e.message);
+        if (e.name === 'NotAllowedError') {
+            setState('ready', '⚠ Permiso de micrófono denegado');
+        } else if (e.name === 'NotFoundError') {
+            setState('ready', '⚠ No se encontró micrófono');
+        } else if (e.name === 'NotReadableError') {
+            setState('ready', '⚠ Micrófono ocupado por otra app');
+        } else {
+            setState('ready', '⚠ Error de micrófono: ' + e.name);
+        }
+        return false;
+    }
 }
 
 // ─── Speech Recognition ────────────────────────────────────────────────────
 function setupRecognition() {
+    LOG('setupRecognition: creando instancia...');
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
+        ERR('SpeechRecognition NO disponible en este navegador');
         alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
         return null;
     }
+    LOG('SpeechRecognition disponible:', SpeechRec.name || 'webkitSpeechRecognition');
 
     const rec = new SpeechRec();
     rec.lang              = 'es-CL';
     rec.interimResults    = true;
     rec.continuous        = false;
     rec.maxAlternatives   = 1;
+    LOG('SpeechRecognition configurado: lang=es-CL, interimResults=true, continuous=false');
 
     rec.onstart = () => {
+        LOG('SpeechRecognition.onstart — ESCUCHANDO');
         isListening = true;
         setState('listening', 'Escuchando…');
         const btn = document.getElementById('btn-mic');
@@ -496,27 +586,57 @@ function setupRecognition() {
         setUserText('…', true);
     };
 
+    rec.onaudiostart = () => LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
+    rec.onsoundstart = () => LOG('SpeechRecognition.onsoundstart — sonido detectado');
+    rec.onspeechstart = () => LOG('SpeechRecognition.onspeechstart — habla detectada');
+    rec.onspeechend = () => LOG('SpeechRecognition.onspeechend — habla terminó');
+    rec.onsoundend = () => LOG('SpeechRecognition.onsoundend — sonido terminó');
+    rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
+
     rec.onresult = (event) => {
         let interim = '';
         let final   = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
             const t = event.results[i][0].transcript;
-            if (event.results[i].isFinal) final += t;
-            else interim += t;
+            const conf = event.results[i][0].confidence;
+            if (event.results[i].isFinal) {
+                LOG(`Resultado FINAL: "${t}" (confidence=${conf.toFixed(2)})`);
+                final += t;
+            } else {
+                interim += t;
+            }
         }
+        if (interim) LOG(`Resultado interim: "${interim}"`);
         setUserText(final || interim, !final);
         if (final) sendToLLM(final.trim());
     };
 
     rec.onerror = (e) => {
-        console.error('STT error:', e.error);
-        if (e.error !== 'no-speech') {
-            setState('ready', 'Error de micrófono — intenta de nuevo');
+        ERR(`SpeechRecognition.onerror — error="${e.error}" message="${e.message || ''}"`);
+        // Errores comunes en Android con mic externo:
+        // "audio-capture" → el mic no pudo abrirse (otro proceso lo tiene, o dispositivo incorrecto)
+        // "not-allowed"   → permiso denegado
+        // "network"       → sin conexión para el STT en la nube
+        // "no-speech"     → silencio timeout (normal, no es error real)
+        if (e.error === 'audio-capture') {
+            ERR('audio-capture: el mic externo puede estar siendo usado por otra app, o Android no lo redirigió correctamente');
+            setState('ready', '⚠ Error captura de audio — intenta de nuevo');
+        } else if (e.error === 'not-allowed') {
+            ERR('not-allowed: permiso de micrófono denegado');
+            setState('ready', '⚠ Permiso de micrófono denegado');
+        } else if (e.error === 'network') {
+            ERR('network: error de red con el STT — ¿hay conexión a internet?');
+            setState('ready', '⚠ Error de red STT — verifica conexión');
+        } else if (e.error !== 'no-speech') {
+            setState('ready', `⚠ Error: ${e.error}`);
+        } else {
+            LOG('no-speech: sin voz detectada (timeout normal)');
         }
         stopListening();
     };
 
     rec.onend = () => {
+        LOG('SpeechRecognition.onend — sesión terminada');
         stopListening();
     };
 
@@ -524,6 +644,7 @@ function setupRecognition() {
 }
 
 function stopListening() {
+    LOG('stopListening');
     isListening = false;
     const btn = document.getElementById('btn-mic');
     btn.classList.remove('listening');
@@ -532,40 +653,68 @@ function stopListening() {
     if (!isSpeaking) setState('ready', 'Listo — presiona el micrófono');
 }
 
+// ─── Toggle micrófono ──────────────────────────────────────────────────────
 function toggleMic() {
+    LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking);
+
     // Desbloquear audio en primer uso del mic (fallback si se saltó el overlay)
     if (!_audioUnlocked) {
+        LOG('Audio no desbloqueado — desmutando video como fallback');
         const videoEl = document.getElementById('video');
         videoEl.muted = false;
         _audioUnlocked = true;
-        if (videoEl.srcObject) videoEl.play().catch(() => {});
+        if (videoEl.srcObject) videoEl.play().catch(e => WARN('play() fallback:', e.name));
     }
+
     if (!isConnected) {
+        WARN('toggleMic: avatar no conectado');
         setState('connecting', 'Conecta el avatar primero');
         return;
     }
     if (isSpeaking) {
-        // Interrumpir al avatar si está hablando
+        LOG('toggleMic: avatar hablando → interrumpiendo');
         interruptAvatar();
         return;
     }
     if (isListening) {
+        LOG('toggleMic: ya escuchando → deteniendo recognition');
         if (recognition) recognition.stop();
         return;
     }
-    recognition = setupRecognition();
-    if (recognition) recognition.start();
+
+    // FIX MICRÓFONO EXTERNO ANDROID:
+    // Pedir getUserMedia primero para "despertar" el dispositivo correcto,
+    // luego iniciar SpeechRecognition.
+    setState('listening', 'Preparando micrófono…');
+    requestMicPermission().then(ok => {
+        if (!ok) {
+            LOG('requestMicPermission falló — no iniciando SpeechRecognition');
+            return;
+        }
+        LOG('Permiso OK — iniciando SpeechRecognition');
+        recognition = setupRecognition();
+        if (recognition) {
+            try {
+                recognition.start();
+                LOG('recognition.start() llamado');
+            } catch(e) {
+                ERR('recognition.start() lanzó excepción:', e.name, e.message);
+                stopListening();
+            }
+        }
+    });
 }
 
 // ─── Enviar al LLM / backend ───────────────────────────────────────────────
 async function sendToLLM(text) {
     if (!text) return;
+    LOG(`sendToLLM: "${text}"`);
     setState('processing', 'Procesando…');
     setUserText(text, false);
 
     const sessionid = document.getElementById('sessionid').value;
     try {
-        await fetch('/human', {
+        const res = await fetch('/human', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -575,14 +724,16 @@ async function sendToLLM(text) {
                 sessionid: String(sessionid)
             })
         });
+        LOG('sendToLLM: respuesta status', res.status);
     } catch (err) {
-        console.error('Error al enviar al backend:', err);
+        ERR('sendToLLM: error de red:', err);
         setState('ready', 'Error de red — intenta de nuevo');
     }
 }
 
 // ─── Interrumpir avatar ────────────────────────────────────────────────────
 async function interruptAvatar() {
+    LOG('interruptAvatar');
     const sessionid = document.getElementById('sessionid').value;
     try {
         await fetch('/interrupt_talk', {
@@ -590,9 +741,11 @@ async function interruptAvatar() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sessionid: String(sessionid) })
         });
-    } catch (_) {}
-    // Tras interrumpir, abrir micrófono
+        LOG('interruptAvatar: solicitud enviada');
+    } catch (e) { WARN('interruptAvatar: error de red', e); }
+
     setTimeout(() => {
+        LOG('interruptAvatar: abriendo mic tras interrupción');
         recognition = setupRecognition();
         if (recognition) recognition.start();
     }, 300);
@@ -601,13 +754,18 @@ async function interruptAvatar() {
 // ─── Auto-conectar al cargar ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
     const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    LOG('DOMContentLoaded — isMobile:', isMobile);
+    LOG('Secure context:', window.isSecureContext, '| location.protocol:', location.protocol);
+
+    if (!window.isSecureContext) {
+        WARN('⚠ CONTEXTO NO SEGURO (HTTP). SpeechRecognition NO funcionará. Usar HTTPS.');
+    }
+
     if (isMobile) {
-        // Móvil/Android: esperar tap en el overlay (handleTapToStart hace el connect).
-        // El video ya tiene muted=true en el HTML → autoplay siempre funciona.
-        // nada más que hacer aquí
+        LOG('Mobile detectado → esperando tap del usuario (overlay visible)');
+        // nada — el overlay espera el tap
     } else {
-        // Desktop: auto-conectar. Los navegadores desktop permiten autoplay
-        // de video muted; desmutear inmediatamente ya que hay menos restricciones.
+        LOG('Desktop detectado → auto-conectando');
         const overlay = document.getElementById('tap-overlay');
         if (overlay) overlay.style.display = 'none';
         document.getElementById('video').muted = false;
