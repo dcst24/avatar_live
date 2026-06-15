@@ -585,12 +585,16 @@ async function requestMicPermission() {
 }
 
 // ─── Speech Recognition ────────────────────────────────────────────────────
+// Variables de estado para detección de cierre rápido
+let _recStartMs   = 0;
+let _gotAnyResult = false;
+let _audioCaptureErrors = 0;  // contador de errores audio-capture → detectar POS
+
 function setupRecognition() {
     LOG('setupRecognition: creando instancia...');
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
         ERR('SpeechRecognition NO disponible en este navegador');
-        alert('Tu navegador no soporta reconocimiento de voz. Usa Chrome o Edge.');
         return null;
     }
     LOG('SpeechRecognition disponible:', SpeechRec.name || 'webkitSpeechRecognition');
@@ -603,6 +607,8 @@ function setupRecognition() {
     LOG('SpeechRecognition configurado: lang=es-CL, interimResults=true, continuous=false');
 
     rec.onstart = () => {
+        _recStartMs   = Date.now();
+        _gotAnyResult = false;
         LOG('SpeechRecognition.onstart — ESCUCHANDO');
         isListening = true;
         setState('listening', 'Escuchando…');
@@ -621,10 +627,11 @@ function setupRecognition() {
     rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
 
     rec.onresult = (event) => {
+        _gotAnyResult = true;
         let interim = '';
         let final   = '';
         for (let i = event.resultIndex; i < event.results.length; i++) {
-            const t = event.results[i][0].transcript;
+            const t    = event.results[i][0].transcript;
             const conf = event.results[i][0].confidence;
             if (event.results[i].isFinal) {
                 LOG(`Resultado FINAL: "${t}" (confidence=${conf.toFixed(2)})`);
@@ -639,31 +646,56 @@ function setupRecognition() {
     };
 
     rec.onerror = (e) => {
-        ERR(`SpeechRecognition.onerror — error="${e.error}" message="${e.message || ''}"`);
-        // Errores comunes en Android con mic externo:
-        // "audio-capture" → el mic no pudo abrirse (otro proceso lo tiene, o dispositivo incorrecto)
-        // "not-allowed"   → permiso denegado
-        // "network"       → sin conexión para el STT en la nube
-        // "no-speech"     → silencio timeout (normal, no es error real)
+        const elapsed = Date.now() - _recStartMs;
+        ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
+
         if (e.error === 'audio-capture') {
-            ERR('audio-capture: el mic externo puede estar siendo usado por otra app, o Android no lo redirigió correctamente');
+            _audioCaptureErrors++;
+            ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
+            // Después de 2 errores consecutivos de audio-capture → activar fallback WAV
+            if (_audioCaptureErrors >= 2) {
+                WARN('Activando modo WAV fallback (audio-capture persistente)');
+                _useFallbackASR = true;
+            }
             setState('ready', '⚠ Error captura de audio — intenta de nuevo');
         } else if (e.error === 'not-allowed') {
             ERR('not-allowed: permiso de micrófono denegado');
             setState('ready', '⚠ Permiso de micrófono denegado');
         } else if (e.error === 'network') {
-            ERR('network: error de red con el STT — ¿hay conexión a internet?');
-            setState('ready', '⚠ Error de red STT — verifica conexión');
+            ERR('network: error de red STT — ¿hay conexión?');
+            setState('ready', '⚠ Error de red STT');
         } else if (e.error !== 'no-speech') {
             setState('ready', `⚠ Error: ${e.error}`);
         } else {
-            LOG('no-speech: sin voz detectada (timeout normal)');
+            LOG('no-speech: timeout normal sin voz');
         }
         stopListening();
     };
 
     rec.onend = () => {
-        LOG('SpeechRecognition.onend — sesión terminada');
+        const elapsed = Date.now() - _recStartMs;
+        LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}`);
+
+        // ─── FIX: cierre rápido sin resultado ─────────────────────────────
+        // En el PRIMER uso en Android, Chrome pide permiso de mic DESPUÉS
+        // de llamar start(). Esto hace que recognition termine en <1.5s sin
+        // resultado. Reintentar una vez es suficiente para resolverlo.
+        if (!_gotAnyResult && elapsed < 1500 && !_useFallbackASR) {
+            WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
+            stopListening();
+            setTimeout(() => {
+                if (!isListening) {
+                    LOG('Reintento de SpeechRecognition...');
+                    recognition = setupRecognition();
+                    if (recognition) {
+                        try { recognition.start(); }
+                        catch(ex) { ERR('reintento falló:', ex.name); }
+                    }
+                }
+            }, 700);
+            return;  // no llamar stopListening de nuevo
+        }
+
         stopListening();
     };
 
@@ -746,44 +778,20 @@ function toggleMic() {
         if (!ok) { stopListening(); return; }
 
         if (_useFallbackASR) {
-            // POS/iMin: usar MediaRecorder → /humanaudio
-            LOG('Usando modo MediaRecorder (fallback ASR)');
+            // POS/iMin: usar Web Audio API → WAV → /humanaudio
+            LOG('Usando modo WAV fallback (POS/iMin)');
             startMediaRecorderASR();
         } else {
-            // Mobile/PC: usar SpeechRecognition
+            // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
             LOG('Usando modo SpeechRecognition');
+            _audioCaptureErrors = 0;  // reset contador de errores
             recognition = setupRecognition();
             if (recognition) {
-                // Auto-detección: si onaudiostart no dispara en 1.5s, el dispositivo
-                // no puede capturar audio con SpeechRecognition → cambiar a MediaRecorder
-                let _audioStarted = false;
-                const _audioDetectTimer = setTimeout(() => {
-                    if (!_audioStarted && isListening) {
-                        WARN('⚠ SpeechRecognition: onaudiostart no disparó en 1.5s → POS detectado, cambiando a MediaRecorder');
-                        _useFallbackASR = true;
-                        try { recognition.abort(); } catch(e) {}
-                        // Reiniciar con MediaRecorder
-                        setTimeout(() => {
-                            if (!isListening) startMediaRecorderASR();
-                        }, 300);
-                    }
-                }, 1500);
-
-                const _origAudioStart = recognition.onaudiostart;
-                recognition.onaudiostart = () => {
-                    _audioStarted = true;
-                    clearTimeout(_audioDetectTimer);
-                    if (_origAudioStart) _origAudioStart();
-                    LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
-                };
-
                 try {
                     recognition.start();
                     LOG('recognition.start() llamado');
                 } catch(e) {
                     ERR('recognition.start() excepción:', e.name, e.message);
-                    clearTimeout(_audioDetectTimer);
-                    _useFallbackASR = true;
                     stopListening();
                 }
             }
