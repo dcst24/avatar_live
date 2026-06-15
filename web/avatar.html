@@ -368,6 +368,47 @@
         .dbg-label-log  { color: #6366f1; font-weight: 600; flex-shrink: 0; }
         .dbg-label-warn { color: #f59e0b; font-weight: 600; flex-shrink: 0; }
         .dbg-label-err  { color: #ef4444; font-weight: 600; flex-shrink: 0; }
+
+        /* Fila de selector de mic */
+        #dbg-mic-row {
+            padding: 8px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        #dbg-mic-row label {
+            color: #a1a1aa;
+            font-size: 11px;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        #dbg-mic-select {
+            flex: 1;
+            min-width: 160px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(39,39,42,0.9);
+            color: #f4f4f5;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+        #dbg-mic-refresh {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(39,39,42,0.8);
+            color: #f4f4f5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
     </style>
 </head>
 <body class="state-connecting">
@@ -455,6 +496,14 @@
             <button id="dbg-close" onclick="dbgToggle()">Cerrar ✕</button>
         </div>
     </div>
+    <!-- Selector de micrófono -->
+    <div id="dbg-mic-row">
+        <label>🎤 Micrófono:</label>
+        <select id="dbg-mic-select" onchange="dbgSelectMic(this.value)">
+            <option value="">-- default del sistema --</option>
+        </select>
+        <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
+    </div>
     <div id="dbg-list"></div>
 </div>
 
@@ -518,6 +567,53 @@ function dbgClear() {
     const list = document.getElementById('dbg-list');
     list.innerHTML = '';
     LOG('Consola limpiada');
+}
+
+// ─── Selector de micrófono en panel debug ─────────────────────────────────
+let _preferredDeviceId = null;  // null = usar default del sistema
+
+async function dbgLoadDevices() {
+    const sel = document.getElementById('dbg-mic-select');
+    if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+        WARN('enumerateDevices no disponible en este dispositivo');
+        return;
+    }
+    try {
+        const devices    = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(d => d.kind === 'audioinput');
+        LOG(`Micrófonos disponibles: ${audioInputs.length}`);
+        audioInputs.forEach((d, i) => {
+            LOG(`  [${i}] id="${d.deviceId.slice(0,16)}…" label="${d.label || '(sin permiso)'}"`); 
+        });
+
+        // Reconstruir opciones del selector
+        sel.innerHTML = '<option value="">-- default del sistema --</option>';
+        audioInputs.forEach((d, i) => {
+            const opt = document.createElement('option');
+            opt.value = d.deviceId;
+            opt.textContent = d.label
+                ? d.label
+                : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
+            if (d.deviceId === _preferredDeviceId) opt.selected = true;
+            sel.appendChild(opt);
+        });
+
+        if (audioInputs.length === 0) ERR('¡No se encontraron micrófonos!');
+    } catch(e) {
+        ERR('dbgLoadDevices error:', e.name, e.message);
+    }
+}
+
+function dbgSelectMic(deviceId) {
+    _preferredDeviceId = deviceId || null;
+    if (_preferredDeviceId) {
+        const sel  = document.getElementById('dbg-mic-select');
+        const label = sel.options[sel.selectedIndex]?.textContent || deviceId;
+        LOG(`🎤 Micrófono seleccionado: "${label}"`);
+        LOG('Pulsa el mic para grabar con este dispositivo.');
+    } else {
+        LOG('🎤 Micrófono: default del sistema');
+    }
 }
 
 // ─── Info de arranque ──────────────────────────────────────────────────────
@@ -677,6 +773,7 @@ async function logAudioDevices() {
 // 3. Al terminar (stopListening), cerramos el stream.
 async function requestMicPermission() {
     LOG('requestMicPermission: solicitando getUserMedia...');
+    if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0,16)}…`);
     try {
         // Liberar stream anterior si existe
         if (_micStream) {
@@ -684,40 +781,37 @@ async function requestMicPermission() {
             _micStream = null;
         }
 
-        // Pedir audio sin restricciones (que Android elija el default actual del SO)
+        // Usar el deviceId seleccionado en el panel si existe
+        const audioConstraints = _preferredDeviceId
+            ? { deviceId: { exact: _preferredDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
         const stream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-                echoCancellation: true,
-                noiseSuppression: true,
-                autoGainControl:  true
-            },
+            audio: audioConstraints,
             video: false
         });
 
         _micStream = stream;
         const tracks = stream.getAudioTracks();
-        LOG(`getUserMedia OK — tracks de audio: ${tracks.length}`);
+        LOG(`getUserMedia OK — tracks: ${tracks.length}`);
 
         let activeMicLabel = '(desconocido)';
         tracks.forEach((t, i) => {
             const settings = t.getSettings();
             activeMicLabel = t.label || activeMicLabel;
-            LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" enabled=${t.enabled} readyState=${t.readyState}`);
+            LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" readyState=${t.readyState}`);
         });
 
-        // Mostrar en el status badge qué micrófono está activo
+        // Mostrar en status badge
         const short = activeMicLabel.length > 28
             ? activeMicLabel.slice(0, 26) + '…'
             : activeMicLabel;
-        setState('listening', `🎙 ${short}`);
+        setState('listening', `🎤 ${short}`);
         LOG('Mic activo:', activeMicLabel);
 
-        // Listar todos los dispositivos (con labels visibles ahora que tenemos permiso)
-        await logAudioDevices();
+        // Refrescar selector de mic en el panel con labels reales
+        await dbgLoadDevices();
 
-        // ⚠ NO cerramos el stream aquí.
-        // El stream se mantiene abierto para que Android rutee SpeechRecognition
-        // por el mismo dispositivo. Se cierra en stopListening().
         LOG('Stream getUserMedia ACTIVO — SpeechRecognition usará el mismo dispositivo');
         return true;
     } catch (e) {
@@ -726,8 +820,13 @@ async function requestMicPermission() {
             setState('ready', '⚠ Permiso de micrófono denegado');
         } else if (e.name === 'NotFoundError') {
             setState('ready', '⚠ No se encontró micrófono');
-        } else if (e.name === 'NotReadableError') {
-            setState('ready', '⚠ Micrófono ocupado por otra app');
+        } else if (e.name === 'NotReadableError' || e.name === 'OverconstrainedError') {
+            // El deviceId seleccionado puede no existir — volver al default
+            WARN('Dispositivo seleccionado no disponible, volviendo al default');
+            _preferredDeviceId = null;
+            const sel = document.getElementById('dbg-mic-select');
+            if (sel) sel.value = '';
+            setState('ready', '⚠ Mic seleccionado no disponible — intenta de nuevo');
         } else {
             setState('ready', '⚠ Error de micrófono: ' + e.name);
         }
