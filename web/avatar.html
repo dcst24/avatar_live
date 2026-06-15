@@ -282,6 +282,92 @@
         /* ── Hidden audio / inputs ──────────────────────────── */
         audio { display: none; }
         input[type=hidden] { display: none; }
+
+        /* ── Debug log panel ────────────────────────────────── */
+        #dbg-btn {
+            position: fixed;
+            bottom: 52px;
+            right: 20px;
+            z-index: 200;
+            width: 40px; height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(9,9,11,0.75);
+            backdrop-filter: blur(10px);
+            color: #f4f4f5;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #dbg-btn:hover { background: rgba(39,39,42,0.9); }
+
+        #dbg-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 199;
+            background: rgba(0,0,0,0.88);
+            backdrop-filter: blur(6px);
+            display: none;
+            flex-direction: column;
+            font-family: 'Menlo', 'Consolas', monospace;
+            font-size: 11px;
+        }
+        #dbg-panel.open { display: flex; }
+
+        #dbg-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+            flex-shrink: 0;
+        }
+        #dbg-toolbar span { color: #a1a1aa; font-size: 12px; font-family: inherit; }
+        #dbg-clear {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(39,39,42,0.8);
+            color: #f4f4f5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        #dbg-close {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(239,68,68,0.4);
+            background: rgba(127,29,29,0.5);
+            color: #fca5a5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            margin-left: 8px;
+        }
+
+        #dbg-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .dbg-entry {
+            display: flex;
+            gap: 8px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+        .dbg-ts { color: #52525b; flex-shrink: 0; }
+        .dbg-log  .dbg-msg { color: #d4d4d8; }
+        .dbg-warn .dbg-msg { color: #fbbf24; }
+        .dbg-err  .dbg-msg { color: #f87171; }
+        .dbg-label-log  { color: #6366f1; font-weight: 600; flex-shrink: 0; }
+        .dbg-label-warn { color: #f59e0b; font-weight: 600; flex-shrink: 0; }
+        .dbg-label-err  { color: #ef4444; font-weight: 600; flex-shrink: 0; }
     </style>
 </head>
 <body class="state-connecting">
@@ -334,6 +420,9 @@
         <!-- Botón invisible fullscreen (esquina sup-derecha) -->
         <button id="btn-fullscreen" onclick="toggleFullscreen()" title="Pantalla completa" aria-label="Pantalla completa"></button>
 
+        <!-- Botón debug log (bottom-right) -->
+        <button id="dbg-btn" onclick="dbgToggle()" title="Ver logs">🪲</button>
+
         <!-- Overlay tap-to-start (Android / mobile autoplay fix) -->
         <div id="tap-overlay" onclick="handleTapToStart()" style="
             position:absolute; inset:0; z-index:100;
@@ -357,17 +446,79 @@
     </div>
 </div>
 
+<!-- Debug log panel (tap 🪲 to open) -->
+<div id="dbg-panel">
+    <div id="dbg-toolbar">
+        <span>🪲 Consola de depuración</span>
+        <div style="display:flex;gap:4px">
+            <button id="dbg-clear" onclick="dbgClear()">Limpiar</button>
+            <button id="dbg-close" onclick="dbgToggle()">Cerrar ✕</button>
+        </div>
+    </div>
+    <div id="dbg-list"></div>
+</div>
+
 <!-- WebRTC client -->
 <script src="client.js"></script>
 
 <script>
 // ══════════════════════════════════════════════════════════════════════════════
-// DEBUG LOGGER — visible en consola del navegador (F12 → Console)
-// En Android: chrome://inspect en el PC para ver los logs del teléfono
+// DEBUG LOGGER — escribe en consola del navegador Y en el panel on-screen 🪲
+// En Android: toca 🪲 (abajo-derecha) para ver todos los logs en pantalla.
 // ══════════════════════════════════════════════════════════════════════════════
-const LOG = (...args) => console.log('[Avatar]', ...args);
-const WARN = (...args) => console.warn('[Avatar]', ...args);
-const ERR = (...args) => console.error('[Avatar]', ...args);
+const _DBG_MAX = 200;  // máximo de entradas en el panel
+
+function _dbgWrite(level, args) {
+    // 1. Consola nativa
+    if (level === 'log')  console.log('[Avatar]',  ...args);
+    if (level === 'warn') console.warn('[Avatar]', ...args);
+    if (level === 'err')  console.error('[Avatar]',...args);
+
+    // 2. Panel on-screen
+    const list = document.getElementById('dbg-list');
+    if (!list) return;
+
+    const now  = new Date();
+    const ts   = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}.${String(now.getMilliseconds()).padStart(3,'0')}`;
+    const msg  = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+
+    const entry = document.createElement('div');
+    entry.className = `dbg-entry dbg-${level}`;
+    entry.innerHTML =
+        `<span class="dbg-ts">${ts}</span>` +
+        `<span class="dbg-label-${level}">${level.toUpperCase()}</span>` +
+        `<span class="dbg-msg">${msg.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span>`;
+    list.appendChild(entry);
+
+    // Limitar a _DBG_MAX entradas
+    while (list.children.length > _DBG_MAX) list.removeChild(list.firstChild);
+
+    // Auto-scroll solo si el panel está abierto
+    const panel = document.getElementById('dbg-panel');
+    if (panel && panel.classList.contains('open')) {
+        list.scrollTop = list.scrollHeight;
+    }
+}
+
+const LOG  = (...args) => _dbgWrite('log',  args);
+const WARN = (...args) => _dbgWrite('warn', args);
+const ERR  = (...args) => _dbgWrite('err',  args);
+
+function dbgToggle() {
+    const panel = document.getElementById('dbg-panel');
+    panel.classList.toggle('open');
+    if (panel.classList.contains('open')) {
+        // Scroll al final al abrir
+        const list = document.getElementById('dbg-list');
+        list.scrollTop = list.scrollHeight;
+    }
+}
+
+function dbgClear() {
+    const list = document.getElementById('dbg-list');
+    list.innerHTML = '';
+    LOG('Consola limpiada');
+}
 
 // ─── Info de arranque ──────────────────────────────────────────────────────
 LOG('=== INIT ===');
