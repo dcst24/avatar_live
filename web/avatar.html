@@ -1121,7 +1121,13 @@ function toggleMic() {
 let _audioCtx        = null;
 let _audioSrc        = null;
 let _scriptProc      = null;
-let _pcmChunks       = [];   // Float32Array[]
+
+// FunASR streaming state variables
+let _funasrWs              = null;
+let _funasrStopTimeout     = null;
+let _waitingForFinalResponse = false;
+let _lastPartialText       = '';
+
 
 // FunASR WebSocket STT
 let _funasrUrl = (function() {
@@ -1147,84 +1153,54 @@ function dbgTestFunASR() {
     } catch(e) { ERR('FunASR test error: ' + e.message); }
 }
 
-function sendPCMToFunASR(pcmChunks, sampleRate, onTranscript, onError) {
-    var url = _funasrUrl;
-    LOG('FunASR: conectando a ' + url + ' (sampleRate=' + sampleRate + ')');
-    var ws;
-    var transcriptReceived = false;
-    var transcriptTimeout;
-    try { ws = new WebSocket(url); } catch(e) { ERR('FunASR: no se pudo crear WS: ' + e.message); onError('ws_create'); return; }
-    ws.binaryType = 'arraybuffer';
-
-    ws.onopen = function() {
-        LOG('FunASR: WS abierto, procesando audio...');
-        var totalSamples = 0;
-        pcmChunks.forEach(function(c) { totalSamples += c.length; });
-        var merged = new Float32Array(totalSamples);
-        var offset = 0;
-        pcmChunks.forEach(function(c) { merged.set(c, offset); offset += c.length; });
-        var resampled = merged;
-        if (sampleRate !== 16000) {
-            var ratio = 16000 / sampleRate;
-            var newLen = Math.round(merged.length * ratio);
-            resampled = new Float32Array(newLen);
-            for (var i = 0; i < newLen; i++) {
-                var si = i / ratio; var lo = Math.floor(si); var hi = Math.min(lo+1, merged.length-1); var fr = si-lo;
-                resampled[i] = merged[lo]*(1-fr) + merged[hi]*fr;
-            }
-            LOG('FunASR: resample ' + sampleRate + '->' + 16000 + ' Hz (' + totalSamples + '->' + newLen + ' samples)');
+function cleanupStreamingASR() {
+    LOG('cleanupStreamingASR');
+    clearInterval(_recTimerInterval);
+    if (_funasrStopTimeout) {
+        clearTimeout(_funasrStopTimeout);
+        _funasrStopTimeout = null;
+    }
+    
+    // Disconnect audio nodes
+    try {
+        if (_scriptProc) {
+            _scriptProc.disconnect();
+            _scriptProc = null;
         }
-        var int16 = new Int16Array(resampled.length);
-        for (var i = 0; i < resampled.length; i++) {
-            var s = Math.max(-1, Math.min(1, resampled[i]));
-            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    } catch (e) {
+        WARN('Error desconectando _scriptProc:', e);
+    }
+    try {
+        if (_audioSrc) {
+            _audioSrc.disconnect();
+            _audioSrc = null;
         }
-        ws.send(JSON.stringify({ chunk_size:[5,10,5], wav_name:'avatar', is_speaking:true, chunk_interval:10, mode:'2pass' }));
-        var CHUNK = 960; var pos = 0;
-        while (pos + CHUNK <= int16.length) { ws.send(int16.slice(pos, pos+CHUNK).buffer); pos += CHUNK; }
-        if (pos < int16.length) { ws.send(int16.slice(pos).buffer); }
-        LOG('FunASR: ' + int16.length + ' samples enviados, esperando respuesta...');
-        ws.send(JSON.stringify({ chunk_size:[5,10,5], wav_name:'avatar', is_speaking:false, chunk_interval:10, mode:'2pass' }));
-        transcriptTimeout = setTimeout(function() {
-            if (!transcriptReceived) { WARN('FunASR: timeout 10s sin respuesta'); try { ws.close(); } catch(e){} onError('timeout'); }
-        }, 10000);
-    };
-
-    ws.onmessage = function(evt) {
-        try {
-            var data = JSON.parse(evt.data);
-            var text = (data.text || '').replace(/ +/g,'').trim();
-            var mode = data.mode || '';
-            var isFinal = data.is_final === true;
-            LOG('FunASR msg: mode=' + mode + ' final=' + isFinal + ' text=' + text);
-            if ((mode === '2pass-offline' || mode === 'offline') && text && !transcriptReceived) {
-                transcriptReceived = true; clearTimeout(transcriptTimeout);
-                LOG('FunASR TRANSCRIPCION OK: ' + text);
-                try { ws.close(); } catch(e) {}
-                onTranscript(text);
-            } else if (isFinal && text && !transcriptReceived) {
-                transcriptReceived = true; clearTimeout(transcriptTimeout);
-                LOG('FunASR TRANSCRIPCION (final): ' + text);
-                try { ws.close(); } catch(e) {}
-                onTranscript(text);
-            }
-        } catch(e) { WARN('FunASR: error parseando msg: ' + e.message); }
-    };
-
-    ws.onerror = function(e) {
-        clearTimeout(transcriptTimeout);
-        ERR('FunASR WS error. URL: ' + url);
-        ERR('Verifica que FunASR este corriendo. Configura la URL en el panel debug (campo FunASR).');
-        onError('ws_error');
-    };
-
-    ws.onclose = function(e) {
-        clearTimeout(transcriptTimeout);
-        if (!transcriptReceived && e.code !== 1000) {
-            WARN('FunASR WS cerrado sin transcripcion (code=' + e.code + ')');
-            onError('closed_' + e.code);
+    } catch (e) {
+        WARN('Error desconectando _audioSrc:', e);
+    }
+    try {
+        if (_audioCtx) {
+            _audioCtx.close();
+            _audioCtx = null;
         }
-    };
+    } catch (e) {
+        WARN('Error cerrando _audioCtx:', e);
+    }
+
+    // Close WS
+    try {
+        if (_funasrWs) {
+            _funasrWs.onopen = null;
+            _funasrWs.onclose = null;
+            _funasrWs.onerror = null;
+            _funasrWs.onmessage = null;
+            _funasrWs.close();
+            _funasrWs = null;
+        }
+    } catch (e) {
+        WARN('Error cerrando _funasrWs:', e);
+    }
+    _waitingForFinalResponse = false;
 }
 
 function startMediaRecorderASR() {
@@ -1234,147 +1210,224 @@ function startMediaRecorderASR() {
         return;
     }
 
+    cleanupStreamingASR();
+    _lastPartialText = '';
+    _waitingForFinalResponse = false;
+
+    const url = _funasrUrl;
+    LOG('FunASR streaming: conectando a ' + url);
+    setState('listening', 'Conectando a ASR…');
+
     try {
-        // AudioContext — usamos sampleRate nativo del dispositivo.
-        // El WAV llevará el sampleRate correcto en su cabecera.
-        _audioCtx   = new (window.AudioContext || window.webkitAudioContext)();
-        _audioSrc   = _audioCtx.createMediaStreamSource(_micStream);
-        _pcmChunks  = [];
-        _recSeconds = 0;
+        _funasrWs = new WebSocket(url);
+    } catch(e) {
+        ERR('FunASR streaming: no se pudo crear WebSocket:', e.message);
+        setState('ready', 'Error al conectar con ASR');
+        stopListening();
+        return;
+    }
+    _funasrWs.binaryType = 'arraybuffer';
 
-        const bufSize   = 4096;
-        _scriptProc = _audioCtx.createScriptProcessor(bufSize, 1, 1);
-        _scriptProc.onaudioprocess = (ev) => {
-            if (isListening) {
-                // Copiar el buffer (el original se reutiliza)
-                const data = ev.inputBuffer.getChannelData(0);
-                _pcmChunks.push(new Float32Array(data));
+    _funasrWs.onopen = function() {
+        LOG('FunASR streaming: WS conectado, inicializando grabador...');
+        try {
+            const request = {
+                chunk_size: [5, 10, 5],
+                wav_name: "h5",
+                is_speaking: true,
+                chunk_interval: 10,
+                mode: "2pass"
+            };
+            _funasrWs.send(JSON.stringify(request));
+
+            _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const nativeSR = _audioCtx.sampleRate;
+            LOG(`FunASR streaming: AudioContext iniciado a ${nativeSR} Hz`);
+
+            _audioSrc = _audioCtx.createMediaStreamSource(_micStream);
+
+            let sampleBuf = new Float32Array(0);
+            const bufSize = 4096;
+            _scriptProc = _audioCtx.createScriptProcessor(bufSize, 1, 1);
+            _scriptProc.onaudioprocess = (ev) => {
+                if (!isListening || _waitingForFinalResponse || !_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
+                    return;
+                }
+
+                const inputData = ev.inputBuffer.getChannelData(0);
+
+                let resampledData;
+                if (nativeSR === 16000) {
+                    resampledData = new Float32Array(inputData);
+                } else {
+                    const ratio = 16000 / nativeSR;
+                    const newLen = Math.round(inputData.length * ratio);
+                    resampledData = new Float32Array(newLen);
+                    for (let i = 0; i < newLen; i++) {
+                        const si = i / ratio;
+                        const lo = Math.floor(si);
+                        const hi = Math.min(lo + 1, inputData.length - 1);
+                        const fr = si - lo;
+                        resampledData[i] = inputData[lo] * (1 - fr) + inputData[hi] * fr;
+                    }
+                }
+
+                const newBuf = new Float32Array(sampleBuf.length + resampledData.length);
+                newBuf.set(sampleBuf, 0);
+                newBuf.set(resampledData, sampleBuf.length);
+                sampleBuf = newBuf;
+
+                const CHUNK_SIZE = 960;
+                while (sampleBuf.length >= CHUNK_SIZE) {
+                    const chunkFloat = sampleBuf.subarray(0, CHUNK_SIZE);
+                    const chunkInt16 = new Int16Array(CHUNK_SIZE);
+                    for (let i = 0; i < CHUNK_SIZE; i++) {
+                        const s = Math.max(-1, Math.min(1, chunkFloat[i]));
+                        chunkInt16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                    }
+
+                    if (_funasrWs && _funasrWs.readyState === WebSocket.OPEN) {
+                        _funasrWs.send(chunkInt16.buffer);
+                    }
+                    sampleBuf = sampleBuf.subarray(CHUNK_SIZE);
+                }
+            };
+
+            _audioSrc.connect(_scriptProc);
+            _scriptProc.connect(_audioCtx.destination);
+
+            isListening = true;
+            _recSeconds = 0;
+            setState('listening', 'Escuchando… (0s)');
+            const btn = document.getElementById('btn-mic');
+            btn.classList.add('listening');
+            document.getElementById('icon-mic').style.display = 'none';
+            document.getElementById('icon-stop').style.display = 'block';
+            setUserText('🎙 Habla ahora…', true);
+
+            clearInterval(_recTimerInterval);
+            _recTimerInterval = setInterval(() => {
+                _recSeconds++;
+                setState('listening', `Escuchando… (${_recSeconds}s)`);
+            }, 1000);
+
+        } catch (e) {
+            ERR('FunASR streaming: error configurando captura de audio:', e.name, e.message);
+            cleanupStreamingASR();
+            stopListening();
+            setState('ready', 'Error al iniciar micrófono');
+        }
+    };
+
+    _funasrWs.onmessage = function(evt) {
+        try {
+            const data = JSON.parse(evt.data);
+            const text = (data.text || '').replace(/ +/g, '').trim();
+            const mode = data.mode || '';
+            const isFinal = data.is_final === true;
+
+            if (text) {
+                LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
+                _lastPartialText = text;
+                setUserText(text, true);
+
+                if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
+                    LOG(`FunASR VAD fin de habla detectado: "${text}"`);
+                    cleanupStreamingASR();
+                    stopListening();
+                    sendToLLM(text);
+                }
             }
+        } catch(e) {
+            WARN('FunASR streaming: error parseando respuesta:', e.message);
+        }
+    };
+
+    _funasrWs.onerror = function(e) {
+        ERR('FunASR WS error en ' + url);
+        cleanupStreamingASR();
+        stopListening();
+        setState('ready', 'Error FunASR - verifica conexión');
+    };
+
+    _funasrWs.onclose = function(e) {
+        LOG('FunASR WS cerrado (código=' + e.code + ')');
+        const wasWaiting = _waitingForFinalResponse;
+        const textToSend = _lastPartialText;
+        cleanupStreamingASR();
+        stopListening();
+        if (wasWaiting && textToSend && textToSend.trim()) {
+            LOG('FunASR cerrado mientras esperaba final; enviando último texto parcial:', textToSend);
+            sendToLLM(textToSend.trim());
+        } else if (!wasWaiting) {
+            setState('ready', 'Conexión con ASR terminada');
+        }
+    };
+}
+
+async function stopMediaRecorderASR() {
+    LOG('stopMediaRecorderASR (parada manual solicitada)');
+    clearInterval(_recTimerInterval);
+
+    if (!_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
+        cleanupStreamingASR();
+        stopListening();
+        return;
+    }
+
+    _waitingForFinalResponse = true;
+
+    try {
+        if (_scriptProc) {
+            _scriptProc.disconnect();
+            _scriptProc = null;
+        }
+    } catch(e) {}
+    try {
+        if (_audioSrc) {
+            _audioSrc.disconnect();
+            _audioSrc = null;
+        }
+    } catch(e) {}
+    try {
+        if (_audioCtx) {
+            await _audioCtx.close();
+            _audioCtx = null;
+        }
+    } catch(e) {}
+
+    setState('processing', 'Procesando fin de audio…');
+
+    try {
+        const request = {
+            chunk_size: [5, 10, 5],
+            wav_name: "h5",
+            is_speaking: false,
+            chunk_interval: 10,
+            mode: "2pass"
         };
+        _funasrWs.send(JSON.stringify(request));
+        LOG('FunASR streaming: enviado is_speaking:false, esperando transcripción final...');
 
-        _audioSrc.connect(_scriptProc);
-        _scriptProc.connect(_audioCtx.destination);
-
-        LOG(`Web Audio API grabando — sampleRate=${_audioCtx.sampleRate} Hz`);
-
-        // UI
-        isListening = true;
-        setState('listening', 'Escuchando… (0s)');
-        const btn = document.getElementById('btn-mic');
-        btn.classList.add('listening');
-        document.getElementById('icon-mic').style.display  = 'none';
-        document.getElementById('icon-stop').style.display = 'block';
-        setUserText('🎙 Habla ahora…', true);
-
-        clearInterval(_recTimerInterval);
-        _recTimerInterval = setInterval(() => {
-            _recSeconds++;
-            setState('listening', `Escuchando… (${_recSeconds}s)`);
-        }, 1000);
+        _funasrStopTimeout = setTimeout(() => {
+            WARN('FunASR manual stop: timeout de 3s sin respuesta final');
+            const textToSend = _lastPartialText;
+            cleanupStreamingASR();
+            stopListening();
+            if (textToSend && textToSend.trim()) {
+                sendToLLM(textToSend.trim());
+            } else {
+                setState('ready', 'Sin audio detectado');
+            }
+        }, 3000);
 
     } catch(e) {
-        ERR('startMediaRecorderASR (Web Audio) error:', e.name, e.message);
+        ERR('FunASR manual stop error:', e.message);
+        cleanupStreamingASR();
         stopListening();
     }
 }
 
-async function stopMediaRecorderASR() {
-    LOG('stopMediaRecorderASR (Web Audio + FunASR STT)');
-    clearInterval(_recTimerInterval);
-
-    // Desconectar grafo de audio
-    try { if (_scriptProc) { _scriptProc.disconnect(); _scriptProc = null; } } catch(_) {}
-    try { if (_audioSrc)   { _audioSrc.disconnect();   _audioSrc   = null; } } catch(_) {}
-
-    const chunks     = _pcmChunks;
-    _pcmChunks       = [];
-    const sampleRate = _audioCtx ? _audioCtx.sampleRate : 44100;
-
-    try { if (_audioCtx) { await _audioCtx.close(); _audioCtx = null; } } catch(_) {}
-
-    stopListening();
-
-    if (chunks.length === 0) {
-        WARN('Sin datos PCM grabados');
-        return;
-    }
-
-    // Verificar duracion minima
-    const totalSamples = chunks.reduce(function(s,c) { return s + c.length; }, 0);
-    const durationMs   = (totalSamples / sampleRate) * 1000;
-    LOG('Audio grabado: ' + totalSamples + ' samples, ' + durationMs.toFixed(0) + 'ms');
-
-    if (durationMs < 500) {
-        WARN('Audio demasiado corto (' + durationMs.toFixed(0) + 'ms), ignorando');
-        return;
-    }
-
-    setState('processing', 'Transcribiendo...');
-    setUserText('Procesando voz...', true);
-
-    // Enviar a FunASR para transcripcion
-    sendPCMToFunASR(
-        chunks,
-        sampleRate,
-        function(transcript) {
-            // Exito: enviar texto al LLM
-            LOG('Transcripcion recibida: ' + transcript);
-            if (transcript && transcript.trim()) {
-                sendToLLM(transcript.trim());
-            } else {
-                WARN('Transcripcion vacia');
-                setState('ready', 'Presiona el microfono para hablar');
-            }
-        },
-        function(errorCode) {
-            // Error FunASR: mostrar instrucciones
-            ERR('FunASR fallo (' + errorCode + '). Pasos:');
-            ERR('  1. Verifica que FunASR este corriendo en el servidor');
-            ERR('  2. Abre el panel debug, ingresa la URL correcta en el campo FunASR');
-            ERR('  3. La URL debe ser wss://IP_DEL_SERVIDOR:10095');
-            ERR('  4. Ejemplo: wss://192.168.0.72:10095');
-            setState('ready', 'Error FunASR - configura URL en panel debug');
-            setUserText('', false);
-        }
-    );
-}
-
-// Codifica Float32Array[] → Blob WAV (16-bit mono, little-endian)
-function encodePCMtoWAV(pcmChunks, sampleRate) {
-    const numSamples = pcmChunks.reduce((s, c) => s + c.length, 0);
-    const buf  = new ArrayBuffer(44 + numSamples * 2);
-    const view = new DataView(buf);
-
-    function str(offset, s) {
-        for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
-    }
-
-    str(0, 'RIFF');
-    view.setUint32(4,  36 + numSamples * 2, true); // tamaño total - 8
-    str(8, 'WAVE');
-    str(12, 'fmt ');
-    view.setUint32(16, 16, true);          // subchunk size
-    view.setUint16(20,  1, true);          // PCM = 1
-    view.setUint16(22,  1, true);          // mono
-    view.setUint32(24, sampleRate, true);  // sample rate
-    view.setUint32(28, sampleRate * 2, true); // byte rate (16-bit mono)
-    view.setUint16(32,  2, true);          // block align
-    view.setUint16(34, 16, true);          // bits per sample
-    str(36, 'data');
-    view.setUint32(40, numSamples * 2, true);
-
-    let offset = 44;
-    for (const chunk of pcmChunks) {
-        for (let i = 0; i < chunk.length; i++) {
-            const s = Math.max(-1, Math.min(1, chunk[i]));
-            view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7FFF, true);
-            offset += 2;
-        }
-    }
-
-    LOG(`encodePCMtoWAV: ${numSamples} samples → ${buf.byteLength} bytes`);
-    return new Blob([buf], { type: 'audio/wav' });
-}
 
 
 // ─── Enviar al LLM / backend ───────────────────────────────────────────────
