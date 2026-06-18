@@ -707,6 +707,28 @@ function connectRTC() {
     document.getElementById('btn-connect').classList.add('connected');
     isConnected = true;
 
+
+    // FIX AUTOPLAY LINUX/UBUNTU: vigilar cuando el stream llega al video y forzar play() muted.
+    // Chromium bloquea autoplay con sonido, pero permite muted. El audio se desbloquea al pulsar el mic.
+    const _v = document.getElementById('video');
+    let _vChecks = 0;
+    const _vTimer = setInterval(function() {
+        _vChecks++;
+        if (_v.srcObject) {
+            if (_v.paused) {
+                _v.muted = true;
+                _v.play()
+                    .then(function() { LOG('video.play() OK muted - audio se activa al pulsar el mic'); clearInterval(_vTimer); })
+                    .catch(function(e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+            } else {
+                LOG('Video reproduciendo (srcObject listo, paused=false)');
+                clearInterval(_vTimer);
+            }
+        } else if (_vChecks > 30) {
+            WARN('15s sin stream en el video. Verifica WebRTC (codec VP8/H264) o la red.');
+            clearInterval(_vTimer);
+        }
+    }, 500);
     setTimeout(() => {
         document.getElementById('btn-mic').classList.remove('disabled-btn');
         setState('ready', 'Listo — presiona el micrófono');
@@ -1255,23 +1277,30 @@ async function interruptAvatar() {
 
 // ─── Auto-conectar al cargar ───────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
-    const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-    LOG('DOMContentLoaded — isMobile:', isMobile);
-    LOG('Secure context:', window.isSecureContext, '| location.protocol:', location.protocol);
+    const isMobile  = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    const isFirefox = /Firefox\//.test(navigator.userAgent);
+
+    LOG('DOMContentLoaded - isMobile:', isMobile, '| isFirefox:', isFirefox);
+    LOG('Secure context:', window.isSecureContext, '| protocol:', location.protocol);
 
     if (!window.isSecureContext) {
-        WARN('⚠ CONTEXTO NO SEGURO (HTTP). SpeechRecognition NO funcionará. Usar HTTPS.');
+        WARN('CONTEXTO NO SEGURO (HTTP). SpeechRecognition NO funcionara. Usar HTTPS.');
+    }
+
+    if (isFirefox) {
+        // Firefox elimino SpeechRecognition en v56+. _useFallbackASR ya es true.
+        WARN('Firefox detectado: SpeechRecognition NO disponible en Firefox.');
+        WARN('Para usar el microfono usa Chrome, Chromium o Edge.');
     }
 
     if (isMobile) {
-        LOG('Mobile detectado → esperando tap del usuario (overlay visible)');
-        // nada — el overlay espera el tap
+        LOG('Mobile detectado - overlay visible, esperando tap');
     } else {
-        LOG('Desktop detectado → auto-conectando');
+        LOG('Desktop detectado - auto-conectando. Video inicia muted (se desmuta al pulsar el mic)');
         const overlay = document.getElementById('tap-overlay');
         if (overlay) overlay.style.display = 'none';
-        document.getElementById('video').muted = false;
-        _audioUnlocked = true;
+        // NO seteamos video.muted=false: Chromium bloquea autoplay con sonido sin gesto.
+        // El video arranca muted y se desmuta cuando el usuario pulsa el mic.
         setTimeout(connectRTC, 800);
     }
 });
