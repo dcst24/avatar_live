@@ -860,7 +860,8 @@ async function requestMicPermission() {
 // Variables de estado para detección de cierre rápido
 let _recStartMs   = 0;
 let _gotAnyResult = false;
-let _audioCaptureErrors = 0;  // contador de errores audio-capture → detectar POS
+let _audioCaptureErrors = 0;  // contador errores audio-capture
+let _networkSpeechErrors  = 0;  // errores 'network' de SpeechRecognition (Chromium sin API keys)
 
 function setupRecognition() {
     LOG('setupRecognition: creando instancia...');
@@ -934,8 +935,17 @@ function setupRecognition() {
             ERR('not-allowed: permiso de micrófono denegado');
             setState('ready', '⚠ Permiso de micrófono denegado');
         } else if (e.error === 'network') {
-            ERR('network: error de red STT — ¿hay conexión?');
-            setState('ready', '⚠ Error de red STT');
+            _networkSpeechErrors++;
+            ERR('network error #' + _audioCaptureErrors + ': SpeechRecognition no puede conectar a Google.');
+            ERR('Causa probable: Chromium en Linux sin Google API keys.');
+            ERR('Solucion: usar Google Chrome (chrome.google.com) o activar modo WAV local.');
+            if (_networkSpeechErrors >= 1) {
+                WARN('Activando modo WAV local (backend ASR) tras error de red en SpeechRecognition.');
+                _useFallbackASR = true;
+                setState('ready', 'Modo WAV activado - pulsa el mic para hablar');
+            } else {
+                setState('ready', 'Error de red STT - reintenta o usa Chrome');
+            }
         } else if (e.error !== 'no-speech') {
             setState('ready', `⚠ Error: ${e.error}`);
         } else {
@@ -1057,6 +1067,7 @@ function toggleMic() {
             // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
             LOG('Usando modo SpeechRecognition');
             _audioCaptureErrors = 0;  // reset contador de errores
+            _networkSpeechErrors  = 0;  // reset errores de red
             recognition = setupRecognition();
             if (recognition) {
                 try {
