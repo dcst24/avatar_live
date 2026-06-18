@@ -409,6 +409,31 @@
             font-family: inherit;
             flex-shrink: 0;
         }
+        #dbg-funasr-row {
+            padding: 6px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        #dbg-funasr-row label {
+            color: #a1a1aa; font-size: 11px; font-family: inherit; flex-shrink: 0;
+        }
+        #dbg-funasr-url {
+            flex: 1; min-width: 180px;
+            padding: 4px 8px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(39,39,42,0.9); color: #f4f4f5;
+            font-size: 11px; font-family: inherit; outline: none;
+        }
+        #dbg-funasr-test {
+            padding: 4px 10px; border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(39,39,42,0.8); color: #f4f4f5;
+            font-size: 11px; cursor: pointer; font-family: inherit; flex-shrink: 0;
+        }
     </style>
 </head>
 <body class="state-connecting">
@@ -503,6 +528,12 @@
             <option value="">-- default del sistema --</option>
         </select>
         <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
+    </div>
+    <!-- FunASR URL config -->
+    <div id="dbg-funasr-row">
+        <label>FunASR:</label>
+        <input id="dbg-funasr-url" type="text" placeholder="wss://192.168.x.x:10095" />
+        <button id="dbg-funasr-test" onclick="dbgTestFunASR()">Probar</button>
     </div>
     <div id="dbg-list"></div>
 </div>
@@ -1092,6 +1123,110 @@ let _audioSrc        = null;
 let _scriptProc      = null;
 let _pcmChunks       = [];   // Float32Array[]
 
+// FunASR WebSocket STT
+let _funasrUrl = (function() {
+    try { return localStorage.getItem('funasr_url') || ('wss://' + location.hostname + ':10095'); } catch(e) { return 'wss://' + location.hostname + ':10095'; }
+})();
+
+window.addEventListener('DOMContentLoaded', function() {
+    var inp = document.getElementById('dbg-funasr-url');
+    if (inp) inp.value = _funasrUrl;
+});
+
+function dbgTestFunASR() {
+    var url = document.getElementById('dbg-funasr-url').value.trim();
+    if (!url) { WARN('Ingresa la URL de FunASR'); return; }
+    _funasrUrl = url;
+    try { localStorage.setItem('funasr_url', url); } catch(e) {}
+    LOG('FunASR URL guardada: ' + url);
+    try {
+        var testWs = new WebSocket(url);
+        testWs.onopen = function() { LOG('FunASR conexion OK: ' + url); testWs.close(); };
+        testWs.onerror = function() { ERR('FunASR FALLO en ' + url + ' - verifica que el servidor corra en puerto 10095'); };
+        setTimeout(function() { try { testWs.close(); } catch(e) {} }, 4000);
+    } catch(e) { ERR('FunASR test error: ' + e.message); }
+}
+
+function sendPCMToFunASR(pcmChunks, sampleRate, onTranscript, onError) {
+    var url = _funasrUrl;
+    LOG('FunASR: conectando a ' + url + ' (sampleRate=' + sampleRate + ')');
+    var ws;
+    var transcriptReceived = false;
+    var transcriptTimeout;
+    try { ws = new WebSocket(url); } catch(e) { ERR('FunASR: no se pudo crear WS: ' + e.message); onError('ws_create'); return; }
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = function() {
+        LOG('FunASR: WS abierto, procesando audio...');
+        var totalSamples = 0;
+        pcmChunks.forEach(function(c) { totalSamples += c.length; });
+        var merged = new Float32Array(totalSamples);
+        var offset = 0;
+        pcmChunks.forEach(function(c) { merged.set(c, offset); offset += c.length; });
+        var resampled = merged;
+        if (sampleRate !== 16000) {
+            var ratio = 16000 / sampleRate;
+            var newLen = Math.round(merged.length * ratio);
+            resampled = new Float32Array(newLen);
+            for (var i = 0; i < newLen; i++) {
+                var si = i / ratio; var lo = Math.floor(si); var hi = Math.min(lo+1, merged.length-1); var fr = si-lo;
+                resampled[i] = merged[lo]*(1-fr) + merged[hi]*fr;
+            }
+            LOG('FunASR: resample ' + sampleRate + '->' + 16000 + ' Hz (' + totalSamples + '->' + newLen + ' samples)');
+        }
+        var int16 = new Int16Array(resampled.length);
+        for (var i = 0; i < resampled.length; i++) {
+            var s = Math.max(-1, Math.min(1, resampled[i]));
+            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        ws.send(JSON.stringify({ chunk_size:[5,10,5], wav_name:'avatar', is_speaking:true, chunk_interval:10, mode:'2pass' }));
+        var CHUNK = 960; var pos = 0;
+        while (pos + CHUNK <= int16.length) { ws.send(int16.slice(pos, pos+CHUNK).buffer); pos += CHUNK; }
+        if (pos < int16.length) { ws.send(int16.slice(pos).buffer); }
+        LOG('FunASR: ' + int16.length + ' samples enviados, esperando respuesta...');
+        ws.send(JSON.stringify({ chunk_size:[5,10,5], wav_name:'avatar', is_speaking:false, chunk_interval:10, mode:'2pass' }));
+        transcriptTimeout = setTimeout(function() {
+            if (!transcriptReceived) { WARN('FunASR: timeout 10s sin respuesta'); try { ws.close(); } catch(e){} onError('timeout'); }
+        }, 10000);
+    };
+
+    ws.onmessage = function(evt) {
+        try {
+            var data = JSON.parse(evt.data);
+            var text = (data.text || '').replace(/ +/g,'').trim();
+            var mode = data.mode || '';
+            var isFinal = data.is_final === true;
+            LOG('FunASR msg: mode=' + mode + ' final=' + isFinal + ' text=' + text);
+            if ((mode === '2pass-offline' || mode === 'offline') && text && !transcriptReceived) {
+                transcriptReceived = true; clearTimeout(transcriptTimeout);
+                LOG('FunASR TRANSCRIPCION OK: ' + text);
+                try { ws.close(); } catch(e) {}
+                onTranscript(text);
+            } else if (isFinal && text && !transcriptReceived) {
+                transcriptReceived = true; clearTimeout(transcriptTimeout);
+                LOG('FunASR TRANSCRIPCION (final): ' + text);
+                try { ws.close(); } catch(e) {}
+                onTranscript(text);
+            }
+        } catch(e) { WARN('FunASR: error parseando msg: ' + e.message); }
+    };
+
+    ws.onerror = function(e) {
+        clearTimeout(transcriptTimeout);
+        ERR('FunASR WS error. URL: ' + url);
+        ERR('Verifica que FunASR este corriendo. Configura la URL en el panel debug (campo FunASR).');
+        onError('ws_error');
+    };
+
+    ws.onclose = function(e) {
+        clearTimeout(transcriptTimeout);
+        if (!transcriptReceived && e.code !== 1000) {
+            WARN('FunASR WS cerrado sin transcripcion (code=' + e.code + ')');
+            onError('closed_' + e.code);
+        }
+    };
+}
+
 function startMediaRecorderASR() {
     if (!_micStream) {
         ERR('startMediaRecorderASR: no hay stream de mic');
@@ -1144,15 +1279,15 @@ function startMediaRecorderASR() {
 }
 
 async function stopMediaRecorderASR() {
-    LOG('stopMediaRecorderASR (Web Audio)');
+    LOG('stopMediaRecorderASR (Web Audio + FunASR STT)');
     clearInterval(_recTimerInterval);
 
     // Desconectar grafo de audio
     try { if (_scriptProc) { _scriptProc.disconnect(); _scriptProc = null; } } catch(_) {}
     try { if (_audioSrc)   { _audioSrc.disconnect();   _audioSrc   = null; } } catch(_) {}
 
-    const chunks    = _pcmChunks;
-    _pcmChunks      = [];
+    const chunks     = _pcmChunks;
+    _pcmChunks       = [];
     const sampleRate = _audioCtx ? _audioCtx.sampleRate : 44100;
 
     try { if (_audioCtx) { await _audioCtx.close(); _audioCtx = null; } } catch(_) {}
@@ -1164,42 +1299,44 @@ async function stopMediaRecorderASR() {
         return;
     }
 
-    // Codificar PCM → WAV en el browser
-    const wavBlob = encodePCMtoWAV(chunks, sampleRate);
-    LOG(`WAV generado: ${wavBlob.size} bytes, sampleRate=${sampleRate}`);
+    // Verificar duracion minima
+    const totalSamples = chunks.reduce(function(s,c) { return s + c.length; }, 0);
+    const durationMs   = (totalSamples / sampleRate) * 1000;
+    LOG('Audio grabado: ' + totalSamples + ' samples, ' + durationMs.toFixed(0) + 'ms');
 
-    if (wavBlob.size < 2000) {
-        WARN('Audio demasiado corto, ignorando');
+    if (durationMs < 500) {
+        WARN('Audio demasiado corto (' + durationMs.toFixed(0) + 'ms), ignorando');
         return;
     }
 
-    setState('processing', 'Procesando audio…');
-    setUserText('Procesando…', true);
+    setState('processing', 'Transcribiendo...');
+    setUserText('Procesando voz...', true);
 
-    try {
-        const sessionid = document.getElementById('sessionid').value;
-        const form = new FormData();
-        form.append('file', wavBlob, 'audio.wav');
-        form.append('sessionid', String(sessionid));
-
-        LOG(`Enviando WAV a /humanaudio (${wavBlob.size} bytes)…`);
-        const res = await fetch('/humanaudio', { method: 'POST', body: form });
-        LOG('humanaudio status:', res.status);
-
-        if (!res.ok) {
-            const txt = await res.text();
-            ERR('humanaudio error:', res.status, txt);
-            setState('ready', '⚠ Error STT — intenta de nuevo');
-            return;
+    // Enviar a FunASR para transcripcion
+    sendPCMToFunASR(
+        chunks,
+        sampleRate,
+        function(transcript) {
+            // Exito: enviar texto al LLM
+            LOG('Transcripcion recibida: ' + transcript);
+            if (transcript && transcript.trim()) {
+                sendToLLM(transcript.trim());
+            } else {
+                WARN('Transcripcion vacia');
+                setState('ready', 'Presiona el microfono para hablar');
+            }
+        },
+        function(errorCode) {
+            // Error FunASR: mostrar instrucciones
+            ERR('FunASR fallo (' + errorCode + '). Pasos:');
+            ERR('  1. Verifica que FunASR este corriendo en el servidor');
+            ERR('  2. Abre el panel debug, ingresa la URL correcta en el campo FunASR');
+            ERR('  3. La URL debe ser wss://IP_DEL_SERVIDOR:10095');
+            ERR('  4. Ejemplo: wss://192.168.0.72:10095');
+            setState('ready', 'Error FunASR - configura URL en panel debug');
+            setUserText('', false);
         }
-        const data = await res.json();
-        LOG('humanaudio OK:', JSON.stringify(data));
-        setState('ready', 'Listo — presiona el micrófono');
-        setUserText('', false);
-    } catch(err) {
-        ERR('Error enviando WAV:', err);
-        setState('ready', '⚠ Error de red');
-    }
+    );
 }
 
 // Codifica Float32Array[] → Blob WAV (16-bit mono, little-endian)
