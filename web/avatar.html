@@ -668,7 +668,7 @@ let _audioChunks       = [];      // chunks grabados
 let _recTimerInterval  = null;    // timer de duración visible en UI
 let _recSeconds        = 0;
 // Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
-let _useFallbackASR    = !( window.SpeechRecognition || window.webkitSpeechRecognition );
+let _useFallbackASR    = false;
 
 LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
 
@@ -956,27 +956,14 @@ function setupRecognition() {
         if (e.error === 'audio-capture') {
             _audioCaptureErrors++;
             ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
-            // Después de 2 errores consecutivos de audio-capture → activar fallback WAV
-            if (_audioCaptureErrors >= 2) {
-                WARN('Activando modo WAV fallback (audio-capture persistente)');
-                _useFallbackASR = true;
-            }
             setState('ready', '⚠ Error captura de audio — intenta de nuevo');
         } else if (e.error === 'not-allowed') {
             ERR('not-allowed: permiso de micrófono denegado');
             setState('ready', '⚠ Permiso de micrófono denegado');
         } else if (e.error === 'network') {
             _networkSpeechErrors++;
-            ERR('network error #' + _audioCaptureErrors + ': SpeechRecognition no puede conectar a Google.');
-            ERR('Causa probable: Chromium en Linux sin Google API keys.');
-            ERR('Solucion: usar Google Chrome (chrome.google.com) o activar modo WAV local.');
-            if (_networkSpeechErrors >= 1) {
-                WARN('Activando modo WAV local (backend ASR) tras error de red en SpeechRecognition.');
-                _useFallbackASR = true;
-                setState('ready', 'Modo WAV activado - pulsa el mic para hablar');
-            } else {
-                setState('ready', 'Error de red STT - reintenta o usa Chrome');
-            }
+            ERR('network error #' + _networkSpeechErrors + ': SpeechRecognition no puede conectar a los servidores de voz.');
+            setState('ready', 'Error de red STT — reintenta o verifica soporte de voz');
         } else if (e.error !== 'no-speech') {
             setState('ready', `⚠ Error: ${e.error}`);
         } else {
@@ -1108,6 +1095,9 @@ function toggleMic() {
                     ERR('recognition.start() excepción:', e.name, e.message);
                     stopListening();
                 }
+            } else {
+                setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                stopListening();
             }
         }
     });
