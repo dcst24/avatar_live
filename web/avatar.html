@@ -1315,6 +1315,20 @@
                     return;
                 }
 
+                // ── Desbloquear audio del avatar ────────────────────────────────
+                // El <video> arranca muted. En el flujo original se desmuteaba al
+                // presionar el botón del mic (gesto de usuario). Ahora que el botón
+                // está oculto, lo desbloqueamos cuando el permiso de mic es concedido.
+                if (!_audioUnlocked) {
+                    const videoEl = document.getElementById('video');
+                    videoEl.muted = false;
+                    _audioUnlocked = true;
+                    if (videoEl.srcObject) {
+                        videoEl.play().catch(e => WARN('play() audio unlock error:', e.name));
+                    }
+                    LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
+                }
+
                 if (_useFallbackASR) {
                     LOG('startAlwaysOnListening: modo FunASR (always-on)');
                     startMediaRecorderASR();
