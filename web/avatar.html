@@ -186,7 +186,7 @@
         /* ── Transcript overlay (sobre el video, arriba-izquierda) */
         #transcript-wrap {
             position: absolute;
-            bottom: 130px;
+            bottom: 36px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 20;
@@ -310,6 +310,11 @@
             opacity: 0.35;
             cursor: not-allowed;
             pointer-events: none;
+        }
+
+        /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
+        #btn-mic {
+            display: none !important;
         }
 
         /* ── Botón conectar (bottom-left, discreto) ─────────── */
@@ -850,6 +855,11 @@
         // Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
         let _useFallbackASR = false;
 
+        // ─── Wake-word (always-on mic) ──────────────────────────────────────────
+        const WAKE_WORD = 'hola';        // Palabra de activación (minúsculas, sin tilde)
+        let _wakeDetected = false;       // true cuando ya se detectó la wake-word en el audio actual
+        let _alwaysOnActive = false;     // true cuando el loop de escucha continua está activo
+
         LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
 
         // ─── Estado UI ─────────────────────────────────────────────────────────────
@@ -942,9 +952,9 @@
             }, 500);
             setTimeout(() => {
                 document.getElementById('btn-mic').classList.remove('disabled-btn');
-                setState('ready', 'Listo — presiona el micrófono');
                 startSpeakingMonitor();
-                LOG('Micrófono habilitado, monitor de speaking activo');
+                LOG('Monitor de speaking activo — iniciando always-on listening');
+                startAlwaysOnListening();
             }, 2500);
         }
 
@@ -971,7 +981,12 @@
                             setState('speaking', 'Hablando…');
                         } else {
                             wrap.classList.remove('avatar-speaking');
-                            setState('ready', 'Listo — presiona el micrófono');
+                            LOG('Avatar terminó de hablar → reiniciando escucha always-on');
+                            setTimeout(() => {
+                                if (!isListening && !_alwaysOnActive) {
+                                    startAlwaysOnListening();
+                                }
+                            }, 800);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
@@ -1093,14 +1108,14 @@
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                LOG('SpeechRecognition.onstart — ESCUCHANDO');
+                LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
                 isListening = true;
-                setState('listening', 'Escuchando…');
+                setState('listening', `Esperando "${WAKE_WORD}"…`);
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
                 document.getElementById('icon-stop').style.display = 'block';
-                setUserText('…', true);
+                setUserText('', false);
             };
 
             rec.onaudiostart = () => LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
@@ -1125,8 +1140,47 @@
                     }
                 }
                 if (interim) LOG(`Resultado interim: "${interim}"`);
+
+                const rawText = (final || interim).trim().toLowerCase();
+
+                // ── Detección de wake-word ───────────────────────────────────────
+                if (!_wakeDetected) {
+                    if (rawText.includes(WAKE_WORD)) {
+                        _wakeDetected = true;
+                        LOG(`Wake-word "${WAKE_WORD}" detectada en: "${rawText}"`);
+                        setState('listening', 'Escuchando pregunta…');
+                    } else {
+                        // Sin wake-word: mostrar en dim pero no enviar al LLM
+                        setUserText(final || interim, true);
+                        return;
+                    }
+                }
+
+                // ── Wake-word detectada: mostrar texto y procesar final ───────────
                 setUserText(final || interim, !final);
-                if (final) sendToLLM(final.trim());
+
+                if (final) {
+                    const lowerFinal = final.toLowerCase();
+                    const wakeIdx = lowerFinal.indexOf(WAKE_WORD);
+                    let question = wakeIdx !== -1
+                        ? final.slice(wakeIdx + WAKE_WORD.length).trim()
+                        : final.trim();
+                    // Quitar puntuación/espacios iniciales residuales
+                    question = question.replace(/^[,\.\s¿¡]+/, '').trim();
+
+                    LOG(`Texto tras wake-word: "${question}"`);
+                    _wakeDetected = false;
+
+                    if (question) {
+                        LOG(`Enviando pregunta al LLM: "${question}"`);
+                        _alwaysOnActive = false;  // mic off hasta que avatar termine
+                        sendToLLM(question);
+                    } else {
+                        LOG('Solo wake-word sin pregunta → reiniciando escucha');
+                        setState('listening', `Esperando "${WAKE_WORD}"…`);
+                        // onend reiniciará el ciclo automáticamente
+                    }
+                }
             };
 
             rec.onerror = (e) => {
@@ -1154,18 +1208,15 @@
 
             rec.onend = () => {
                 const elapsed = Date.now() - _recStartMs;
-                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}`);
+                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
 
-                // ─── FIX: cierre rápido sin resultado ─────────────────────────────
-                // En el PRIMER uso en Android, Chrome pide permiso de mic DESPUÉS
-                // de llamar start(). Esto hace que recognition termine en <1.5s sin
-                // resultado. Reintentar una vez es suficiente para resolverlo.
+                // ─── FIX: cierre rápido sin resultado (Android primera vez) ────────
                 if (!_gotAnyResult && elapsed < 1500 && !_useFallbackASR) {
                     WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
                     stopListening();
                     setTimeout(() => {
-                        if (!isListening) {
-                            LOG('Reintento de SpeechRecognition...');
+                        if (!isListening && _alwaysOnActive) {
+                            LOG('Reintento de SpeechRecognition (always-on)...');
                             recognition = setupRecognition();
                             if (recognition) {
                                 try { recognition.start(); }
@@ -1173,10 +1224,21 @@
                             }
                         }
                     }, 700);
-                    return;  // no llamar stopListening de nuevo
+                    return;
                 }
 
                 stopListening();
+
+                // ─── Always-on: reiniciar si no enviamos nada al LLM ────────────
+                // (_alwaysOnActive se pone en false cuando sendToLLM es llamado)
+                if (_alwaysOnActive) {
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 600ms');
+                    setTimeout(() => {
+                        if (_alwaysOnActive && !isListening) {
+                            startAlwaysOnListening();
+                        }
+                    }, 600);
+                }
             };
 
             return rec;
@@ -1205,7 +1267,7 @@
         function stopListening() {
             LOG('stopListening');
             isListening = false;
-            clearTimeout(_stopTimeout); // cancelar el abort de seguridad si onend llegó a tiempo
+            clearTimeout(_stopTimeout);
 
             // Cerrar el stream getUserMedia que mantenía el routing del mic externo
             if (_micStream) {
@@ -1218,10 +1280,80 @@
             btn.classList.remove('listening');
             document.getElementById('icon-mic').style.display = 'block';
             document.getElementById('icon-stop').style.display = 'none';
-            if (!isSpeaking) setState('ready', 'Listo — presiona el micrófono');
+
+            // En modo always-on, el estado lo gestiona startAlwaysOnListening o sendToLLM
+            if (!isSpeaking && !_alwaysOnActive) {
+                setState('processing', 'Procesando…');
+            }
         }
 
-        // ─── Toggle micrófono ──────────────────────────────────────────────────────
+        // ─── Escucha siempre activa con wake-word ────────────────────────────────
+        function startAlwaysOnListening() {
+            if (!isConnected) {
+                LOG('startAlwaysOnListening: avatar no conectado, ignorando');
+                return;
+            }
+            if (isSpeaking) {
+                LOG('startAlwaysOnListening: avatar hablando, esperando a que termine');
+                return;
+            }
+            if (isListening) {
+                LOG('startAlwaysOnListening: ya escuchando, ignorando');
+                return;
+            }
+
+            _alwaysOnActive = true;
+            _wakeDetected = false;
+            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-word="${WAKE_WORD}")`);
+            setState('listening', `Esperando "${WAKE_WORD}"…`);
+
+            requestMicPermission().then(ok => {
+                if (!ok) {
+                    LOG('startAlwaysOnListening: sin permiso de micrófono');
+                    _alwaysOnActive = false;
+                    setState('ready', '⚠ Sin permiso de micrófono');
+                    return;
+                }
+
+                if (_useFallbackASR) {
+                    LOG('startAlwaysOnListening: modo FunASR (always-on)');
+                    startMediaRecorderASR();
+                } else {
+                    LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
+                    _audioCaptureErrors = 0;
+                    _networkSpeechErrors = 0;
+                    recognition = setupRecognition();
+                    if (recognition) {
+                        try {
+                            recognition.start();
+                            LOG('recognition.start() llamado (always-on)');
+                        } catch (e) {
+                            ERR('recognition.start() excepción (always-on):', e.name, e.message);
+                            _alwaysOnActive = false;
+                            stopListening();
+                        }
+                    } else {
+                        WARN('SpeechRecognition no disponible en este navegador');
+                        _alwaysOnActive = false;
+                        setState('ready', '⚠ SpeechRecognition no disponible');
+                    }
+                }
+            });
+        }
+
+        function stopAlwaysOnListening() {
+            LOG('stopAlwaysOnListening: deteniendo escucha continua');
+            _alwaysOnActive = false;
+            _wakeDetected = false;
+            if (_useFallbackASR) {
+                cleanupStreamingASR();
+            } else if (recognition) {
+                try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
+            }
+            stopListening();
+        }
+
+        // ─── Toggle micrófono (disponible para uso manual/debug) ──────────────────
         function toggleMic() {
             LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking, '| fallback:', _useFallbackASR);
 
@@ -1499,13 +1631,54 @@
                     if (text) {
                         LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
                         _lastPartialText = text;
-                        setUserText(text, true);
 
+                        // ── Detección de wake-word (FunASR) ─────────────────────────
+                        if (!_wakeDetected) {
+                            const lowerText = text.toLowerCase();
+                            if (lowerText.includes(WAKE_WORD)) {
+                                _wakeDetected = true;
+                                LOG(`Wake-word "${WAKE_WORD}" detectada (FunASR): "${text}"`);
+                                setState('listening', 'Escuchando pregunta…');
+                            }
+                        }
+                        setUserText(text, !_wakeDetected);
+
+                        // ── Resultado final (fin de habla por VAD) ───────────────────
                         if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
-                            LOG(`FunASR VAD fin de habla detectado: "${text}"`);
-                            cleanupStreamingASR();
-                            stopListening();
-                            sendToLLM(text);
+                            LOG(`FunASR VAD fin de habla: "${text}" | wake=${_wakeDetected}`);
+
+                            if (_wakeDetected) {
+                                // Extraer pregunta (sin la wake-word)
+                                const lowerText2 = text.toLowerCase();
+                                const wakeIdx = lowerText2.indexOf(WAKE_WORD);
+                                let question = wakeIdx !== -1
+                                    ? text.slice(wakeIdx + WAKE_WORD.length).trim()
+                                    : text.trim();
+                                question = question.replace(/^[,\.\s¿¡]+/, '').trim();
+
+                                _wakeDetected = false;
+                                cleanupStreamingASR();
+                                stopListening();
+
+                                if (question) {
+                                    LOG(`FunASR → enviando al LLM: "${question}"`);
+                                    _alwaysOnActive = false;  // mic off hasta que avatar termine
+                                    sendToLLM(question);
+                                } else {
+                                    LOG('FunASR → solo wake-word sin pregunta → reiniciando escucha');
+                                    if (_alwaysOnActive) {
+                                        setTimeout(() => startAlwaysOnListening(), 500);
+                                    }
+                                }
+                            } else {
+                                // Sin wake-word: reiniciar silenciosamente
+                                LOG('FunASR → sin wake-word detectada, reiniciando escucha...');
+                                cleanupStreamingASR();
+                                stopListening();
+                                if (_alwaysOnActive) {
+                                    setTimeout(() => startAlwaysOnListening(), 500);
+                                }
+                            }
                         }
                     }
                 } catch (e) {
@@ -1640,9 +1813,9 @@
             } catch (e) { WARN('interruptAvatar: error de red', e); }
 
             setTimeout(() => {
-                LOG('interruptAvatar: abriendo mic tras interrupción');
-                recognition = setupRecognition();
-                if (recognition) recognition.start();
+                LOG('interruptAvatar: reiniciando always-on listening tras interrupción');
+                isSpeaking = false;
+                startAlwaysOnListening();
             }, 300);
         }
 
