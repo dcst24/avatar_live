@@ -833,9 +833,50 @@
         let _useFallbackASR = false;
 
         // ─── Wake-word (always-on mic) ──────────────────────────────────────────
-        const WAKE_WORD = 'hola';        // Palabra de activación (minúsculas, sin tilde)
+        // Palabras / frases que activan el asistente (todas en minúsculas, sin tilde)
+        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
+        const WAKE_WORD = WAKE_WORDS[0]; // alias para compatibilidad con logs existentes
+
         let _wakeDetected = false;       // true cuando ya se detectó la wake-word en el audio actual
         let _alwaysOnActive = false;     // true cuando el loop de escucha continua está activo
+
+        // Buffer de tiempo tras detectar la wake-word: si el usuario hace una pausa
+        // (p.ej. "Hola... ¿dónde está el martillo?") esperamos hasta WAKE_BUFFER_MS
+        // antes de considerar que no vendrá pregunta y reiniciar el ciclo.
+        const WAKE_BUFFER_MS = 3000;     // ms que esperamos una pregunta tras la wake-word
+        let _wakeBufferTimeout = null;   // timeout ID del buffer
+
+        // Saludo genérico que el avatar usa cuando lo llaman sin pregunta
+        const WAKE_ONLY_GREETINGS = [
+            '¡Hola! ¿En qué te puedo ayudar?',
+            '¡Buenas! ¿Buscas algo en especial?',
+            '¡Hola! ¿Necesitas ayuda para encontrar algo?',
+            'Aquí estoy, ¿en qué te ayudo?'
+        ];
+
+        function _randomGreeting() {
+            return WAKE_ONLY_GREETINGS[Math.floor(Math.random() * WAKE_ONLY_GREETINGS.length)];
+        }
+
+        // Detecta si el texto contiene alguna de las wake-words
+        function _containsWakeWord(text) {
+            const lower = text.toLowerCase();
+            return WAKE_WORDS.some(w => lower.includes(w));
+        }
+
+        // Extrae la pregunta eliminando la wake-word encontrada del inicio
+        function _extractQuestion(text) {
+            const lower = text.toLowerCase();
+            let best = { idx: -1, word: '' };
+            for (const w of WAKE_WORDS) {
+                const i = lower.indexOf(w);
+                if (i !== -1 && (best.idx === -1 || i < best.idx)) {
+                    best = { idx: i, word: w };
+                }
+            }
+            if (best.idx === -1) return text.trim();
+            return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+        }
 
         LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
 
@@ -1087,7 +1128,7 @@
                 _gotAnyResult = false;
                 LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
                 isListening = true;
-                setState('listening', `Esperando "${WAKE_WORD}"…`);
+                setState('listening', `Esperando activación…`);
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
@@ -1122,10 +1163,21 @@
 
                 // ── Detección de wake-word ───────────────────────────────────────
                 if (!_wakeDetected) {
-                    if (rawText.includes(WAKE_WORD)) {
+                    if (_containsWakeWord(rawText)) {
                         _wakeDetected = true;
-                        LOG(`Wake-word "${WAKE_WORD}" detectada en: "${rawText}"`);
+                        LOG(`Wake-word detectada en: "${rawText}"`);
                         setState('listening', 'Escuchando pregunta…');
+                        // Iniciar buffer: si no llega pregunta en WAKE_BUFFER_MS,
+                        // responder con saludo genérico
+                        clearTimeout(_wakeBufferTimeout);
+                        _wakeBufferTimeout = setTimeout(() => {
+                            if (_wakeDetected) {
+                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
+                                _wakeDetected = false;
+                                _alwaysOnActive = false;
+                                sendToLLM(_randomGreeting());
+                            }
+                        }, WAKE_BUFFER_MS);
                     } else {
                         // Sin wake-word: mostrar en dim pero no enviar al LLM
                         setUserText(final || interim, true);
@@ -1137,25 +1189,20 @@
                 setUserText(final || interim, !final);
 
                 if (final) {
-                    const lowerFinal = final.toLowerCase();
-                    const wakeIdx = lowerFinal.indexOf(WAKE_WORD);
-                    let question = wakeIdx !== -1
-                        ? final.slice(wakeIdx + WAKE_WORD.length).trim()
-                        : final.trim();
-                    // Quitar puntuación/espacios iniciales residuales
-                    question = question.replace(/^[,\.\s¿¡]+/, '').trim();
-
+                    const question = _extractQuestion(final);
                     LOG(`Texto tras wake-word: "${question}"`);
-                    _wakeDetected = false;
 
                     if (question) {
+                        clearTimeout(_wakeBufferTimeout);
+                        _wakeDetected = false;
                         LOG(`Enviando pregunta al LLM: "${question}"`);
                         _alwaysOnActive = false;  // mic off hasta que avatar termine
                         sendToLLM(question);
                     } else {
-                        LOG('Solo wake-word sin pregunta → reiniciando escucha');
-                        setState('listening', `Esperando "${WAKE_WORD}"…`);
-                        // onend reiniciará el ciclo automáticamente
+                        // Solo wake-word sin texto adicional: el buffer ya está corriendo;
+                        // onend reiniciará el ciclo y si en el siguiente round tampoco
+                        // hay pregunta, el timeout enviará el saludo.
+                        LOG('Solo wake-word sin pregunta en este resultado — esperando buffer');
                     }
                 }
             };
@@ -1281,8 +1328,9 @@
 
             _alwaysOnActive = true;
             _wakeDetected = false;
-            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-word="${WAKE_WORD}")`);
-            setState('listening', `Esperando "${WAKE_WORD}"…`);
+            clearTimeout(_wakeBufferTimeout);
+            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
+            setState('listening', `Esperando activación…`);
 
             requestMicPermission().then(ok => {
                 if (!ok) {
@@ -1336,6 +1384,7 @@
             LOG('stopAlwaysOnListening: deteniendo escucha continua');
             _alwaysOnActive = false;
             _wakeDetected = false;
+            clearTimeout(_wakeBufferTimeout);
             if (_useFallbackASR) {
                 cleanupStreamingASR();
             } else if (recognition) {
@@ -1625,11 +1674,21 @@
 
                         // ── Detección de wake-word (FunASR) ─────────────────────────
                         if (!_wakeDetected) {
-                            const lowerText = text.toLowerCase();
-                            if (lowerText.includes(WAKE_WORD)) {
+                            if (_containsWakeWord(text)) {
                                 _wakeDetected = true;
-                                LOG(`Wake-word "${WAKE_WORD}" detectada (FunASR): "${text}"`);
+                                LOG(`Wake-word detectada (FunASR): "${text}"`);
                                 setState('listening', 'Escuchando pregunta…');
+                                // Buffer: si no llega pregunta en WAKE_BUFFER_MS → saludo
+                                clearTimeout(_wakeBufferTimeout);
+                                _wakeBufferTimeout = setTimeout(() => {
+                                    if (_wakeDetected) {
+                                        LOG('Buffer FunASR expirado sin pregunta → enviando saludo');
+                                        _wakeDetected = false;
+                                        cleanupStreamingASR();
+                                        _alwaysOnActive = false;
+                                        sendToLLM(_randomGreeting());
+                                    }
+                                }, WAKE_BUFFER_MS);
                             }
                         }
                         setUserText(text, !_wakeDetected);
@@ -1639,26 +1698,25 @@
                             LOG(`FunASR VAD fin de habla: "${text}" | wake=${_wakeDetected}`);
 
                             if (_wakeDetected) {
-                                // Extraer pregunta (sin la wake-word)
-                                const lowerText2 = text.toLowerCase();
-                                const wakeIdx = lowerText2.indexOf(WAKE_WORD);
-                                let question = wakeIdx !== -1
-                                    ? text.slice(wakeIdx + WAKE_WORD.length).trim()
-                                    : text.trim();
-                                question = question.replace(/^[,\.\s¿¡]+/, '').trim();
-
-                                _wakeDetected = false;
-                                cleanupStreamingASR();
-                                stopListening();
+                                const question = _extractQuestion(text);
+                                LOG(`FunASR → pregunta extraída: "${question}"`);
 
                                 if (question) {
+                                    clearTimeout(_wakeBufferTimeout);
+                                    _wakeDetected = false;
+                                    cleanupStreamingASR();
+                                    stopListening();
                                     LOG(`FunASR → enviando al LLM: "${question}"`);
                                     _alwaysOnActive = false;  // mic off hasta que avatar termine
                                     sendToLLM(question);
                                 } else {
-                                    LOG('FunASR → solo wake-word sin pregunta → reiniciando escucha');
+                                    // Solo wake-word: el buffer ya está corriendo;
+                                    // reiniciar escucha para capturar la pregunta que viene
+                                    LOG('FunASR → solo wake-word, buffer activo → reiniciando escucha');
+                                    cleanupStreamingASR();
+                                    stopListening();
                                     if (_alwaysOnActive) {
-                                        setTimeout(() => startAlwaysOnListening(), 500);
+                                        setTimeout(() => startAlwaysOnListening(), 300);
                                     }
                                 }
                             } else {
