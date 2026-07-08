@@ -2114,6 +2114,35 @@
             addChatBubble('user', text);
 
             const sessionid = document.getElementById('sessionid').value;
+
+            if (isSleepWord) {
+                // Generar despedida local sin consultar al LLM
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
+                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
+                    farewellText = "De nada. ¡Que tengas un excelente día!";
+                }
+
+                queueAvatarBubble(farewellText);
+
+                try {
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: farewellText,
+                            type: 'echo',
+                            sessionid: String(sessionid)
+                        })
+                    });
+                } catch (err) {
+                    ERR('sendToLLM farewell error:', err);
+                } finally {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                }
+                return;
+            }
+
             try {
                 const res = await fetch('/human', {
                     method: 'POST',
@@ -2135,10 +2164,6 @@
             } catch (err) {
                 ERR('sendToLLM: error de red:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
-            } finally {
-                if (isSleepWord) {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                }
             }
         }
 
