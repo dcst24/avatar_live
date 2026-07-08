@@ -1223,6 +1223,8 @@
                 if (_conversationAwake) {
                     setState('listening', 'Escuchando…');
                     resetInactivityTimer();
+                } else if (_wakeDetected) {
+                    setState('listening', 'Escuchando pregunta…');
                 } else {
                     setState('listening', 'Esperando activación…');
                 }
@@ -1442,15 +1444,16 @@
             }
 
             _alwaysOnActive = true;
-            _wakeDetected = false;
-            clearTimeout(_wakeBufferTimeout);
-            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
             if (_conversationAwake) {
                 setState('listening', 'Escuchando…');
                 resetInactivityTimer();
+            } else if (_wakeDetected) {
+                setState('listening', 'Escuchando pregunta…');
             } else {
+                clearTimeout(_wakeBufferTimeout);
                 setState('listening', 'Esperando activación…');
             }
+            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
 
             requestMicPermission().then(ok => {
                 if (!ok) {

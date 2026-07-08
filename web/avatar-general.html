@@ -1210,7 +1210,11 @@
                 _gotAnyResult = false;
                 LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
                 isListening = true;
-                setState('listening', `Esperando activación…`);
+                if (_wakeDetected) {
+                    setState('listening', 'Escuchando pregunta…');
+                } else {
+                    setState('listening', 'Esperando activación…');
+                }
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
@@ -1410,10 +1414,13 @@
             }
 
             _alwaysOnActive = true;
-            _wakeDetected = false;
-            clearTimeout(_wakeBufferTimeout);
+            if (!_wakeDetected) {
+                clearTimeout(_wakeBufferTimeout);
+                setState('listening', 'Esperando activación…');
+            } else {
+                setState('listening', 'Escuchando pregunta…');
+            }
             LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
-            setState('listening', `Esperando activación…`);
 
             requestMicPermission().then(ok => {
                 if (!ok) {
