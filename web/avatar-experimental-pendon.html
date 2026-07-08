@@ -1211,7 +1211,7 @@
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
                                 }
-                            }, 800);
+                            }, 300);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
@@ -1248,6 +1248,12 @@
             LOG('requestMicPermission: solicitando getUserMedia...');
             if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
             try {
+                // Reutilizar el stream de micrófono si ya está abierto y activo
+                if (_micStream && _micStream.active) {
+                    LOG('requestMicPermission: reutilizando stream de mic activo');
+                    return true;
+                }
+
                 // Liberar stream anterior si existe
                 if (_micStream) {
                     _micStream.getTracks().forEach(t => { t.stop(); LOG('Track previo detenido:', t.label); });
@@ -1494,12 +1500,12 @@
                 // ─── Always-on: reiniciar si no enviamos nada al LLM ────────────
                 // (_alwaysOnActive se pone en false cuando sendToLLM es llamado)
                 if (_alwaysOnActive) {
-                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 600ms');
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 200ms');
                     setTimeout(() => {
                         if (_alwaysOnActive && !isListening) {
                             startAlwaysOnListening();
                         }
-                    }, 600);
+                    }, 200);
                 }
             };
 
@@ -1531,12 +1537,8 @@
             isListening = false;
             clearTimeout(_stopTimeout);
 
-            // Cerrar el stream getUserMedia que mantenía el routing del mic externo
-            if (_micStream) {
-                _micStream.getTracks().forEach(t => { t.stop(); LOG('Track detenido:', t.label); });
-                _micStream = null;
-                LOG('Stream getUserMedia cerrado');
-            }
+            // NO cerramos el stream de micrófono aquí para permitir su reutilización instantánea
+            // y mantener el ruteo del micrófono externo estable en Android.
 
             const btn = document.getElementById('btn-mic');
             btn.classList.remove('listening');
