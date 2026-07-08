@@ -914,6 +914,8 @@
         let _conversationAwake = false;  // true si el usuario ya despertó al modelo
         let _inactivityTimeoutId = null; // temporizador de inactividad
         let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
+        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
+        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
         const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutos (120,000 ms) antes de volver a dormir
 
         // Buffer de tiempo tras detectar la wake-word: si el usuario hace una pausa
@@ -1026,6 +1028,26 @@
             }, 30000);
         }
 
+        function queueAvatarBubble(text) {
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = text;
+            
+            if (isSpeaking) {
+                // Si ya está hablando, mostrar de inmediato
+                addChatBubble('avatar', _pendingAvatarBubbleText);
+                _pendingAvatarBubbleText = null;
+                return;
+            }
+            
+            // Timeout de seguridad de 4 segundos
+            _pendingAvatarBubbleTimeout = setTimeout(() => {
+                if (_pendingAvatarBubbleText) {
+                    addChatBubble('avatar', _pendingAvatarBubbleText);
+                    _pendingAvatarBubbleText = null;
+                }
+            }, 4000);
+        }
+
         function scheduleFollowUp() {
             clearTimeout(_followUpTimeoutId);
             if (!_conversationAwake) return;
@@ -1033,8 +1055,11 @@
                 LOG("30 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
                 
-                // Agregar burbuja del avatar directamente
-                addChatBubble('avatar', followUpText);
+                // Encolar burbuja del avatar para cuando empiece a hablar
+                queueAvatarBubble(followUpText);
+
+                // IMPORTANTE: Detener el micrófono antes de que el avatar hable, para evitar auto-grabación
+                stopAlwaysOnListening();
                 
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
@@ -1151,7 +1176,7 @@
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
-                if (!isConnected || isListening) return;
+                if (!isConnected) return;
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1168,6 +1193,14 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            setUserText('', false); // Limpiar/ocultar texto flotante del usuario
+                            
+                            // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
+                            if (_pendingAvatarBubbleText) {
+                                clearTimeout(_pendingAvatarBubbleTimeout);
+                                addChatBubble('avatar', _pendingAvatarBubbleText);
+                                _pendingAvatarBubbleText = null;
+                            }
                         } else {
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
@@ -2084,7 +2117,7 @@
                 if (data.code === 0 && data.data && data.data.response) {
                     const reply = data.data.response;
                     LOG('sendToLLM: respuesta del LLM obtenida:', reply);
-                    addChatBubble('avatar', reply);
+                    queueAvatarBubble(reply);
                 }
             } catch (err) {
                 ERR('sendToLLM: error de red:', err);
