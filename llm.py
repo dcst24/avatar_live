@@ -153,11 +153,17 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
             logger.info(f"[LLM] -> avatar (ultimo): {chunk.strip()}")
             avatar_session.put_msg_txt(chunk.strip(), datainfo)
 
+        return full_text
+
     except requests.exceptions.Timeout:
         logger.error("[LLM] Timeout al conectar con Ollama (>120s)")
+        return "Disculpa, el servidor de lenguaje tardó demasiado en responder."
     except requests.exceptions.ConnectionError as e:
         logger.error(f"[LLM] No se pudo conectar a Ollama: {e}")
+        return "Disculpa, no me pude conectar al servidor de lenguaje."
     except KeyError as e:
         logger.error(f"[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
-    except Exception:
+        return "Disculpa, recibí una respuesta inesperada."
+    except Exception as e:
         logger.exception("[LLM] Error inesperado:")
+        return f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"

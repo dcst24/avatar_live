@@ -59,12 +59,15 @@ async def human(request):
 
         if params['type'] == 'echo':
             avatar_session.put_msg_txt(params['text'], datainfo)
+            return json_ok()
         elif params['type'] == 'chat':
             llm_response = request.app.get("llm_response")
             if llm_response:
-                asyncio.get_event_loop().run_in_executor(
+                loop = asyncio.get_event_loop()
+                response_text = await loop.run_in_executor(
                     None, llm_response, params['text'], avatar_session, datainfo
                 )
+                return json_ok(data={"response": response_text})
 
         return json_ok()
     except Exception as e:
