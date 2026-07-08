@@ -155,6 +155,11 @@ async def avatar_general(request):
     return web.FileResponse('web/avatar-general.html')
 
 
+async def avatar_experimental(request):
+    """Servir la página avatar-experimental.html directamente"""
+    return web.FileResponse('web/avatar-experimental.html')
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -166,4 +171,5 @@ def setup_routes(app):
     app.router.add_post("/interrupt_talk", interrupt_talk)
     app.router.add_post("/is_speaking", is_speaking)
     app.router.add_get("/avatar-general", avatar_general)
+    app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_static('/', path='web')

@@ -589,7 +589,6 @@
 
         /* ── Responsividad en dispositivos móviles y tabletas ── */
         @media (max-width: 768px) {
-
             /* Video cubre toda la pantalla en móviles, recortando lados si el video es horizontal */
             #video {
                 object-fit: cover;
@@ -605,7 +604,6 @@
                 gap: 6px;
                 border-radius: 12px;
             }
-
             #btn-connect svg {
                 width: 12px;
                 height: 12px;
@@ -623,11 +621,9 @@
                 bottom: 48px;
                 width: 90vw;
             }
-
             .transcript-text {
                 font-size: 15px;
             }
-
             .transcript-label {
                 font-size: 11px;
                 width: 36px;
@@ -637,31 +633,21 @@
             #dbg-panel {
                 padding-bottom: 20px;
             }
-
             #dbg-toolbar span {
                 font-size: 14px;
             }
-
-            #dbg-clear,
-            #dbg-close {
+            #dbg-clear, #dbg-close {
                 padding: 6px 14px;
                 font-size: 12px;
             }
-
-            #dbg-mic-row,
-            #dbg-funasr-row {
+            #dbg-mic-row, #dbg-funasr-row {
                 padding: 10px 14px;
                 gap: 12px;
             }
-
-            #dbg-mic-select,
-            #dbg-funasr-url,
-            #dbg-mic-refresh,
-            #dbg-funasr-test {
+            #dbg-mic-select, #dbg-funasr-url, #dbg-mic-refresh, #dbg-funasr-test {
                 padding: 6px 10px;
                 font-size: 12px;
             }
-
             #dbg-list {
                 font-size: 12px;
             }
@@ -922,10 +908,15 @@
         let _alwaysOnActive = false;     // true cuando el loop de escucha continua está activo
         let _lastWakeWordText = '';      // texto de la wake-word detectada (p.ej. "Hola")
 
+        // ─── Modo Conversación Abierta (Experimental) ──────────────────────────
+        let _conversationAwake = false;  // true si el usuario ya despertó al modelo
+        let _inactivityTimeoutId = null; // temporizador de inactividad
+        const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutos (120,000 ms) antes de volver a dormir
+
         // Buffer de tiempo tras detectar la wake-word: si el usuario hace una pausa
         // (p.ej. "Hola... ¿dónde está el martillo?") esperamos hasta WAKE_BUFFER_MS
         // antes de considerar que no vendrá pregunta y reiniciar el ciclo.
-        const BUFFER_MS = 5000;     // ms que esperamos una pregunta tras la wake-word
+        const BUFFER_MS = 5000;     // ms que esperamos una pregunta tras la wake-word (sincronizado con avatar-general)
         let _wakeBufferTimeout = null;   // timeout ID del buffer
 
         // Saludo genérico que el avatar usa cuando lo llaman sin pregunta
@@ -958,6 +949,25 @@
             }
             if (best.idx === -1) return text.trim();
             return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+        }
+
+        function wakeUpModel() {
+            if (!_conversationAwake) {
+                LOG("Despertando el modelo experimental (conversación abierta).");
+                _conversationAwake = true;
+            }
+            resetInactivityTimer();
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(_inactivityTimeoutId);
+            if (!_conversationAwake) return;
+            _inactivityTimeoutId = setTimeout(() => {
+                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
+                _conversationAwake = false;
+                _wakeDetected = false;
+                setState('listening', 'Esperando activación…');
+            }, INACTIVITY_TIMEOUT_MS);
         }
 
         LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
@@ -1210,7 +1220,12 @@
                 _gotAnyResult = false;
                 LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
                 isListening = true;
-                setState('listening', `Esperando activación…`);
+                if (_conversationAwake) {
+                    setState('listening', 'Escuchando…');
+                    resetInactivityTimer();
+                } else {
+                    setState('listening', 'Esperando activación…');
+                }
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
@@ -1243,7 +1258,22 @@
 
                 const rawText = (final || interim).trim().toLowerCase();
 
-                // ── Detección de wake-word ───────────────────────────────────────
+                // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
+                if (_conversationAwake) {
+                    resetInactivityTimer();
+                    setUserText(final || interim, !final);
+                    if (final) {
+                        const question = final.trim();
+                        if (question) {
+                            LOG(`Conversación abierta → Enviando directamente al LLM: "${question}"`);
+                            _alwaysOnActive = false; // Detener mic hasta que responda
+                            sendToLLM(question);
+                        }
+                    }
+                    return;
+                }
+
+                // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
                 if (!_wakeDetected) {
                     if (_containsWakeWord(rawText)) {
                         _wakeDetected = true;
@@ -1251,13 +1281,14 @@
                         LOG(`Wake-word detectada en: "${rawText}", guardando texto: "${_lastWakeWordText}"`);
                         setState('listening', 'Escuchando pregunta…');
                         // Iniciar buffer: si no llega pregunta en WAKE_BUFFER_MS,
-                        // responder con la wake-word que se dijo originalmente
+                        // responder con la wake-word que se dijo originalmente y despertar el modelo
                         clearTimeout(_wakeBufferTimeout);
                         _wakeBufferTimeout = setTimeout(() => {
                             if (_wakeDetected) {
                                 LOG('Buffer expirado sin pregunta → enviando wake-word sola al LLM:', _lastWakeWordText);
                                 _wakeDetected = false;
                                 _alwaysOnActive = false;
+                                wakeUpModel();
                                 sendToLLM(_lastWakeWordText);
                             }
                         }, WAKE_BUFFER_MS);
@@ -1280,6 +1311,7 @@
                         _wakeDetected = false;
                         LOG(`Enviando pregunta al LLM: "${question}"`);
                         _alwaysOnActive = false;  // mic off hasta que avatar termine
+                        wakeUpModel();
                         sendToLLM(question);
                     } else {
                         // Solo wake-word sin texto adicional: el buffer ya está corriendo;
@@ -1413,7 +1445,12 @@
             _wakeDetected = false;
             clearTimeout(_wakeBufferTimeout);
             LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
-            setState('listening', `Esperando activación…`);
+            if (_conversationAwake) {
+                setState('listening', 'Escuchando…');
+                resetInactivityTimer();
+            } else {
+                setState('listening', 'Esperando activación…');
+            }
 
             requestMicPermission().then(ok => {
                 if (!ok) {
@@ -1755,7 +1792,25 @@
                         LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
                         _lastPartialText = text;
 
-                        // ── Detección de wake-word (FunASR) ─────────────────────────
+                        // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
+                        if (_conversationAwake) {
+                            resetInactivityTimer();
+                            setUserText(text, false);
+
+                            if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
+                                LOG(`FunASR VAD fin de habla (conversación abierta): "${text}"`);
+                                clearTimeout(_wakeBufferTimeout);
+                                _wakeDetected = false;
+                                cleanupStreamingASR();
+                                stopListening();
+                                LOG(`FunASR → enviando al LLM directamente: "${text}"`);
+                                _alwaysOnActive = false; // mic off
+                                sendToLLM(text);
+                            }
+                            return;
+                        }
+
+                        // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
                         if (!_wakeDetected) {
                             if (_containsWakeWord(text)) {
                                 _wakeDetected = true;
@@ -1770,6 +1825,7 @@
                                         _wakeDetected = false;
                                         cleanupStreamingASR();
                                         _alwaysOnActive = false;
+                                        wakeUpModel();
                                         sendToLLM(_lastWakeWordText);
                                     }
                                 }, WAKE_BUFFER_MS);
@@ -1792,6 +1848,7 @@
                                     stopListening();
                                     LOG(`FunASR → enviando al LLM: "${question}"`);
                                     _alwaysOnActive = false;  // mic off hasta que avatar termine
+                                    wakeUpModel();
                                     sendToLLM(question);
                                 } else {
                                     // Solo wake-word: el buffer ya está corriendo;
