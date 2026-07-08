@@ -36,7 +36,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription,RTCIceServer,RTCConf
 from aiortc.rtcrtpsender import RTCRtpSender
 from server.webrtc import HumanPlayer
 from avatars.base_avatar import BaseAvatar
-from llm import llm_response
+from llm import llm_response, llm_response_stream
 import registry
 from server.routes import setup_routes
 from server.rtc_manager import RTCManager
@@ -153,6 +153,7 @@ def main():
     #############################################################################
     appasync = web.Application(client_max_size=1024**2*100)
     appasync["llm_response"] = llm_response
+    appasync["llm_response_stream"] = llm_response_stream
 
     appasync.on_shutdown.append(on_shutdown)
     appasync.router.add_post("/offer", offer)

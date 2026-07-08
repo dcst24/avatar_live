@@ -1092,6 +1092,8 @@
                     }
                 }, 500);
             }, 30000);
+
+            return bubble;
         }
 
         function queueAvatarBubble(text) {
@@ -2217,18 +2219,46 @@
                         text,
                         type: 'chat',
                         interrupt: true,
+                        stream: true,
                         sessionid: String(sessionid)
                     })
                 });
                 LOG('sendToLLM: respuesta status', res.status);
-                const data = await res.json();
-                if (data.code === 0 && data.data && data.data.response) {
-                    const reply = data.data.response;
-                    LOG('sendToLLM: respuesta del LLM obtenida:', reply);
-                    queueAvatarBubble(reply);
+                
+                if (!res.body) {
+                    throw new Error("Respuesta del servidor no soporta streaming.");
                 }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let fullText = '';
+                let avatarBubble = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+
+                    // Crear la burbuja en el primer fragmento de texto
+                    if (!avatarBubble && fullText.trim()) {
+                        avatarBubble = addChatBubble('avatar', '');
+                    }
+
+                    if (avatarBubble) {
+                        avatarBubble.textContent = fullText;
+                        const container = document.getElementById('chat-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }
+                }
+
+                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
+
             } catch (err) {
-                ERR('sendToLLM: error de red:', err);
+                ERR('sendToLLM: error de red o streaming:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
             }
         }

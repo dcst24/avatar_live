@@ -4,6 +4,7 @@
 ###############################################################################
 
 import time
+import json
 import requests
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -169,3 +170,67 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
     except Exception as e:
         logger.exception("[LLM] Error inesperado:")
         return f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"
+
+
+def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
+    """
+    Envía `message` al LLM y rinde los fragmentos de respuesta a medida que van llegando
+    de Ollama, alimentando al avatar en tiempo real y haciendo yield para el streaming HTTP.
+    """
+    try:
+        start = time.perf_counter()
+        logger.info(f"[LLM Stream] Enviando mensaje: {message}")
+
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user",   "content": message},
+            ],
+            "temperature": 0.7,
+            "stream": True,
+            "keep_alive": "7200m",
+        }
+
+        response = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=120)
+        response.raise_for_status()
+
+        chunk_buf = ""
+        full_text = ""
+
+        for line in response.iter_lines():
+            if not line:
+                continue
+
+            try:
+                data = json.loads(line.decode('utf-8'))
+                content = data.get("message", {}).get("content", "")
+                if not content:
+                    continue
+
+                yield content
+                full_text += content
+                chunk_buf += content
+
+                # Dividir en fragmentos por puntuación para alimentar al avatar
+                if content[-1] in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
+                    fragment = chunk_buf.strip()
+                    if fragment:
+                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
+                        avatar_session.put_msg_txt(fragment, datainfo)
+                    chunk_buf = ""
+
+            except Exception as e:
+                logger.error(f"[LLM Stream] Error parseando línea: {e}")
+
+        # Enviar cualquier texto restante al avatar
+        if chunk_buf.strip():
+            logger.info(f"[LLM Stream] -> avatar (ultimo): {chunk_buf.strip()}")
+            avatar_session.put_msg_txt(chunk_buf.strip(), datainfo)
+
+        elapsed = time.perf_counter() - start
+        logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s, total chars={len(full_text)}")
+
+    except Exception as e:
+        logger.exception("[LLM Stream] Error:")
+        yield f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"

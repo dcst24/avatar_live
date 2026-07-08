@@ -38,6 +38,31 @@ def get_session(request, sessionid: str):
     return session_manager.get_session(sessionid)
 
 
+async def async_generator_from_sync(sync_gen, *args, **kwargs):
+    queue = asyncio.Queue()
+    loop = asyncio.get_event_loop()
+
+    def run_sync():
+        try:
+            for item in sync_gen(*args, **kwargs):
+                loop.call_soon_threadsafe(queue.put_nowait, item)
+        except Exception as e:
+            loop.call_soon_threadsafe(queue.put_nowait, e)
+        finally:
+            loop.call_soon_threadsafe(queue.put_nowait, None)
+
+    # Run the synchronous generator in a background thread
+    await loop.run_in_executor(None, run_sync)
+
+    while True:
+        item = await queue.get()
+        if item is None:
+            break
+        if isinstance(item, Exception):
+            raise item
+        yield item
+
+
 # ─── 路由处理函数 ──────────────────────────────────────────────────────────
 
 async def human(request):
@@ -61,13 +86,36 @@ async def human(request):
             avatar_session.put_msg_txt(params['text'], datainfo)
             return json_ok()
         elif params['type'] == 'chat':
-            llm_response = request.app.get("llm_response")
-            if llm_response:
-                loop = asyncio.get_event_loop()
-                response_text = await loop.run_in_executor(
-                    None, llm_response, params['text'], avatar_session, datainfo
+            llm_response_stream = request.app.get("llm_response_stream")
+            if params.get('stream') and llm_response_stream:
+                response = web.StreamResponse(
+                    status=200,
+                    reason='OK',
+                    headers={
+                        'Content-Type': 'text/event-stream',
+                        'Cache-Control': 'no-cache',
+                        'Connection': 'keep-alive',
+                    }
                 )
-                return json_ok(data={"response": response_text})
+                await response.prepare(request)
+
+                async_gen = async_generator_from_sync(
+                    llm_response_stream, params['text'], avatar_session, datainfo
+                )
+
+                async for chunk in async_gen:
+                    await response.write(chunk.encode('utf-8'))
+
+                await response.write_eof()
+                return response
+            else:
+                llm_response = request.app.get("llm_response")
+                if llm_response:
+                    loop = asyncio.get_event_loop()
+                    response_text = await loop.run_in_executor(
+                        None, llm_response, params['text'], avatar_session, datainfo
+                    )
+                    return json_ok(data={"response": response_text})
 
         return json_ok()
     except Exception as e:
