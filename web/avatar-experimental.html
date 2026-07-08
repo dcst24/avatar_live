@@ -711,6 +711,13 @@
             from { opacity: 0; transform: translateY(10px) scale(0.95); }
             to { opacity: 1; transform: translateY(0) scale(1); }
         }
+        .chat-bubble.fade-out {
+            animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        @keyframes bubble-fadeout {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-10px) scale(0.95); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; opacity: 0; }
+        }
     </style>
 </head>
 
@@ -1019,14 +1026,16 @@
             return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
         }
 
-        function sleepModel() {
+        function sleepModel(showBubble = false) {
             LOG("Durmiendo el modelo experimental (conversación cerrada).");
             _conversationAwake = false;
             _wakeDetected = false;
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
             setState('listening', 'Esperando activación…');
-            addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+            if (showBubble) {
+                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+            }
         }
 
         function wakeUpModel() {
@@ -1071,6 +1080,16 @@
             while (container.children.length > 5) {
                 container.removeChild(container.firstChild);
             }
+
+            // Auto-borrado tras 30 segundos con transición suave
+            setTimeout(() => {
+                bubble.classList.add('fade-out');
+                setTimeout(() => {
+                    if (bubble.parentNode) {
+                        bubble.parentNode.removeChild(bubble);
+                    }
+                }, 500);
+            }, 30000);
         }
 
         function scheduleFollowUp() {
@@ -1397,13 +1416,14 @@
                     if (final) {
                         const question = final.trim();
                         if (question) {
-                            if (_isSleepWord(question)) {
+                            const isSleep = _isSleepWord(question);
+                            if (isSleep) {
                                 LOG(`Despedida detectada en SpeechRecognition: "${question}". Durmiendo.`);
-                                sleepModel();
+                                sleepModel(false);
                             }
                             LOG(`Conversación abierta → Enviando directamente al LLM: "${question}"`);
                             _alwaysOnActive = false; // Detener mic hasta que responda
-                            sendToLLM(question);
+                            sendToLLM(question, isSleep);
                         }
                     }
                     return;
@@ -1941,13 +1961,14 @@
                                 _wakeDetected = false;
                                 cleanupStreamingASR();
                                 stopListening();
-                                if (_isSleepWord(text)) {
+                                const isSleep = _isSleepWord(text);
+                                if (isSleep) {
                                     LOG(`Despedida detectada (FunASR): "${text}". Durmiendo.`);
-                                    sleepModel();
+                                    sleepModel(false);
                                 }
                                 LOG(`FunASR → enviando al LLM directamente: "${text}"`);
                                 _alwaysOnActive = false; // mic off
-                                sendToLLM(text);
+                                sendToLLM(text, isSleep);
                             }
                             return;
                         }
@@ -2105,9 +2126,9 @@
 
 
 
-        async function sendToLLM(text) {
+        async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
-            LOG(`sendToLLM: "${text}"`);
+            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('processing', 'Procesando…');
             setUserText(text, false);
             addChatBubble('user', text);
@@ -2134,6 +2155,10 @@
             } catch (err) {
                 ERR('sendToLLM: error de red:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
+            } finally {
+                if (isSleepWord) {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                }
             }
         }
 
