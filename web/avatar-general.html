@@ -66,7 +66,7 @@
         }
 
         #video {
-            /* width: 100%; */
+            width: 100%;
             height: 100%;
             /* position: absolute;
             top: 25%; */
@@ -585,6 +585,72 @@
             cursor: pointer;
             font-family: inherit;
             flex-shrink: 0;
+        }
+
+        /* ── Responsividad en dispositivos móviles y tabletas ── */
+        @media (max-width: 768px) {
+            /* Video cubre toda la pantalla en móviles, recortando lados si el video es horizontal */
+            #video {
+                object-fit: cover;
+            }
+
+            /* Botón de conectar más accesible al tacto */
+            #btn-connect {
+                top: 16px;
+                left: 16px;
+                height: 36px;
+                padding: 0 16px;
+                font-size: 13px;
+                gap: 6px;
+                border-radius: 12px;
+            }
+            #btn-connect svg {
+                width: 12px;
+                height: 12px;
+            }
+
+            /* Indicador de estado más visible */
+            #status-badge {
+                top: 16px;
+                font-size: 13px;
+                padding: 8px 16px;
+            }
+
+            /* Transcripción más legible */
+            #transcript-wrap {
+                bottom: 48px;
+                width: 90vw;
+            }
+            .transcript-text {
+                font-size: 15px;
+            }
+            .transcript-label {
+                font-size: 11px;
+                width: 36px;
+            }
+
+            /* Panel de depuración móvil */
+            #dbg-panel {
+                padding-bottom: 20px;
+            }
+            #dbg-toolbar span {
+                font-size: 14px;
+            }
+            #dbg-clear, #dbg-close {
+                padding: 6px 14px;
+                font-size: 12px;
+            }
+            #dbg-mic-row, #dbg-funasr-row {
+                padding: 10px 14px;
+                gap: 12px;
+            }
+            #dbg-mic-select, #dbg-funasr-url, #dbg-mic-refresh, #dbg-funasr-test {
+                padding: 6px 10px;
+                font-size: 12px;
+            }
+            #dbg-list {
+                font-size: 12px;
+            }
         }
     </style>
 </head>
