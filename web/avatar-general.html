@@ -1079,6 +1079,15 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            
+                            // Detener el micrófono de inmediato al empezar a hablar para evitar auto-grabación
+                            _alwaysOnActive = false;
+                            if (_useFallbackASR) {
+                                cleanupStreamingASR();
+                            } else if (recognition) {
+                                try { recognition.abort(); } catch (e) {}
+                            }
+                            stopListening();
                         } else {
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
@@ -1230,6 +1239,10 @@
             rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
 
             rec.onresult = (event) => {
+                if (isSpeaking) {
+                    LOG("onresult ignorado porque el avatar está hablando");
+                    return;
+                }
                 _gotAnyResult = true;
                 let interim = '';
                 let final = '';
@@ -1752,6 +1765,10 @@
             };
 
             _funasrWs.onmessage = function (evt) {
+                if (isSpeaking) {
+                    LOG("FunASR msg ignorado porque el avatar está hablando");
+                    return;
+                }
                 try {
                     const data = JSON.parse(evt.data);
                     const text = (data.text || '').replace(/ +/g, '').trim();

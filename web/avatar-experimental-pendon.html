@@ -1195,6 +1195,9 @@
                             setState('speaking', 'Hablando…');
                             setUserText('', false); // Limpiar/ocultar texto flotante del usuario
                             
+                            // IMPORTANTE: Detener el micrófono en el cliente de inmediato si el avatar empieza a hablar
+                            stopAlwaysOnListening();
+                            
                             // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
@@ -1364,6 +1367,10 @@
             rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
 
             rec.onresult = (event) => {
+                if (isSpeaking) {
+                    LOG("onresult ignorado porque el avatar está hablando");
+                    return;
+                }
                 _gotAnyResult = true;
                 clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando el usuario empieza a hablar
                 let interim = '';
@@ -1908,6 +1915,10 @@
             };
 
             _funasrWs.onmessage = function (evt) {
+                if (isSpeaking) {
+                    LOG("FunASR msg ignorado porque el avatar está hablando");
+                    return;
+                }
                 try {
                     const data = JSON.parse(evt.data);
                     const text = (data.text || '').replace(/ +/g, '').trim();
