@@ -58,9 +58,10 @@
 
         /* ── Avatar ocupa toda la pantalla ──────────────────── */
         #avatar-wrap {
-            position: relative;
+            top: 0px;
+            position: absolute;
             width: 100%;
-            height: 100%;
+            height: 65%;
             overflow: hidden;
             background: var(--surface);
         }
@@ -590,9 +591,9 @@
         /* ── Burbujas de chat sobrepuestas ── */
         #chat-container {
             position: absolute;
-            left: 20px;
-            bottom: 140px;
-            width: min(350px, 85vw);
+            left: 10px;
+            bottom: 130px;
+            width: min(100px, 85vw);
             max-height: 40vh;
             overflow-y: auto;
             display: flex;
@@ -602,13 +603,15 @@
             pointer-events: auto;
             scrollbar-width: none;
         }
+
         #chat-container::-webkit-scrollbar {
             display: none;
         }
+
         .chat-bubble {
             padding: 10px 14px;
             border-radius: 16px;
-            font-size: 13px;
+            font-size: 6px;
             line-height: 1.45;
             max-width: 85%;
             word-break: break-word;
@@ -619,15 +622,18 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #f4f4f5;
         }
+
         .chat-bubble.user {
             align-self: flex-end;
             background: rgba(99, 102, 241, 0.25);
             border-color: rgba(99, 102, 241, 0.4);
             color: #e0e7ff;
         }
+
         .chat-bubble.avatar {
             align-self: flex-start;
         }
+
         .chat-bubble.system {
             align-self: center;
             background: rgba(24, 24, 27, 0.35);
@@ -641,16 +647,41 @@
             box-shadow: none;
             max-width: 90%;
         }
+
         @keyframes bubble-appear {
-            from { opacity: 0; transform: translateY(10px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
+
         .chat-bubble.fade-out {
             animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
         @keyframes bubble-fadeout {
-            from { opacity: 1; transform: translateY(0) scale(1); }
-            to { opacity: 0; transform: translateY(-10px) scale(0.95); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; opacity: 0; }
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.95);
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                border-top-width: 0;
+                border-bottom-width: 0;
+                opacity: 0;
+            }
         }
     </style>
 </head>
@@ -957,7 +988,7 @@
         }
 
         function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
             const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias'];
             return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
         }
@@ -993,7 +1024,7 @@
                 _conversationAwake = false;
                 _wakeDetected = false;
                 setState('listening', 'Esperando activación…');
-                
+
                 // Limpiar chat al vencer la sesión
                 const container = document.getElementById('chat-container');
                 if (container) container.innerHTML = '';
@@ -1033,14 +1064,14 @@
         function queueAvatarBubble(text) {
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = text;
-            
+
             if (isSpeaking) {
                 // Si ya está hablando, mostrar de inmediato
                 addChatBubble('avatar', _pendingAvatarBubbleText);
                 _pendingAvatarBubbleText = null;
                 return;
             }
-            
+
             // Timeout de seguridad de 4 segundos
             _pendingAvatarBubbleTimeout = setTimeout(() => {
                 if (_pendingAvatarBubbleText) {
@@ -1056,13 +1087,13 @@
             _followUpTimeoutId = setTimeout(() => {
                 LOG("30 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
-                
+
                 // Encolar burbuja del avatar para cuando empiece a hablar
                 queueAvatarBubble(followUpText);
 
                 // IMPORTANTE: Detener el micrófono antes de que el avatar hable, para evitar auto-grabación
                 stopAlwaysOnListening();
-                
+
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -1196,10 +1227,10 @@
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             setUserText('', false); // Limpiar/ocultar texto flotante del usuario
-                            
+
                             // IMPORTANTE: Detener el micrófono en el cliente de inmediato si el avatar empieza a hablar
                             stopAlwaysOnListening();
-                            
+
                             // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
@@ -2119,7 +2150,7 @@
 
             if (isSleepWord) {
                 // Generar despedida local sin consultar al LLM
-                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
                 let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
                     farewellText = "De nada. ¡Que tengas un excelente día!";
@@ -2158,7 +2189,7 @@
                     })
                 });
                 LOG('sendToLLM: respuesta status', res.status);
-                
+
                 if (!res.body) {
                     throw new Error("Respuesta del servidor no soporta streaming.");
                 }
