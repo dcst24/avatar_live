@@ -1043,12 +1043,12 @@
             // Desplazarse al final
             container.scrollTop = container.scrollHeight;
 
-            // Limitar a máximo 5 burbujas para no saturar la pantalla
-            while (container.children.length > 5) {
+            // Limitar a máximo 2 burbujas en pantalla (pregunta + respuesta)
+            while (container.children.length > 2) {
                 container.removeChild(container.firstChild);
             }
 
-            // Auto-borrado tras 30 segundos con transición suave
+            // Auto-borrado tras 20 segundos con transición suave
             setTimeout(() => {
                 bubble.classList.add('fade-out');
                 setTimeout(() => {
@@ -1056,7 +1056,7 @@
                         bubble.parentNode.removeChild(bubble);
                     }
                 }, 500);
-            }, 30000);
+            }, 20000);
 
             return bubble;
         }
