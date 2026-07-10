@@ -591,15 +591,14 @@
         /* ── Burbujas de chat sobrepuestas ── */
         #chat-container {
             position: absolute;
-            top: 5px;
-            left: 5px;
-            width: 406px;       /* ancho del video (416px) - 10px márgenes */
-            height: 128px;      /* alto del video (138px) - 10px márgenes */
-            overflow: hidden;
+            left: 10px;
+            bottom: 130px;
+            width: min(100px, 85vw);
+            max-height: 40vh;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
-            gap: 0;
+            gap: 10px;
             z-index: 25;
             pointer-events: auto;
             scrollbar-width: none;
@@ -610,11 +609,11 @@
         }
 
         .chat-bubble {
-            padding: 4px 8px;
-            border-radius: 10px;
-            font-size: 4px;
-            line-height: 1.4;
-            max-width: 90%;
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 6px;
+            line-height: 1.45;
+            max-width: 85%;
             word-break: break-word;
             animation: bubble-appear 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
             background: rgba(24, 24, 27, 0.55);
