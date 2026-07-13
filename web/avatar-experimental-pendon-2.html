@@ -1,0 +1,2286 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Asistente Virtual</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --accent: #6366f1;
+            --accent-glow: #818cf8;
+            --accent-dim: #4338ca;
+            --danger: #ef4444;
+            --bg: #09090b;
+            --surface: #18181b;
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f4f4f5;
+            --text-muted: #71717a;
+            --radius: 16px;
+            /* mic verde */
+            --mic-green: #22c55e;
+            --mic-green-dim: #15803d;
+            --mic-green-glow: rgba(34, 197, 94, 0.55);
+        }
+
+        html,
+        body {
+            height: 100%;
+            width: 100%;
+            background: var(--bg);
+            font-family: 'Inter', system-ui, sans-serif;
+            color: var(--text);
+            overflow: hidden;
+        }
+
+        /* ── Fullscreen wrapper ──────────────────────────────── */
+        #app {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #000;
+        }
+
+        /* ── Avatar ocupa toda la pantalla ──────────────────── */
+        #avatar-wrap {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: var(--surface);
+        }
+
+        #video {
+            /* width: 100%; */
+            height: 100%;
+            /* position: absolute;
+            top: 25%; */
+            object-fit: contain;
+            /* muestra el avatar completo sin recortar */
+            object-position: center center;
+            display: block;
+            background: #000;
+        }
+
+        /* Gradient overlay at bottom (para legibilidad del mic) */
+        #avatar-wrap::after {
+            content: '';
+            position: absolute;
+            inset: auto 0 0 0;
+            height: 30%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
+            pointer-events: none;
+        }
+
+        /* Speaking indicator (ring desactivado) */
+        #speaking-ring {
+            display: none;
+        }
+
+        /* ── Status badge ───────────────────────────────────── */
+        #status-badge {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            background: rgba(9, 9, 11, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 6px 14px;
+            font-size: 12px;
+            font-weight: 500;
+            letter-spacing: 0.02em;
+            white-space: nowrap;
+            transition: opacity 0.3s;
+        }
+
+        #status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: var(--text-muted);
+            transition: background 0.3s;
+            flex-shrink: 0;
+        }
+
+        /* Status variants */
+        body.state-connecting #status-dot {
+            background: #f59e0b;
+            animation: dot-blink 1s ease-in-out infinite;
+        }
+
+        body.state-ready #status-dot {
+            background: #22c55e;
+        }
+
+        body.state-listening #status-dot {
+            background: var(--accent-glow);
+            animation: dot-blink 0.6s ease-in-out infinite;
+        }
+
+        body.state-processing #status-dot {
+            background: #f59e0b;
+            animation: dot-blink 0.4s linear infinite;
+        }
+
+        body.state-speaking #status-dot {
+            background: #22c55e;
+            animation: dot-blink 0.8s ease-in-out infinite;
+        }
+
+        @keyframes dot-blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.2;
+            }
+        }
+
+        /* ── Transcript overlay (sobre el video, arriba-izquierda) */
+        #transcript-wrap {
+            position: absolute;
+            bottom: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 20;
+            width: min(500px, 88vw);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .transcript-line {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            animation: fadein 0.3s ease;
+        }
+
+        @keyframes fadein {
+            from {
+                opacity: 0;
+                transform: translateY(4px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .transcript-label {
+            font-size: 10px;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-top: 2px;
+            flex-shrink: 0;
+            width: 32px;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        .transcript-text {
+            font-size: 13px;
+            color: var(--text);
+            line-height: 1.5;
+            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+        }
+
+        .transcript-text.dim {
+            color: var(--text-muted);
+        }
+
+        /* ── Botón MIC (sobre el avatar, abajo-centro) ──────── */
+        #btn-mic {
+            position: absolute;
+            bottom: 36px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 30;
+
+            width: 88px;
+            height: 88px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+
+            /* VERDE */
+            background: linear-gradient(135deg, var(--mic-green), var(--mic-green-dim));
+            box-shadow: 0 4px 28px var(--mic-green-glow), 0 0 0 4px rgba(34, 197, 94, 0.15);
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.15s, box-shadow 0.15s;
+            outline: none;
+        }
+
+        #btn-mic:hover {
+            transform: translateX(-50%) scale(1.07);
+            box-shadow: 0 6px 38px rgba(34, 197, 94, 0.75), 0 0 0 6px rgba(34, 197, 94, 0.2);
+        }
+
+        #btn-mic:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        #btn-mic.listening {
+            background: linear-gradient(135deg, var(--danger), #b91c1c);
+            box-shadow: 0 4px 28px rgba(239, 68, 68, 0.6), 0 0 0 4px rgba(239, 68, 68, 0.15);
+            animation: mic-pulse 1.2s ease-in-out infinite;
+        }
+
+        #btn-mic.listening:hover {
+            transform: translateX(-50%) scale(1.07);
+        }
+
+        #btn-mic.listening:active {
+            transform: translateX(-50%) scale(0.95);
+        }
+
+        @keyframes mic-pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 4px 28px rgba(239, 68, 68, 0.6), 0 0 0 4px rgba(239, 68, 68, 0.15);
+            }
+
+            50% {
+                box-shadow: 0 4px 46px rgba(239, 68, 68, 0.95), 0 0 0 14px rgba(239, 68, 68, 0.12);
+            }
+        }
+
+        #btn-mic svg {
+            width: 34px;
+            height: 34px;
+            fill: white;
+            pointer-events: none;
+        }
+
+        #btn-mic.disabled-btn {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
+        #btn-mic {
+            display: none !important;
+        }
+
+        /* ── Botón conectar (top-left, discreto) ────────────── */
+        #btn-connect {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            z-index: 30;
+
+            height: 18px;
+            padding: 0 5px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(24, 24, 27, 0.70);
+            backdrop-filter: blur(8px);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        #btn-connect:hover {
+            background: rgba(39, 39, 42, 0.9);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: var(--text);
+        }
+
+        #btn-connect.connected {
+            border-color: rgba(34, 197, 94, 0.3);
+            color: #86efac;
+        }
+
+        /* ── Botón PANTALLA COMPLETA (esquina sup-derecha, invisible) */
+        #btn-fullscreen {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 50;
+            width: 56px;
+            height: 56px;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            opacity: 0;
+            /* invisible */
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        /* Pequeño hover hint opcional — quítalo si prefieres que sea 100% invisible */
+        /* #btn-fullscreen:hover { opacity: 0.15; background: white; border-radius: 0 0 0 8px; } */
+
+        /* ── Tap overlay animation ───────────────────────────── */
+        @keyframes tap-pulse {
+
+            0%,
+            100% {
+                box-shadow: 0 0 30px rgba(99, 102, 241, 0.5), 0 0 0 0 rgba(99, 102, 241, 0.4);
+            }
+
+            50% {
+                box-shadow: 0 0 50px rgba(99, 102, 241, 0.8), 0 0 0 18px rgba(99, 102, 241, 0);
+            }
+        }
+
+        /* ── Hidden audio / inputs ──────────────────────────── */
+        audio {
+            display: none;
+        }
+
+        input[type=hidden] {
+            display: none;
+        }
+
+        /* ── Debug log panel ────────────────────────────────── */
+        #dbg-btn {
+            position: fixed;
+            bottom: 52px;
+            right: 20px;
+            z-index: 200;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(9, 9, 11, 0.75);
+            backdrop-filter: blur(10px);
+            color: #f4f4f5;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #dbg-btn:hover {
+            background: rgba(39, 39, 42, 0.9);
+        }
+
+        #dbg-panel {
+            position: fixed;
+            inset: 0;
+            z-index: 199;
+            background: rgba(0, 0, 0, 0.88);
+            backdrop-filter: blur(6px);
+            display: none;
+            flex-direction: column;
+            font-family: 'Menlo', 'Consolas', monospace;
+            font-size: 11px;
+        }
+
+        #dbg-panel.open {
+            display: flex;
+        }
+
+        #dbg-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            flex-shrink: 0;
+        }
+
+        #dbg-toolbar span {
+            color: #a1a1aa;
+            font-size: 12px;
+            font-family: inherit;
+        }
+
+        #dbg-clear {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.8);
+            color: #f4f4f5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #dbg-close {
+            padding: 4px 12px;
+            border-radius: 6px;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            background: rgba(127, 29, 29, 0.5);
+            color: #fca5a5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            margin-left: 8px;
+        }
+
+        #dbg-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 14px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .dbg-entry {
+            display: flex;
+            gap: 8px;
+            line-height: 1.5;
+            word-break: break-all;
+        }
+
+        .dbg-ts {
+            color: #52525b;
+            flex-shrink: 0;
+        }
+
+        .dbg-log .dbg-msg {
+            color: #d4d4d8;
+        }
+
+        .dbg-warn .dbg-msg {
+            color: #fbbf24;
+        }
+
+        .dbg-err .dbg-msg {
+            color: #f87171;
+        }
+
+        .dbg-label-log {
+            color: #6366f1;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .dbg-label-warn {
+            color: #f59e0b;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .dbg-label-err {
+            color: #ef4444;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        /* Fila de selector de mic */
+        #dbg-mic-row {
+            padding: 8px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        #dbg-mic-row label {
+            color: #a1a1aa;
+            font-size: 11px;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+
+        #dbg-mic-select {
+            flex: 1;
+            min-width: 160px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.9);
+            color: #f4f4f5;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #dbg-mic-refresh {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.8);
+            color: #f4f4f5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+
+        #dbg-funasr-row {
+            padding: 6px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+
+        #dbg-funasr-row label {
+            color: #a1a1aa;
+            font-size: 11px;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+
+        #dbg-funasr-url {
+            flex: 1;
+            min-width: 180px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.9);
+            color: #f4f4f5;
+            font-size: 11px;
+            font-family: inherit;
+            outline: none;
+        }
+
+        #dbg-funasr-test {
+            padding: 4px 10px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.8);
+            color: #f4f4f5;
+            font-size: 11px;
+            cursor: pointer;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+
+        /* ── Burbujas de chat sobrepuestas ── */
+        #chat-container {
+            position: absolute;
+            left: 10px;
+            bottom: 40px;
+            width: min(420px, 85vw);
+            max-height: 40vh;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            z-index: 25;
+            pointer-events: auto;
+            scrollbar-width: none;
+        }
+
+        #chat-container::-webkit-scrollbar {
+            display: none;
+        }
+
+        .chat-bubble {
+            padding: 10px 14px;
+            border-radius: 16px;
+            font-size: 14px;
+            line-height: 1.45;
+            max-width: 85%;
+            word-break: break-word;
+            animation: bubble-appear 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            background: rgba(24, 24, 27, 0.55);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: #f4f4f5;
+        }
+
+        .chat-bubble.user {
+            align-self: flex-end;
+            background: rgba(99, 102, 241, 0.25);
+            border-color: rgba(99, 102, 241, 0.4);
+            color: #e0e7ff;
+        }
+
+        .chat-bubble.avatar {
+            align-self: flex-start;
+        }
+
+        .chat-bubble.system {
+            align-self: center;
+            background: rgba(24, 24, 27, 0.35);
+            border-color: rgba(255, 255, 255, 0.05);
+            color: var(--text-muted);
+            font-size: 11px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            text-align: center;
+            font-style: italic;
+            box-shadow: none;
+            max-width: 90%;
+        }
+
+        @keyframes bubble-appear {
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+
+        .chat-bubble.fade-out {
+            animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes bubble-fadeout {
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.95);
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                border-top-width: 0;
+                border-bottom-width: 0;
+                opacity: 0;
+            }
+        }
+
+    </style>
+</head>
+
+<body class="state-connecting">
+
+    <!-- Elementos requeridos por client.js -->
+    <input type="hidden" id="sessionid" value="0">
+    <audio id="audio" autoplay></audio>
+    <input type="checkbox" id="use-stun" style="display:none">
+    <button id="start" style="display:none"></button>
+    <button id="stop" style="display:none"></button>
+
+    <div id="app">
+
+        <!-- Avatar fullscreen -->
+        <div id="avatar-wrap">
+            <video id="video" autoplay playsinline muted></video>
+            <!-- Burbujas de chat sobrepuestas -->
+            <div id="chat-container"></div>
+            <div id="speaking-ring"></div>
+
+            <!-- Status badge (arriba-centro) -->
+            <div id="status-badge">
+                <div id="status-dot"></div>
+                <span id="status-text">Conectando…</span>
+            </div>
+
+            <!-- Transcript (sobre video, encima del mic) -->
+            <div id="transcript-wrap">
+                <div id="user-line" class="transcript-line" style="display:none">
+                    <span class="transcript-label">Tú</span>
+                    <span id="user-text" class="transcript-text dim"></span>
+                </div>
+            </div>
+
+            <!-- Botón MIC (overlay, abajo-centro) -->
+            <button id="btn-mic" class="disabled-btn" onclick="toggleMic()" title="Presiona para hablar">
+                <!-- Mic icon -->
+                <svg id="icon-mic" viewBox="0 0 24 24">
+                    <path
+                        d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.364 9.364a1 1 0 0 1 1 1A7.364 7.364 0 0 1 13 18.92V21h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.08A7.364 7.364 0 0 1 4.636 11.364a1 1 0 0 1 2 0A5.364 5.364 0 0 0 12 16.727a5.364 5.364 0 0 0 5.364-5.363 1 1 0 0 1 1-1z" />
+                </svg>
+                <!-- Stop icon (hidden) -->
+                <svg id="icon-stop" viewBox="0 0 24 24" style="display:none">
+                    <path d="M6 6h12v12H6z" />
+                </svg>
+            </button>
+
+            <!-- Botón conectar (discreto, bottom-left) -->
+            <button id="btn-connect" onclick="connectRTC()">
+                <svg viewBox="0 0 20 20" fill="currentColor" width="9" height="9">
+                    <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13z" />
+                    <path
+                        d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z" />
+                </svg>
+                Conectar
+            </button>
+
+            <!-- Botón invisible fullscreen (esquina sup-derecha) -->
+            <button id="btn-fullscreen" onclick="toggleFullscreen()" title="Pantalla completa"
+                aria-label="Pantalla completa"></button>
+
+            <!-- Botón debug log (bottom-right) -->
+            <button id="dbg-btn" onclick="dbgToggle()" title="Ver logs">🪲</button>
+
+            <!-- Overlay tap-to-start (Android / mobile autoplay fix) -->
+            <div id="tap-overlay" onclick="handleTapToStart()" style="
+            position:absolute; inset:0; z-index:100;
+            display:flex; flex-direction:column;
+            align-items:center; justify-content:center; gap:16px;
+            background:rgba(0,0,0,0.72); cursor:pointer;
+        ">
+                <div style="
+                width:80px; height:80px; border-radius:50%;
+                background:linear-gradient(135deg,#6366f1,#4338ca);
+                display:flex; align-items:center; justify-content:center;
+                box-shadow:0 0 40px rgba(99,102,241,0.6);
+                animation: tap-pulse 2s ease-in-out infinite;
+            ">
+                    <!-- Play icon -->
+                    <svg viewBox="0 0 24 24" fill="white" width="36" height="36">
+                        <path d="M8 5v14l11-7z" />
+                    </svg>
+                </div>
+                <p style="color:#f4f4f5;font-size:15px;font-weight:500;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.8);">
+                    Toca para iniciar</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Debug log panel (tap 🪲 to open) -->
+    <div id="dbg-panel">
+        <div id="dbg-toolbar">
+            <span>🪲 Consola de depuración</span>
+            <div style="display:flex;gap:4px">
+                <button id="dbg-clear" onclick="dbgClear()">Limpiar</button>
+                <button id="dbg-close" onclick="dbgToggle()">Cerrar ✕</button>
+            </div>
+        </div>
+        <!-- Selector de micrófono -->
+        <div id="dbg-mic-row">
+            <label>🎤 Micrófono:</label>
+            <select id="dbg-mic-select" onchange="dbgSelectMic(this.value)">
+                <option value="">-- default del sistema --</option>
+            </select>
+            <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
+        </div>
+        <!-- FunASR URL config -->
+        <div id="dbg-funasr-row">
+            <label>FunASR:</label>
+            <input id="dbg-funasr-url" type="text" placeholder="wss://192.168.x.x:10095" />
+            <button id="dbg-funasr-test" onclick="dbgTestFunASR()">Probar</button>
+        </div>
+        <div id="dbg-list"></div>
+    </div>
+
+    <!-- WebRTC client -->
+    <script src="client.js"></script>
+
+    <script>
+
+        // ══════════════════════════════════════════════════════════════════════════════
+        // DEBUG LOGGER — escribe en consola del navegador Y en el panel on-screen 🪲
+        // En Android: toca 🪲 (abajo-derecha) para ver todos los logs en pantalla.
+        // ══════════════════════════════════════════════════════════════════════════════
+        const _DBG_MAX = 200;  // máximo de entradas en el panel
+
+        function _dbgWrite(level, args) {
+            // 1. Consola nativa
+            if (level === 'log') console.log('[Avatar]', ...args);
+            if (level === 'warn') console.warn('[Avatar]', ...args);
+            if (level === 'err') console.error('[Avatar]', ...args);
+
+            // 2. Panel on-screen
+            const list = document.getElementById('dbg-list');
+            if (!list) return;
+
+            const now = new Date();
+            const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+            const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
+
+            const entry = document.createElement('div');
+            entry.className = `dbg-entry dbg-${level}`;
+            entry.innerHTML =
+                `<span class="dbg-ts">${ts}</span>` +
+                `<span class="dbg-label-${level}">${level.toUpperCase()}</span>` +
+                `<span class="dbg-msg">${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
+            list.appendChild(entry);
+
+            // Limitar a _DBG_MAX entradas
+            while (list.children.length > _DBG_MAX) list.removeChild(list.firstChild);
+
+            // Auto-scroll solo si el panel está abierto
+            const panel = document.getElementById('dbg-panel');
+            if (panel && panel.classList.contains('open')) {
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
+        const LOG = (...args) => _dbgWrite('log', args);
+        const WARN = (...args) => _dbgWrite('warn', args);
+        const ERR = (...args) => _dbgWrite('err', args);
+
+        function dbgToggle() {
+            const panel = document.getElementById('dbg-panel');
+            panel.classList.toggle('open');
+            if (panel.classList.contains('open')) {
+                // Scroll al final al abrir
+                const list = document.getElementById('dbg-list');
+                list.scrollTop = list.scrollHeight;
+            }
+        }
+
+        function dbgClear() {
+            const list = document.getElementById('dbg-list');
+            list.innerHTML = '';
+            LOG('Consola limpiada');
+        }
+
+        // ─── Selector de micrófono en panel debug ─────────────────────────────────
+        let _preferredDeviceId = null;  // null = usar default del sistema
+
+        async function dbgLoadDevices() {
+            const sel = document.getElementById('dbg-mic-select');
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                WARN('enumerateDevices no disponible en este dispositivo');
+                return;
+            }
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                LOG(`Micrófonos disponibles: ${audioInputs.length}`);
+                audioInputs.forEach((d, i) => {
+                    LOG(`  [${i}] id="${d.deviceId.slice(0, 16)}…" label="${d.label || '(sin permiso)'}"`);
+                });
+
+                // Reconstruir opciones del selector
+                sel.innerHTML = '<option value="">-- default del sistema --</option>';
+                audioInputs.forEach((d, i) => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.textContent = d.label
+                        ? d.label
+                        : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
+                    if (d.deviceId === _preferredDeviceId) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+
+                if (audioInputs.length === 0) ERR('¡No se encontraron micrófonos!');
+            } catch (e) {
+                ERR('dbgLoadDevices error:', e.name, e.message);
+            }
+        }
+
+        function dbgSelectMic(deviceId) {
+            _preferredDeviceId = deviceId || null;
+            if (_preferredDeviceId) {
+                const sel = document.getElementById('dbg-mic-select');
+                const label = sel.options[sel.selectedIndex]?.textContent || deviceId;
+                LOG(`🎤 Micrófono seleccionado: "${label}"`);
+                LOG('Pulsa el mic para grabar con este dispositivo.');
+            } else {
+                LOG('🎤 Micrófono: default del sistema');
+            }
+        }
+
+        // ─── Info de arranque ──────────────────────────────────────────────────────
+        LOG('=== INIT ===');
+        LOG('UA:', navigator.userAgent);
+        LOG('Secure context:', window.isSecureContext);
+        LOG('SpeechRecognition:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+        LOG('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+        LOG('Protocol:', location.protocol, '| Host:', location.host);
+
+        // ─── Estado ────────────────────────────────────────────────────────────────
+        let isConnected = false;
+        let isListening = false;
+        let recognition = null;
+        let isSpeaking = false;
+        let speakCheckInterval = null;
+        let _audioUnlocked = false;
+        let _micStream = null;    // stream getUserMedia activo
+        let _mediaRecorder = null;    // fallback MediaRecorder para POS/iMin
+        let _audioChunks = [];      // chunks grabados
+        let _recTimerInterval = null;    // timer de duración visible en UI
+        let _recSeconds = 0;
+        // Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
+        let _useFallbackASR = false;
+
+        // ─── Wake-word (always-on mic) ──────────────────────────────────────────
+        // Palabras / frases que activan el asistente (todas en minúsculas, sin tilde)
+        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
+        const WAKE_WORD = WAKE_WORDS[0]; // alias para compatibilidad con logs existentes
+
+        let _wakeDetected = false;       // true cuando ya se detectó la wake-word en el audio actual
+        let _alwaysOnActive = false;     // true cuando el loop de escucha continua está activo
+        let _lastWakeWordText = '';      // texto de la wake-word detectada (p.ej. "Hola")
+
+        // ─── Modo Conversación Abierta (Experimental) ──────────────────────────
+        let _conversationAwake = false;  // true si el usuario ya despertó al modelo
+        let _inactivityTimeoutId = null; // temporizador de inactividad
+        let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
+        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
+        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
+        const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutos (120,000 ms) antes de volver a dormir
+
+        // Buffer de tiempo tras detectar la wake-word: si el usuario hace una pausa
+        // (p.ej. "Hola... ¿dónde está el martillo?") esperamos hasta WAKE_BUFFER_MS
+        // antes de considerar que no vendrá pregunta y reiniciar el ciclo.
+        const BUFFER_MS = 5000;     // ms que esperamos una pregunta tras la wake-word (sincronizado con avatar-general)
+        let _wakeBufferTimeout = null;   // timeout ID del buffer
+
+        // Saludo genérico que el avatar usa cuando lo llaman sin pregunta
+        const WAKE_ONLY_GREETINGS = [
+            '¡Hola! ¿En qué te puedo ayudar?',
+            '¡Buenas! ¿Buscas algo en especial?',
+            '¡Hola! ¿Necesitas ayuda para encontrar algo?',
+            'Aquí estoy, ¿en qué te ayudo?'
+        ];
+
+        function _randomGreeting() {
+            return WAKE_ONLY_GREETINGS[Math.floor(Math.random() * WAKE_ONLY_GREETINGS.length)];
+        }
+
+        // Detecta si el texto contiene alguna de las wake-words
+        function _containsWakeWord(text) {
+            const lower = text.toLowerCase();
+            return WAKE_WORDS.some(w => lower.includes(w));
+        }
+
+        // Extrae la pregunta eliminando la wake-word encontrada del inicio
+        function _extractQuestion(text) {
+            const lower = text.toLowerCase();
+            let best = { idx: -1, word: '' };
+            for (const w of WAKE_WORDS) {
+                const i = lower.indexOf(w);
+                if (i !== -1 && (best.idx === -1 || i < best.idx)) {
+                    best = { idx: i, word: w };
+                }
+            }
+            if (best.idx === -1) return text.trim();
+            return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+        }
+
+        function _isSleepWord(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
+            const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias'];
+            return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
+        }
+
+        function sleepModel(showBubble = false) {
+            LOG("Durmiendo el modelo experimental (conversación cerrada).");
+            _conversationAwake = false;
+            _wakeDetected = false;
+            clearTimeout(_inactivityTimeoutId);
+            clearTimeout(_followUpTimeoutId);
+            setState('listening', 'Esperando activación…');
+            if (showBubble) {
+                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+            }
+        }
+
+        function wakeUpModel() {
+            if (!_conversationAwake) {
+                LOG("Despertando el modelo experimental (conversación abierta).");
+                _conversationAwake = true;
+                // Limpiar burbujas de chat al iniciar nueva sesión
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }
+            resetInactivityTimer();
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(_inactivityTimeoutId);
+            if (!_conversationAwake) return;
+            _inactivityTimeoutId = setTimeout(() => {
+                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
+                _conversationAwake = false;
+                _wakeDetected = false;
+                setState('listening', 'Esperando activación…');
+
+                // Limpiar chat al vencer la sesión
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }, INACTIVITY_TIMEOUT_MS);
+        }
+
+        function addChatBubble(role, text) {
+            const container = document.getElementById('chat-container');
+            if (!container) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role}`;
+            bubble.textContent = text;
+            container.appendChild(bubble);
+
+            // Desplazarse al final
+            container.scrollTop = container.scrollHeight;
+
+            // Limitar a máximo 2 burbujas en pantalla (pregunta + respuesta)
+            while (container.children.length > 2) {
+                container.removeChild(container.firstChild);
+            }
+
+            // Auto-borrado tras 20 segundos con transición suave
+            setTimeout(() => {
+                bubble.classList.add('fade-out');
+                setTimeout(() => {
+                    if (bubble.parentNode) {
+                        bubble.parentNode.removeChild(bubble);
+                    }
+                }, 500);
+            }, 20000);
+
+            return bubble;
+        }
+
+        function queueAvatarBubble(text) {
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = text;
+
+            if (isSpeaking) {
+                // Si ya está hablando, mostrar de inmediato
+                addChatBubble('avatar', _pendingAvatarBubbleText);
+                _pendingAvatarBubbleText = null;
+                return;
+            }
+
+            // Timeout de seguridad de 4 segundos
+            _pendingAvatarBubbleTimeout = setTimeout(() => {
+                if (_pendingAvatarBubbleText) {
+                    addChatBubble('avatar', _pendingAvatarBubbleText);
+                    _pendingAvatarBubbleText = null;
+                }
+            }, 4000);
+        }
+
+        function scheduleFollowUp() {
+            clearTimeout(_followUpTimeoutId);
+            if (!_conversationAwake) return;
+            _followUpTimeoutId = setTimeout(() => {
+                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                const followUpText = "¿Necesitas algo más?";
+
+                // Encolar burbuja del avatar para cuando empiece a hablar
+                queueAvatarBubble(followUpText);
+
+                // IMPORTANTE: Detener el micrófono antes de que el avatar hable, para evitar auto-grabación
+                stopAlwaysOnListening();
+
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: followUpText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('Error al enviar follow-up:', e));
+            }, 30000);
+        }
+
+        LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
+
+        // ─── Estado UI ─────────────────────────────────────────────────────────────
+        function setState(state, text) {
+            LOG(`setState → ${state}: "${text}"`);
+            document.body.className = 'state-' + state;
+            document.getElementById('status-text').textContent = text;
+        }
+
+        function setUserText(text, dim = false) {
+            const line = document.getElementById('user-line');
+            const span = document.getElementById('user-text');
+            line.style.display = text ? 'flex' : 'none';
+            span.textContent = text;
+            span.className = 'transcript-text' + (dim ? ' dim' : '');
+        }
+
+        // ─── Pantalla completa ─────────────────────────────────────────────────────
+        function toggleFullscreen() {
+            LOG('toggleFullscreen llamado');
+            const el = document.documentElement;
+            if (!document.fullscreenElement &&
+                !document.webkitFullscreenElement &&
+                !document.mozFullScreenElement) {
+                const req = el.requestFullscreen
+                    || el.webkitRequestFullscreen
+                    || el.mozRequestFullScreen
+                    || el.msRequestFullscreen;
+                if (req) req.call(el).catch(e => WARN('Fullscreen error:', e));
+            } else {
+                const exit = document.exitFullscreen
+                    || document.webkitExitFullscreen
+                    || document.mozCancelFullScreen
+                    || document.msExitFullscreen;
+                if (exit) exit.call(document);
+            }
+        }
+
+        // ─── Tap-to-start (Android autoplay fix) ──────────────────────────────────
+        function handleTapToStart() {
+            LOG('handleTapToStart — tap del usuario detectado');
+            const overlay = document.getElementById('tap-overlay');
+            if (overlay) overlay.style.display = 'none';
+
+            const videoEl = document.getElementById('video');
+            videoEl.muted = false;
+            _audioUnlocked = true;
+            LOG('Video desmutado dentro del gesto de usuario');
+
+            if (videoEl.srcObject) {
+                videoEl.play()
+                    .then(() => LOG('video.play() OK tras tap'))
+                    .catch(e => WARN('video.play() rechazado tras tap:', e.name, e.message));
+            }
+
+            connectRTC();
+        }
+
+        // ─── WebRTC ────────────────────────────────────────────────────────────────
+        function connectRTC() {
+            if (isConnected) { LOG('connectRTC: ya conectado, ignorando'); return; }
+            LOG('connectRTC: iniciando...');
+            setState('connecting', 'Conectando…');
+            start();   // client.js
+            document.getElementById('btn-connect').textContent = '✓ Conectado';
+            document.getElementById('btn-connect').classList.add('connected');
+            isConnected = true;
+
+
+            // FIX AUTOPLAY LINUX/UBUNTU: vigilar cuando el stream llega al video y forzar play() muted.
+            // Chromium bloquea autoplay con sonido, pero permite muted. El audio se desbloquea al pulsar el mic.
+            const _v = document.getElementById('video');
+            let _vChecks = 0;
+            const _vTimer = setInterval(function () {
+                _vChecks++;
+                if (_v.srcObject) {
+                    if (_v.paused) {
+                        _v.muted = true;
+                        _v.play()
+                            .then(function () { LOG('video.play() OK muted - audio se activa al pulsar el mic'); clearInterval(_vTimer); })
+                            .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                    } else {
+                        LOG('Video reproduciendo (srcObject listo, paused=false)');
+                        clearInterval(_vTimer);
+                    }
+                } else if (_vChecks > 30) {
+                    WARN('15s sin stream en el video. Verifica WebRTC (codec VP8/H264) o la red.');
+                    clearInterval(_vTimer);
+                }
+            }, 500);
+            setTimeout(() => {
+                document.getElementById('btn-mic').classList.remove('disabled-btn');
+                startSpeakingMonitor();
+                LOG('Monitor de speaking activo — iniciando always-on listening');
+                startAlwaysOnListening();
+            }, 2500);
+        }
+
+        // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
+        function startSpeakingMonitor() {
+            LOG('startSpeakingMonitor iniciado');
+            speakCheckInterval = setInterval(async () => {
+                if (!isConnected) return;
+                try {
+                    const sessionid = document.getElementById('sessionid').value;
+                    const res = await fetch('/is_speaking', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sessionid })
+                    });
+                    const data = await res.json();
+                    const speaking = data.data;
+                    if (speaking !== isSpeaking) {
+                        isSpeaking = speaking;
+                        LOG('isSpeaking cambió →', speaking);
+                        const wrap = document.getElementById('avatar-wrap');
+                        if (speaking) {
+                            wrap.classList.add('avatar-speaking');
+                            setState('speaking', 'Hablando…');
+                            setUserText('', false); // Limpiar/ocultar texto flotante del usuario
+
+                            // IMPORTANTE: Detener el micrófono en el cliente de inmediato si el avatar empieza a hablar
+                            stopAlwaysOnListening();
+
+                            // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
+                            if (_pendingAvatarBubbleText) {
+                                clearTimeout(_pendingAvatarBubbleTimeout);
+                                addChatBubble('avatar', _pendingAvatarBubbleText);
+                                _pendingAvatarBubbleText = null;
+                            }
+                        } else {
+                            wrap.classList.remove('avatar-speaking');
+                            LOG('Avatar terminó de hablar → reiniciando escucha always-on');
+                            if (_conversationAwake) {
+                                scheduleFollowUp();
+                            }
+                            setTimeout(() => {
+                                if (!isListening && !_alwaysOnActive) {
+                                    startAlwaysOnListening();
+                                }
+                            }, 300);
+                        }
+                    }
+                } catch (e) { /* silencio en prod */ }
+            }, 800);
+        }
+
+        // ─── Listar dispositivos de audio ─────────────────────────────────────────
+        async function logAudioDevices() {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
+                WARN('enumerateDevices no disponible');
+                return;
+            }
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const audioInputs = devices.filter(d => d.kind === 'audioinput');
+                LOG(`Dispositivos de entrada de audio encontrados: ${audioInputs.length}`);
+                audioInputs.forEach((d, i) => {
+                    LOG(`  [${i}] deviceId="${d.deviceId}" label="${d.label || '(sin etiqueta — requiere permiso)'}"`);
+                });
+                if (audioInputs.length === 0) ERR('¡No hay dispositivos de audio de entrada!');
+            } catch (e) {
+                ERR('Error en enumerateDevices:', e);
+            }
+        }
+
+        // ─── Pedir permiso de micrófono y fijar routing al dispositivo correcto ────
+        // ESTRATEGIA PARA MIC EXTERNO EN ANDROID:
+        // 1. getUserMedia abre el mic externo y MANTIENE el stream abierto.
+        // 2. Mientras el stream está activo, Android bloquea el routing en ese
+        //    dispositivo. SpeechRecognition (que corre en el mismo proceso Chrome)
+        //    hereda ese routing y usa el mismo hardware.
+        // 3. Al terminar (stopListening), cerramos el stream.
+        async function requestMicPermission() {
+            LOG('requestMicPermission: solicitando getUserMedia...');
+            if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
+            try {
+                // Reutilizar el stream de micrófono si ya está abierto y activo
+                if (_micStream && _micStream.active) {
+                    LOG('requestMicPermission: reutilizando stream de mic activo');
+                    return true;
+                }
+
+                // Liberar stream anterior si existe
+                if (_micStream) {
+                    _micStream.getTracks().forEach(t => { t.stop(); LOG('Track previo detenido:', t.label); });
+                    _micStream = null;
+                }
+
+                // Usar el deviceId seleccionado en el panel si existe
+                const audioConstraints = _preferredDeviceId
+                    ? { deviceId: { exact: _preferredDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: audioConstraints,
+                    video: false
+                });
+
+                _micStream = stream;
+                const tracks = stream.getAudioTracks();
+                LOG(`getUserMedia OK — tracks: ${tracks.length}`);
+
+                let activeMicLabel = '(desconocido)';
+                tracks.forEach((t, i) => {
+                    const settings = t.getSettings();
+                    activeMicLabel = t.label || activeMicLabel;
+                    LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" readyState=${t.readyState}`);
+                });
+
+                // Mostrar en status badge
+                const short = activeMicLabel.length > 28
+                    ? activeMicLabel.slice(0, 26) + '…'
+                    : activeMicLabel;
+                setState('listening', `🎤 ${short}`);
+                LOG('Mic activo:', activeMicLabel);
+
+                // Refrescar selector de mic en el panel con labels reales
+                await dbgLoadDevices();
+
+                LOG('Stream getUserMedia ACTIVO — SpeechRecognition usará el mismo dispositivo');
+                return true;
+            } catch (e) {
+                ERR('getUserMedia falló:', e.name, e.message);
+                if (e.name === 'NotAllowedError') {
+                    setState('ready', '⚠ Permiso de micrófono denegado');
+                } else if (e.name === 'NotFoundError') {
+                    setState('ready', '⚠ No se encontró micrófono');
+                } else if (e.name === 'NotReadableError' || e.name === 'OverconstrainedError') {
+                    // El deviceId seleccionado puede no existir — volver al default
+                    WARN('Dispositivo seleccionado no disponible, volviendo al default');
+                    _preferredDeviceId = null;
+                    const sel = document.getElementById('dbg-mic-select');
+                    if (sel) sel.value = '';
+                    setState('ready', '⚠ Mic seleccionado no disponible — intenta de nuevo');
+                } else {
+                    setState('ready', '⚠ Error de micrófono: ' + e.name);
+                }
+                return false;
+            }
+        }
+
+        // ─── Speech Recognition ────────────────────────────────────────────────────
+        // Variables de estado para detección de cierre rápido
+        let _recStartMs = 0;
+        let _gotAnyResult = false;
+        let _audioCaptureErrors = 0;  // contador errores audio-capture
+        let _networkSpeechErrors = 0;  // errores 'network' de SpeechRecognition (Chromium sin API keys)
+
+        function setupRecognition() {
+            LOG('setupRecognition: creando instancia...');
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                ERR('SpeechRecognition NO disponible en este navegador');
+                return null;
+            }
+            LOG('SpeechRecognition disponible:', SpeechRec.name || 'webkitSpeechRecognition');
+
+            const rec = new SpeechRec();
+            rec.lang = 'es-CL';
+            rec.interimResults = true;
+            rec.continuous = false;
+            rec.maxAlternatives = 1;
+            LOG('SpeechRecognition configurado: lang=es-CL, interimResults=true, continuous=false');
+
+            rec.onstart = () => {
+                _recStartMs = Date.now();
+                _gotAnyResult = false;
+                LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
+                isListening = true;
+                if (_conversationAwake) {
+                    setState('listening', 'Escuchando…');
+                    resetInactivityTimer();
+                } else if (_wakeDetected) {
+                    setState('listening', 'Escuchando pregunta…');
+                } else {
+                    setState('listening', 'Esperando activación…');
+                }
+                const btn = document.getElementById('btn-mic');
+                btn.classList.add('listening');
+                document.getElementById('icon-mic').style.display = 'none';
+                document.getElementById('icon-stop').style.display = 'block';
+                setUserText('', false);
+            };
+
+            rec.onaudiostart = () => LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
+            rec.onsoundstart = () => LOG('SpeechRecognition.onsoundstart — sonido detectado');
+            rec.onspeechstart = () => LOG('SpeechRecognition.onspeechstart — habla detectada');
+            rec.onspeechend = () => LOG('SpeechRecognition.onspeechend — habla terminó');
+            rec.onsoundend = () => LOG('SpeechRecognition.onsoundend — sonido terminó');
+            rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
+
+            rec.onresult = (event) => {
+                if (isSpeaking) {
+                    LOG("onresult ignorado porque el avatar está hablando");
+                    return;
+                }
+                _gotAnyResult = true;
+                clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando el usuario empieza a hablar
+                let interim = '';
+                let final = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    const t = event.results[i][0].transcript;
+                    const conf = event.results[i][0].confidence;
+                    if (event.results[i].isFinal) {
+                        LOG(`Resultado FINAL: "${t}" (confidence=${conf.toFixed(2)})`);
+                        final += t;
+                    } else {
+                        interim += t;
+                    }
+                }
+                if (interim) LOG(`Resultado interim: "${interim}"`);
+
+                const rawText = (final || interim).trim().toLowerCase();
+
+                // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
+                if (_conversationAwake) {
+                    resetInactivityTimer();
+                    setUserText(final || interim, !final);
+                    if (final) {
+                        const question = final.trim();
+                        if (question) {
+                            const isSleep = _isSleepWord(question);
+                            if (isSleep) {
+                                LOG(`Despedida detectada en SpeechRecognition: "${question}". Durmiendo.`);
+                                sleepModel(false);
+                            }
+                            LOG(`Conversación abierta → Enviando directamente al LLM: "${question}"`);
+                            _alwaysOnActive = false; // Detener mic hasta que responda
+                            sendToLLM(question, isSleep);
+                        }
+                    }
+                    return;
+                }
+
+                // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
+                if (!_wakeDetected) {
+                    if (_containsWakeWord(rawText)) {
+                        _wakeDetected = true;
+                        _lastWakeWordText = (final || interim).trim();
+                        LOG(`Wake-word detectada en: "${rawText}", guardando texto: "${_lastWakeWordText}"`);
+                        setState('listening', 'Escuchando pregunta…');
+                        // Iniciar buffer: si no llega pregunta en WAKE_BUFFER_MS,
+                        // responder con la wake-word que se dijo originalmente y despertar el modelo
+                        clearTimeout(_wakeBufferTimeout);
+                        _wakeBufferTimeout = setTimeout(() => {
+                            if (_wakeDetected) {
+                                LOG('Buffer expirado sin pregunta → enviando wake-word sola al LLM:', _lastWakeWordText);
+                                _wakeDetected = false;
+                                _alwaysOnActive = false;
+                                wakeUpModel();
+                                sendToLLM(_lastWakeWordText);
+                            }
+                        }, WAKE_BUFFER_MS);
+                    } else {
+                        // Sin wake-word: mostrar en dim pero no enviar al LLM
+                        setUserText(final || interim, true);
+                        return;
+                    }
+                }
+
+                // ── Wake-word detectada: mostrar texto y procesar final ───────────
+                setUserText(final || interim, !final);
+
+                if (final) {
+                    const question = _extractQuestion(final);
+                    LOG(`Texto tras wake-word: "${question}"`);
+
+                    if (question) {
+                        clearTimeout(_wakeBufferTimeout);
+                        _wakeDetected = false;
+                        LOG(`Enviando pregunta al LLM: "${question}"`);
+                        _alwaysOnActive = false;  // mic off hasta que avatar termine
+                        wakeUpModel();
+                        sendToLLM(question);
+                    } else {
+                        // Solo wake-word sin texto adicional: el buffer ya está corriendo;
+                        // onend reiniciará el ciclo y si en el siguiente round tampoco
+                        // hay pregunta, el timeout enviará el saludo.
+                        LOG('Solo wake-word sin pregunta en este resultado — esperando buffer');
+                    }
+                }
+            };
+
+            rec.onerror = (e) => {
+                const elapsed = Date.now() - _recStartMs;
+                ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
+
+                if (e.error === 'audio-capture') {
+                    _audioCaptureErrors++;
+                    ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
+                    setState('ready', '⚠ Error captura de audio — intenta de nuevo');
+                } else if (e.error === 'not-allowed') {
+                    ERR('not-allowed: permiso de micrófono denegado');
+                    setState('ready', '⚠ Permiso de micrófono denegado');
+                } else if (e.error === 'network') {
+                    _networkSpeechErrors++;
+                    ERR('network error #' + _networkSpeechErrors + ': SpeechRecognition no puede conectar a los servidores de voz.');
+                    setState('ready', 'Error de red STT — reintenta o verifica soporte de voz');
+                } else if (e.error !== 'no-speech') {
+                    setState('ready', `⚠ Error: ${e.error}`);
+                } else {
+                    LOG('no-speech: timeout normal sin voz');
+                }
+                stopListening();
+            };
+
+            rec.onend = () => {
+                const elapsed = Date.now() - _recStartMs;
+                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
+
+                // ─── FIX: cierre rápido sin resultado (Android primera vez) ────────
+                if (!_gotAnyResult && elapsed < 1500 && !_useFallbackASR) {
+                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
+                    stopListening();
+                    setTimeout(() => {
+                        if (!isListening && _alwaysOnActive) {
+                            LOG('Reintento de SpeechRecognition (always-on)...');
+                            recognition = setupRecognition();
+                            if (recognition) {
+                                try { recognition.start(); }
+                                catch (ex) { ERR('reintento falló:', ex.name); }
+                            }
+                        }
+                    }, 700);
+                    return;
+                }
+
+                stopListening();
+
+                // ─── Always-on: reiniciar si no enviamos nada al LLM ────────────
+                // (_alwaysOnActive se pone en false cuando sendToLLM es llamado)
+                if (_alwaysOnActive) {
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 200ms');
+                    setTimeout(() => {
+                        if (_alwaysOnActive && !isListening) {
+                            startAlwaysOnListening();
+                        }
+                    }, 200);
+                }
+            };
+
+            return rec;
+        }
+
+        // ─── Forzar parada de recognition (con fallback abort) ────────────────────
+        // En Android con mic externo, recognition.stop() a veces no dispara onend
+        // y el botón queda bloqueado. Este wrapper espera 2.5 s y fuerza abort + UI reset.
+        let _stopTimeout = null;
+        function forceStopRecognition() {
+            if (!recognition) { stopListening(); return; }
+            LOG('forceStopRecognition: llamando stop()...');
+            recognition.stop();
+
+            // Timeout de seguridad: si onend no dispara en 2.5 s → abortar manualmente
+            clearTimeout(_stopTimeout);
+            _stopTimeout = setTimeout(() => {
+                if (isListening) {
+                    WARN('forceStopRecognition: onend no disparó en 2.5s → abort() forzado');
+                    try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
+                    stopListening();
+                }
+            }, 2500);
+        }
+
+        function stopListening() {
+            LOG('stopListening');
+            isListening = false;
+            clearTimeout(_stopTimeout);
+
+            // NO cerramos el stream de micrófono aquí para permitir su reutilización instantánea
+            // y mantener el ruteo del micrófono externo estable en Android.
+
+            const btn = document.getElementById('btn-mic');
+            btn.classList.remove('listening');
+            document.getElementById('icon-mic').style.display = 'block';
+            document.getElementById('icon-stop').style.display = 'none';
+
+            // En modo always-on, el estado lo gestiona startAlwaysOnListening o sendToLLM
+            if (!isSpeaking && !_alwaysOnActive) {
+                setState('processing', 'Procesando…');
+            }
+        }
+
+        // ─── Escucha siempre activa con wake-word ────────────────────────────────
+        function startAlwaysOnListening() {
+            if (!isConnected) {
+                LOG('startAlwaysOnListening: avatar no conectado, ignorando');
+                return;
+            }
+            if (isSpeaking) {
+                LOG('startAlwaysOnListening: avatar hablando, esperando a que termine');
+                return;
+            }
+            if (isListening) {
+                LOG('startAlwaysOnListening: ya escuchando, ignorando');
+                return;
+            }
+
+            _alwaysOnActive = true;
+            if (_conversationAwake) {
+                setState('listening', 'Escuchando…');
+                resetInactivityTimer();
+            } else if (_wakeDetected) {
+                setState('listening', 'Escuchando pregunta…');
+            } else {
+                clearTimeout(_wakeBufferTimeout);
+                setState('listening', 'Esperando activación…');
+            }
+            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
+
+            requestMicPermission().then(ok => {
+                if (!ok) {
+                    LOG('startAlwaysOnListening: sin permiso de micrófono');
+                    _alwaysOnActive = false;
+                    setState('ready', '⚠ Sin permiso de micrófono');
+                    return;
+                }
+
+                // ── Desbloquear audio del avatar ────────────────────────────────
+                // El <video> arranca muted. En el flujo original se desmuteaba al
+                // presionar el botón del mic (gesto de usuario). Ahora que el botón
+                // está oculto, lo desbloqueamos cuando el permiso de mic es concedido.
+                if (!_audioUnlocked) {
+                    const videoEl = document.getElementById('video');
+                    videoEl.muted = false;
+                    _audioUnlocked = true;
+                    if (videoEl.srcObject) {
+                        videoEl.play().catch(e => WARN('play() audio unlock error:', e.name));
+                    }
+                    LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
+                }
+
+                if (_useFallbackASR) {
+                    LOG('startAlwaysOnListening: modo FunASR (always-on)');
+                    startMediaRecorderASR();
+                } else {
+                    LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
+                    _audioCaptureErrors = 0;
+                    _networkSpeechErrors = 0;
+                    recognition = setupRecognition();
+                    if (recognition) {
+                        try {
+                            recognition.start();
+                            LOG('recognition.start() llamado (always-on)');
+                        } catch (e) {
+                            ERR('recognition.start() excepción (always-on):', e.name, e.message);
+                            _alwaysOnActive = false;
+                            stopListening();
+                        }
+                    } else {
+                        WARN('SpeechRecognition no disponible en este navegador');
+                        _alwaysOnActive = false;
+                        setState('ready', '⚠ SpeechRecognition no disponible');
+                    }
+                }
+            });
+        }
+
+        function stopAlwaysOnListening() {
+            LOG('stopAlwaysOnListening: deteniendo escucha continua');
+            _alwaysOnActive = false;
+            _wakeDetected = false;
+            clearTimeout(_wakeBufferTimeout);
+            if (_useFallbackASR) {
+                cleanupStreamingASR();
+            } else if (recognition) {
+                try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
+            }
+            stopListening();
+        }
+
+        // ─── Toggle micrófono (disponible para uso manual/debug) ──────────────────
+        function toggleMic() {
+            LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking, '| fallback:', _useFallbackASR);
+
+            // Desbloquear audio en primer uso del mic
+            if (!_audioUnlocked) {
+                const videoEl = document.getElementById('video');
+                videoEl.muted = false;
+                _audioUnlocked = true;
+                if (videoEl.srcObject) videoEl.play().catch(e => WARN('play() fallback:', e.name));
+            }
+
+            if (!isConnected) {
+                WARN('toggleMic: avatar no conectado');
+                setState('connecting', 'Conecta el avatar primero');
+                return;
+            }
+            if (isSpeaking) {
+                LOG('toggleMic: avatar hablando → interrumpiendo');
+                interruptAvatar();
+                return;
+            }
+            if (isListening) {
+                LOG('toggleMic: ya escuchando → deteniendo');
+                if (_useFallbackASR) {
+                    stopMediaRecorderASR();
+                } else {
+                    forceStopRecognition();
+                }
+                return;
+            }
+
+            setState('listening', 'Preparando micrófono…');
+            requestMicPermission().then(ok => {
+                if (!ok) { stopListening(); return; }
+
+                if (_useFallbackASR) {
+                    // POS/iMin: usar Web Audio API → WAV → /humanaudio
+                    LOG('Usando modo WAV fallback (POS/iMin)');
+                    startMediaRecorderASR();
+                } else {
+                    // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
+                    LOG('Usando modo SpeechRecognition');
+                    _audioCaptureErrors = 0;  // reset contador de errores
+                    _networkSpeechErrors = 0;  // reset errores de red
+                    recognition = setupRecognition();
+                    if (recognition) {
+                        try {
+                            recognition.start();
+                            LOG('recognition.start() llamado');
+                        } catch (e) {
+                            ERR('recognition.start() excepción:', e.name, e.message);
+                            stopListening();
+                        }
+                    } else {
+                        setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                        stopListening();
+                    }
+                }
+            });
+        }
+
+        // ─── WAV ASR via Web Audio API (fallback para POS/iMin) ──────────────────
+        // MediaRecorder produce WebM/Opus que soundfile NO puede leer.
+        // Web Audio API captura PCM crudo → lo codificamos como WAV (16-bit mono)
+        // → soundfile lo lee perfectamente.
+        // Esta es la misma técnica que usa la demo webrtc.github.io/samples.
+        let _audioCtx = null;
+        let _audioSrc = null;
+        let _scriptProc = null;
+
+        // FunASR streaming state variables
+        let _funasrWs = null;
+        let _funasrStopTimeout = null;
+        let _waitingForFinalResponse = false;
+        let _lastPartialText = '';
+
+
+        // FunASR WebSocket STT
+        let _funasrUrl = (function () {
+            try { return localStorage.getItem('funasr_url') || ('wss://' + location.hostname + ':10095'); } catch (e) { return 'wss://' + location.hostname + ':10095'; }
+        })();
+
+        window.addEventListener('DOMContentLoaded', function () {
+            var inp = document.getElementById('dbg-funasr-url');
+            if (inp) inp.value = _funasrUrl;
+        });
+
+        function dbgTestFunASR() {
+            var url = document.getElementById('dbg-funasr-url').value.trim();
+            if (!url) { WARN('Ingresa la URL de FunASR'); return; }
+            _funasrUrl = url;
+            try { localStorage.setItem('funasr_url', url); } catch (e) { }
+            LOG('FunASR URL guardada: ' + url);
+            try {
+                var testWs = new WebSocket(url);
+                testWs.onopen = function () { LOG('FunASR conexion OK: ' + url); testWs.close(); };
+                testWs.onerror = function () { ERR('FunASR FALLO en ' + url + ' - verifica que el servidor corra en puerto 10095'); };
+                setTimeout(function () { try { testWs.close(); } catch (e) { } }, 4000);
+            } catch (e) { ERR('FunASR test error: ' + e.message); }
+        }
+
+        function cleanupStreamingASR() {
+            LOG('cleanupStreamingASR');
+            clearInterval(_recTimerInterval);
+            if (_funasrStopTimeout) {
+                clearTimeout(_funasrStopTimeout);
+                _funasrStopTimeout = null;
+            }
+
+            // Disconnect audio nodes
+            try {
+                if (_scriptProc) {
+                    _scriptProc.disconnect();
+                    _scriptProc = null;
+                }
+            } catch (e) {
+                WARN('Error desconectando _scriptProc:', e);
+            }
+            try {
+                if (_audioSrc) {
+                    _audioSrc.disconnect();
+                    _audioSrc = null;
+                }
+            } catch (e) {
+                WARN('Error desconectando _audioSrc:', e);
+            }
+            try {
+                if (_audioCtx) {
+                    _audioCtx.close();
+                    _audioCtx = null;
+                }
+            } catch (e) {
+                WARN('Error cerrando _audioCtx:', e);
+            }
+
+            // Close WS
+            try {
+                if (_funasrWs) {
+                    _funasrWs.onopen = null;
+                    _funasrWs.onclose = null;
+                    _funasrWs.onerror = null;
+                    _funasrWs.onmessage = null;
+                    _funasrWs.close();
+                    _funasrWs = null;
+                }
+            } catch (e) {
+                WARN('Error cerrando _funasrWs:', e);
+            }
+            _waitingForFinalResponse = false;
+        }
+
+        function startMediaRecorderASR() {
+            if (!_micStream) {
+                ERR('startMediaRecorderASR: no hay stream de mic');
+                stopListening();
+                return;
+            }
+
+            cleanupStreamingASR();
+            _lastPartialText = '';
+            _waitingForFinalResponse = false;
+
+            const url = _funasrUrl;
+            LOG('FunASR streaming: conectando a ' + url);
+            setState('listening', 'Conectando a ASR…');
+
+            try {
+                _funasrWs = new WebSocket(url);
+            } catch (e) {
+                ERR('FunASR streaming: no se pudo crear WebSocket:', e.message);
+                setState('ready', 'Error al conectar con ASR');
+                stopListening();
+                return;
+            }
+            _funasrWs.binaryType = 'arraybuffer';
+
+            _funasrWs.onopen = function () {
+                LOG('FunASR streaming: WS conectado, inicializando grabador...');
+                try {
+                    const request = {
+                        chunk_size: [5, 10, 5],
+                        wav_name: "h5",
+                        is_speaking: true,
+                        chunk_interval: 10,
+                        mode: "2pass"
+                    };
+                    _funasrWs.send(JSON.stringify(request));
+
+                    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const nativeSR = _audioCtx.sampleRate;
+                    LOG(`FunASR streaming: AudioContext iniciado a ${nativeSR} Hz`);
+
+                    _audioSrc = _audioCtx.createMediaStreamSource(_micStream);
+
+                    let sampleBuf = new Float32Array(0);
+                    const bufSize = 4096;
+                    _scriptProc = _audioCtx.createScriptProcessor(bufSize, 1, 1);
+                    _scriptProc.onaudioprocess = (ev) => {
+                        if (!isListening || _waitingForFinalResponse || !_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
+                            return;
+                        }
+
+                        const inputData = ev.inputBuffer.getChannelData(0);
+
+                        let resampledData;
+                        if (nativeSR === 16000) {
+                            resampledData = new Float32Array(inputData);
+                        } else {
+                            const ratio = 16000 / nativeSR;
+                            const newLen = Math.round(inputData.length * ratio);
+                            resampledData = new Float32Array(newLen);
+                            for (let i = 0; i < newLen; i++) {
+                                const si = i / ratio;
+                                const lo = Math.floor(si);
+                                const hi = Math.min(lo + 1, inputData.length - 1);
+                                const fr = si - lo;
+                                resampledData[i] = inputData[lo] * (1 - fr) + inputData[hi] * fr;
+                            }
+                        }
+
+                        const newBuf = new Float32Array(sampleBuf.length + resampledData.length);
+                        newBuf.set(sampleBuf, 0);
+                        newBuf.set(resampledData, sampleBuf.length);
+                        sampleBuf = newBuf;
+
+                        const CHUNK_SIZE = 960;
+                        while (sampleBuf.length >= CHUNK_SIZE) {
+                            const chunkFloat = sampleBuf.subarray(0, CHUNK_SIZE);
+                            const chunkInt16 = new Int16Array(CHUNK_SIZE);
+                            for (let i = 0; i < CHUNK_SIZE; i++) {
+                                const s = Math.max(-1, Math.min(1, chunkFloat[i]));
+                                chunkInt16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                            }
+
+                            if (_funasrWs && _funasrWs.readyState === WebSocket.OPEN) {
+                                _funasrWs.send(chunkInt16.buffer);
+                            }
+                            sampleBuf = sampleBuf.subarray(CHUNK_SIZE);
+                        }
+                    };
+
+                    _audioSrc.connect(_scriptProc);
+                    _scriptProc.connect(_audioCtx.destination);
+
+                    isListening = true;
+                    _recSeconds = 0;
+                    setState('listening', 'Escuchando… (0s)');
+                    const btn = document.getElementById('btn-mic');
+                    btn.classList.add('listening');
+                    document.getElementById('icon-mic').style.display = 'none';
+                    document.getElementById('icon-stop').style.display = 'block';
+                    setUserText('🎙 Habla ahora…', true);
+
+                    clearInterval(_recTimerInterval);
+                    _recTimerInterval = setInterval(() => {
+                        _recSeconds++;
+                        setState('listening', `Escuchando… (${_recSeconds}s)`);
+                    }, 1000);
+
+                } catch (e) {
+                    ERR('FunASR streaming: error configurando captura de audio:', e.name, e.message);
+                    cleanupStreamingASR();
+                    stopListening();
+                    setState('ready', 'Error al iniciar micrófono');
+                }
+            };
+
+            _funasrWs.onmessage = function (evt) {
+                if (isSpeaking) {
+                    LOG("FunASR msg ignorado porque el avatar está hablando");
+                    return;
+                }
+                try {
+                    const data = JSON.parse(evt.data);
+                    const text = (data.text || '').replace(/ +/g, '').trim();
+                    const mode = data.mode || '';
+                    const isFinal = data.is_final === true;
+
+                    if (text) {
+                        clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando se detecta voz
+                        LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
+                        _lastPartialText = text;
+
+                        // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
+                        if (_conversationAwake) {
+                            resetInactivityTimer();
+                            setUserText(text, false);
+
+                            if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
+                                LOG(`FunASR VAD fin de habla (conversación abierta): "${text}"`);
+                                clearTimeout(_wakeBufferTimeout);
+                                _wakeDetected = false;
+                                cleanupStreamingASR();
+                                stopListening();
+                                const isSleep = _isSleepWord(text);
+                                if (isSleep) {
+                                    LOG(`Despedida detectada (FunASR): "${text}". Durmiendo.`);
+                                    sleepModel(false);
+                                }
+                                LOG(`FunASR → enviando al LLM directamente: "${text}"`);
+                                _alwaysOnActive = false; // mic off
+                                sendToLLM(text, isSleep);
+                            }
+                            return;
+                        }
+
+                        // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
+                        if (!_wakeDetected) {
+                            if (_containsWakeWord(text)) {
+                                _wakeDetected = true;
+                                _lastWakeWordText = text;
+                                LOG(`Wake-word detectada (FunASR): "${text}"`);
+                                setState('listening', 'Escuchando pregunta…');
+                                // Buffer: si no llega pregunta en WAKE_BUFFER_MS → enviar wake-word sola
+                                clearTimeout(_wakeBufferTimeout);
+                                _wakeBufferTimeout = setTimeout(() => {
+                                    if (_wakeDetected) {
+                                        LOG('Buffer FunASR expirado sin pregunta → enviando wake-word sola:', _lastWakeWordText);
+                                        _wakeDetected = false;
+                                        cleanupStreamingASR();
+                                        _alwaysOnActive = false;
+                                        wakeUpModel();
+                                        sendToLLM(_lastWakeWordText);
+                                    }
+                                }, WAKE_BUFFER_MS);
+                            }
+                        }
+                        setUserText(text, !_wakeDetected);
+
+                        // ── Resultado final (fin de habla por VAD) ───────────────────
+                        if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
+                            LOG(`FunASR VAD fin de habla: "${text}" | wake=${_wakeDetected}`);
+
+                            if (_wakeDetected) {
+                                const question = _extractQuestion(text);
+                                LOG(`FunASR → pregunta extraída: "${question}"`);
+
+                                if (question) {
+                                    clearTimeout(_wakeBufferTimeout);
+                                    _wakeDetected = false;
+                                    cleanupStreamingASR();
+                                    stopListening();
+                                    LOG(`FunASR → enviando al LLM: "${question}"`);
+                                    _alwaysOnActive = false;  // mic off hasta que avatar termine
+                                    wakeUpModel();
+                                    sendToLLM(question);
+                                } else {
+                                    // Solo wake-word: el buffer ya está corriendo;
+                                    // reiniciar escucha para capturar la pregunta que viene
+                                    LOG('FunASR → solo wake-word, buffer activo → reiniciando escucha');
+                                    cleanupStreamingASR();
+                                    stopListening();
+                                    if (_alwaysOnActive) {
+                                        setTimeout(() => startAlwaysOnListening(), 300);
+                                    }
+                                }
+                            } else {
+                                // Sin wake-word: reiniciar silenciosamente
+                                LOG('FunASR → sin wake-word detectada, reiniciando escucha...');
+                                cleanupStreamingASR();
+                                stopListening();
+                                if (_alwaysOnActive) {
+                                    setTimeout(() => startAlwaysOnListening(), 500);
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    WARN('FunASR streaming: error parseando respuesta:', e.message);
+                }
+            };
+
+            _funasrWs.onerror = function (e) {
+                ERR('FunASR WS error en ' + url);
+                cleanupStreamingASR();
+                stopListening();
+                setState('ready', 'Error FunASR - verifica conexión');
+            };
+
+            _funasrWs.onclose = function (e) {
+                LOG('FunASR WS cerrado (código=' + e.code + ')');
+                const wasWaiting = _waitingForFinalResponse;
+                const textToSend = _lastPartialText;
+                cleanupStreamingASR();
+                stopListening();
+                if (wasWaiting && textToSend && textToSend.trim()) {
+                    LOG('FunASR cerrado mientras esperaba final; enviando último texto parcial:', textToSend);
+                    sendToLLM(textToSend.trim());
+                } else if (!wasWaiting) {
+                    setState('ready', 'Conexión con ASR terminada');
+                }
+            };
+        }
+
+        async function stopMediaRecorderASR() {
+            LOG('stopMediaRecorderASR (parada manual solicitada)');
+            clearInterval(_recTimerInterval);
+
+            if (!_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
+                cleanupStreamingASR();
+                stopListening();
+                return;
+            }
+
+            _waitingForFinalResponse = true;
+
+            try {
+                if (_scriptProc) {
+                    _scriptProc.disconnect();
+                    _scriptProc = null;
+                }
+            } catch (e) { }
+            try {
+                if (_audioSrc) {
+                    _audioSrc.disconnect();
+                    _audioSrc = null;
+                }
+            } catch (e) { }
+            try {
+                if (_audioCtx) {
+                    await _audioCtx.close();
+                    _audioCtx = null;
+                }
+            } catch (e) { }
+
+            setState('processing', 'Procesando fin de audio…');
+
+            try {
+                const request = {
+                    chunk_size: [5, 10, 5],
+                    wav_name: "h5",
+                    is_speaking: false,
+                    chunk_interval: 10,
+                    mode: "2pass"
+                };
+                _funasrWs.send(JSON.stringify(request));
+                LOG('FunASR streaming: enviado is_speaking:false, esperando transcripción final...');
+
+                _funasrStopTimeout = setTimeout(() => {
+                    WARN('FunASR manual stop: timeout de 3s sin respuesta final');
+                    const textToSend = _lastPartialText;
+                    cleanupStreamingASR();
+                    stopListening();
+                    if (textToSend && textToSend.trim()) {
+                        sendToLLM(textToSend.trim());
+                    } else {
+                        setState('ready', 'Sin audio detectado');
+                    }
+                }, 3000);
+
+            } catch (e) {
+                ERR('FunASR manual stop error:', e.message);
+                cleanupStreamingASR();
+                stopListening();
+            }
+        }
+
+
+
+        async function sendToLLM(text, isSleepWord = false) {
+            if (!text) return;
+            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
+            setState('processing', 'Procesando…');
+            setUserText(text, false);
+            addChatBubble('user', text);
+
+            const sessionid = document.getElementById('sessionid').value;
+
+            if (isSleepWord) {
+                // Generar despedida local sin consultar al LLM
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
+                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
+                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
+                    farewellText = "De nada. ¡Que tengas un excelente día!";
+                }
+
+                queueAvatarBubble(farewellText);
+
+                try {
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: farewellText,
+                            type: 'echo',
+                            sessionid: String(sessionid)
+                        })
+                    });
+                } catch (err) {
+                    ERR('sendToLLM farewell error:', err);
+                } finally {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                }
+                return;
+            }
+
+            try {
+                const res = await fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text,
+                        type: 'chat',
+                        interrupt: true,
+                        stream: true,
+                        sessionid: String(sessionid)
+                    })
+                });
+                LOG('sendToLLM: respuesta status', res.status);
+
+                if (!res.body) {
+                    throw new Error("Respuesta del servidor no soporta streaming.");
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let fullText = '';
+                let avatarBubble = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+
+                    // Crear la burbuja en el primer fragmento de texto
+                    if (!avatarBubble && fullText.trim()) {
+                        avatarBubble = addChatBubble('avatar', '');
+                    }
+
+                    if (avatarBubble) {
+                        avatarBubble.textContent = fullText;
+                        const container = document.getElementById('chat-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }
+                }
+
+                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
+
+            } catch (err) {
+                ERR('sendToLLM: error de red o streaming:', err);
+                setState('ready', 'Error de red — intenta de nuevo');
+            }
+        }
+
+        // ─── Interrumpir avatar ────────────────────────────────────────────────────
+        async function interruptAvatar() {
+            LOG('interruptAvatar');
+            const sessionid = document.getElementById('sessionid').value;
+            try {
+                await fetch('/interrupt_talk', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sessionid: String(sessionid) })
+                });
+                LOG('interruptAvatar: solicitud enviada');
+            } catch (e) { WARN('interruptAvatar: error de red', e); }
+
+            setTimeout(() => {
+                LOG('interruptAvatar: reiniciando always-on listening tras interrupción');
+                isSpeaking = false;
+                startAlwaysOnListening();
+            }, 300);
+        }
+
+        // ─── Auto-conectar al cargar ───────────────────────────────────────────────
+        window.addEventListener('DOMContentLoaded', () => {
+            const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+            const isFirefox = /Firefox\//.test(navigator.userAgent);
+
+            LOG('DOMContentLoaded - isMobile:', isMobile, '| isFirefox:', isFirefox);
+            LOG('Secure context:', window.isSecureContext, '| protocol:', location.protocol);
+
+            if (!window.isSecureContext) {
+                WARN('CONTEXTO NO SEGURO (HTTP). SpeechRecognition NO funcionara. Usar HTTPS.');
+            }
+
+            if (isFirefox) {
+                // Firefox elimino SpeechRecognition en v56+. _useFallbackASR ya es true.
+                WARN('Firefox detectado: SpeechRecognition NO disponible en Firefox.');
+                WARN('Para usar el microfono usa Chrome, Chromium o Edge.');
+            }
+
+            if (isMobile) {
+                LOG('Mobile detectado - overlay visible, esperando tap');
+            } else {
+                LOG('Desktop detectado - auto-conectando. Video inicia muted (se desmuta al pulsar el mic)');
+                const overlay = document.getElementById('tap-overlay');
+                if (overlay) overlay.style.display = 'none';
+                // NO seteamos video.muted=false: Chromium bloquea autoplay con sonido sin gesto.
+                // El video arranca muted y se desmuta cuando el usuario pulsa el mic.
+                setTimeout(connectRTC, 800);
+            }
+        });
+    
+    </script>
+</body>
+
+</html>

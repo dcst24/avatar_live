@@ -216,6 +216,11 @@ async def avatar_experimental_pendon(request):
     return web.FileResponse('web/avatar-experimental-pendon.html')
 
 
+async def avatar_experimental_pendon_2(request):
+    """Servir la página avatar-experimental-pendon-2.html directamente"""
+    return web.FileResponse('web/avatar-experimental-pendon-2.html')
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -229,4 +234,5 @@ def setup_routes(app):
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
+    app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
     app.router.add_static('/', path='web')
