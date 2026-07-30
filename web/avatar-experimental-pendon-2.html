@@ -995,6 +995,17 @@
             return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
         }
 
+        // Borra el historial de conversación en el servidor para esta sesión
+        function clearServerHistory() {
+            const sessionid = document.getElementById('sessionid').value;
+            LOG('Borrando historial de conversación en servidor para sesión:', sessionid);
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionid: String(sessionid) })
+            }).catch(e => WARN('clearServerHistory error:', e));
+        }
+
         function sleepModel(showBubble = false) {
             LOG("Durmiendo el modelo experimental (conversación cerrada).");
             _conversationAwake = false;
@@ -1003,6 +1014,7 @@
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
+            clearServerHistory(); // Limpiar historial al cerrar la conversación
             setState('listening', 'Esperando activación…');
             if (showBubble) {
                 addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
@@ -1028,7 +1040,7 @@
                 _conversationAwake = false;
                 _wakeDetected = false;
                 setState('listening', 'Esperando activación…');
-
+                clearServerHistory(); // Limpiar historial por inactividad
                 // Limpiar chat al vencer la sesión
                 const container = document.getElementById('chat-container');
                 if (container) container.innerHTML = '';
@@ -1127,6 +1139,7 @@
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
                 stopAlwaysOnListening();
+                clearServerHistory(); // Borrar historial al cerrar por timeout de follow-up
                 // Marcar como dormido ANTES de enviar el echo para que al terminar de hablar
                 // el monitor NO reactive el follow-up.
                 _conversationAwake = false;
@@ -2209,6 +2222,7 @@
                 }
 
                 queueAvatarBubble(farewellText);
+                clearServerHistory(); // Borrar historial al despedirse
 
                 try {
                     await fetch('/human', {

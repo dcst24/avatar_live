@@ -11,7 +11,10 @@ if TYPE_CHECKING:
     from avatars.base_avatar import BaseAvatar
 from utils.logger import logger
 
-# ─── Configuración del LLM ────────────────────────────────────────────────────
+# ─── Historial de conversación (memoria por sesión) ──────────────────────────
+# Clave: sessionid (str)  →  Valor: lista de mensajes [{role, content}, ...]
+_histories: dict = {}
+MAX_HISTORY_TURNS = 10  # máximo de turnos (user+assistant) a conservar en memoria
 OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
 OLLAMA_MODEL = "qwen3-vl:32b-instruct"
 
@@ -315,21 +318,52 @@ SENTENCE_ENDINGS = set(",.!;:，。！？：；\n")
 MIN_CHUNK_LEN = 12  # caracteres mínimos antes de enviar un fragmento
 
 
+def clear_conversation(sessionid: str) -> None:
+    """Elimina el historial de conversación de la sesión indicada."""
+    if sessionid in _histories:
+        del _histories[sessionid]
+        logger.info(f"[LLM] Historial borrado para sesión: {sessionid}")
+    else:
+        logger.info(f"[LLM] clear_conversation: no había historial para {sessionid}")
+
+
+def _get_messages_with_history(sessionid: str, user_message: str) -> list:
+    """Construye la lista completa de mensajes para el LLM incluyendo el historial."""
+    history = _histories.get(sessionid, [])
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history)
+    messages.append({"role": "user", "content": user_message})
+    return messages
+
+
+def _append_to_history(sessionid: str, user_message: str, assistant_reply: str) -> None:
+    """Agrega el turno actual al historial y recorta si supera MAX_HISTORY_TURNS."""
+    if not sessionid:
+        return
+    history = _histories.setdefault(sessionid, [])
+    history.append({"role": "user",      "content": user_message})
+    history.append({"role": "assistant", "content": assistant_reply})
+    # Recortar: conservar sólo los últimos MAX_HISTORY_TURNS turnos (2 mensajes por turno)
+    max_msgs = MAX_HISTORY_TURNS * 2
+    if len(history) > max_msgs:
+        _histories[sessionid] = history[-max_msgs:]
+        logger.debug(f"[LLM] Historial recortado a {MAX_HISTORY_TURNS} turnos para sesión {sessionid}")
+
+
 def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
     Envía `message` al LLM y alimenta al avatar con los fragmentos de respuesta
     a medida que van llegando (chunking por puntuación).
+    Mantiene historial de conversación por sesión.
     """
+    sessionid: str = datainfo.get("sessionid", "")
     try:
         start = time.perf_counter()
-        logger.info(f"[LLM] Enviando mensaje: {message}")
+        logger.info(f"[LLM] Enviando mensaje (sesión={sessionid}): {message}")
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": message},
-            ],
+            "messages": _get_messages_with_history(sessionid, message),
             "temperature": 0.7,
             "stream": False,
             "keep_alive": "7200m",
@@ -344,6 +378,9 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         # La API de Ollama devuelve: { "message": { "role": "assistant", "content": "..." } }
         full_text: str = data["message"]["content"]
         logger.info(f"[LLM] Respuesta en {elapsed:.2f}s: {full_text[:120]}...")
+
+        # Guardar en historial
+        _append_to_history(sessionid, message, full_text)
 
         # Dividir en fragmentos por puntuación para alimentar al avatar progresivamente
         chunk = ""
@@ -381,17 +418,16 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
     """
     Envía `message` al LLM y rinde los fragmentos de respuesta a medida que van llegando
     de Ollama, alimentando al avatar en tiempo real y haciendo yield para el streaming HTTP.
+    Mantiene historial de conversación por sesión.
     """
+    sessionid: str = datainfo.get("sessionid", "")
     try:
         start = time.perf_counter()
-        logger.info(f"[LLM Stream] Enviando mensaje: {message}")
+        logger.info(f"[LLM Stream] Enviando mensaje (sesión={sessionid}): {message}")
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": [
-                {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user",   "content": message},
-            ],
+            "messages": _get_messages_with_history(sessionid, message),
             "temperature": 0.7,
             "stream": True,
             "keep_alive": "7200m",
@@ -432,6 +468,9 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         if chunk_buf.strip():
             logger.info(f"[LLM Stream] -> avatar (ultimo): {chunk_buf.strip()}")
             avatar_session.put_msg_txt(chunk_buf.strip(), datainfo)
+
+        # Guardar turno completo en historial
+        _append_to_history(sessionid, message, full_text)
 
         elapsed = time.perf_counter() - start
         logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s, total chars={len(full_text)}")

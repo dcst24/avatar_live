@@ -81,6 +81,8 @@ async def human(request):
         datainfo = {}
         if params.get('tts'):  # tts 参数透传（voice, emotion 等）
             datainfo['tts'] = params.get('tts')
+        # Pasar el sessionid al LLM para mantener historial de conversación
+        datainfo['sessionid'] = sessionid
 
         if params['type'] == 'echo':
             avatar_session.put_msg_txt(params['text'], datainfo)
@@ -135,6 +137,20 @@ async def interrupt_talk(request):
         return json_ok()
     except Exception as e:
         logger.exception('interrupt_talk exception:')
+        return json_error(str(e))
+
+
+async def clear_history(request):
+    """Borra el historial de conversación del LLM para la sesión indicada."""
+    try:
+        params = await request.json()
+        sessionid = params.get('sessionid', '')
+        clear_conv = request.app.get("clear_conversation")
+        if clear_conv:
+            clear_conv(sessionid)
+        return json_ok()
+    except Exception as e:
+        logger.exception('clear_history exception:')
         return json_error(str(e))
 
 
@@ -231,6 +247,7 @@ def setup_routes(app):
     app.router.add_post("/record", record)
     app.router.add_post("/interrupt_talk", interrupt_talk)
     app.router.add_post("/is_speaking", is_speaking)
+    app.router.add_post("/clear_history", clear_history)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
