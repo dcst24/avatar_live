@@ -980,6 +980,8 @@
         let _conversationAwake = false;  // true si el usuario ya despertó al modelo
         let _inactivityTimeoutId = null; // temporizador de inactividad
         let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
+        let _waitingFollowUpAck = false;  // true cuando se preguntó "¿Necesitas algo más?" y esperamos respuesta
+        let _followUpAckTimeoutId = null; // timer del segundo wait de 30s tras "¿Necesitas algo más?"
         let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
         let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
         const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutos (120,000 ms) antes de volver a dormir
@@ -1032,8 +1034,10 @@
             LOG("Durmiendo el modelo experimental (conversación cerrada).");
             _conversationAwake = false;
             _wakeDetected = false;
+            _waitingFollowUpAck = false;
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
             setState('listening', 'Esperando activación…');
             if (showBubble) {
                 addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
@@ -1118,10 +1122,13 @@
 
         function scheduleFollowUp() {
             clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
             _followUpTimeoutId = setTimeout(() => {
                 LOG("30 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
+                _waitingFollowUpAck = true; // Marcamos que estamos esperando respuesta al follow-up
                 
                 // Encolar burbuja del avatar para cuando empiece a hablar
                 queueAvatarBubble(followUpText);
@@ -1139,6 +1146,41 @@
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
+            }, 30000);
+        }
+
+        // Inicia el temporizador de 30s que, si el usuario no responde al "¿Necesitas algo más?",
+        // hace que el avatar diga una despedida y vuelva a modo de espera de wake-word.
+        function scheduleFollowUpAckTimeout() {
+            clearTimeout(_followUpAckTimeoutId);
+            if (!_waitingFollowUpAck || !_conversationAwake) return;
+            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            _followUpAckTimeoutId = setTimeout(() => {
+                if (!_waitingFollowUpAck) return;
+                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                _waitingFollowUpAck = false;
+                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
+                queueAvatarBubble(farewellText);
+                stopAlwaysOnListening();
+                // Marcar como dormido ANTES de enviar el echo para que al terminar de hablar
+                // el monitor NO reactive el follow-up.
+                _conversationAwake = false;
+                _wakeDetected = false;
+                clearTimeout(_inactivityTimeoutId);
+                clearTimeout(_followUpTimeoutId);
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: farewellText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).then(() => {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                    setState('listening', 'Esperando activación…');
+                }).catch(e => WARN('Error al enviar despedida final:', e));
             }, 30000);
         }
 
@@ -1276,7 +1318,13 @@
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
                             if (_conversationAwake) {
-                                scheduleFollowUp();
+                                if (_waitingFollowUpAck) {
+                                    // El avatar acaba de terminar el "¿Necesitas algo más?"
+                                    // → iniciar timer de 30s para despedida automática
+                                    scheduleFollowUpAckTimeout();
+                                } else {
+                                    scheduleFollowUp();
+                                }
                             }
                             setTimeout(() => {
                                 if (!isListening && !_alwaysOnActive) {
@@ -1441,6 +1489,8 @@
                 }
                 _gotAnyResult = true;
                 clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando el usuario empieza a hablar
+                clearTimeout(_followUpAckTimeoutId); // Cancelar timer de despedida automática
+                _waitingFollowUpAck = false; // Usuario respondió al follow-up, no hacer despedida automática
                 let interim = '';
                 let final = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1995,6 +2045,8 @@
 
                     if (text) {
                         clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando se detecta voz
+                        clearTimeout(_followUpAckTimeoutId); // Cancelar timer de despedida automática
+                        _waitingFollowUpAck = false; // Usuario respondió al follow-up
                         LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
                         _lastPartialText = text;
 
