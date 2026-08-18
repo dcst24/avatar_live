@@ -158,6 +158,12 @@ def main():
     appasync["clear_conversation"] = clear_conversation
 
     # ── Inicializar módulo ASR backend (faster-whisper) ───────────────────────
+    # Guardar config para carga lazy si el modelo no está disponible aún
+    appasync['asr_config'] = {
+        'model_size': opt.asr_model,
+        'language':   opt.asr_lang,
+        'device':     opt.asr_device,
+    }
     try:
         whisper_asr = WhisperASR(
             model_size=opt.asr_model,
@@ -166,11 +172,13 @@ def main():
         )
         whisper_asr.load_model()
         appasync['whisper_asr'] = whisper_asr
-        logger.info(f"[ASR] Modelo Whisper '{opt.asr_model}' listo.")
+        logger.info(f"[ASR] Modelo Whisper '{opt.asr_model}' listo en dispositivo '{opt.asr_device}'.")
     except Exception as e:
-        logger.warning(f"[ASR] No se pudo cargar faster-whisper: {e}")
-        logger.warning("[ASR] El modo backend-asr no estará disponible. Instala: pip install faster-whisper")
+        logger.warning(f"[ASR] No se pudo precargar faster-whisper: {e}")
+        logger.warning("[ASR] Se intentará carga lazy al primer cliente que se conecte.")
+        logger.exception("[ASR] Detalle del error:")
         appasync['whisper_asr'] = None
+
 
     appasync.on_shutdown.append(on_shutdown)
     appasync.router.add_post("/offer", offer)

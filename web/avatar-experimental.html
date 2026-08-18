@@ -862,7 +862,6 @@
             <label>🧠 Modo ASR:</label>
             <select id="dbg-asr-mode-select" onchange="dbgSelectAsrMode(this.value)">
                 <option value="browser" selected>Browser (Google STT)</option>
-                <option value="funasr">FunASR (ws externo)</option>
                 <option value="backend-asr">Backend ASR (Whisper local)</option>
             </select>
             <span id="dbg-backend-asr-status">desconectado</span>
@@ -874,12 +873,6 @@
                 <option value="">-- default del sistema --</option>
             </select>
             <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
-        </div>
-        <!-- FunASR URL config -->
-        <div id="dbg-funasr-row">
-            <label>FunASR:</label>
-            <input id="dbg-funasr-url" type="text" placeholder="wss://192.168.x.x:10095" />
-            <button id="dbg-funasr-test" onclick="dbgTestFunASR()">Probar</button>
         </div>
         <div id="dbg-list"></div>
     </div>
@@ -2018,14 +2011,15 @@
                 _setBackendAsrStatus('desconectado', false);
                 _cleanupBackendAsrAudio();
                 _backendAsrWs = null;
-                // Si sigue activo (cierre inesperado), reintentar en 1s
-                if (_backendAsrActive && _alwaysOnActive && !isSpeaking) {
-                    LOG('Backend ASR: reconectando en 1s...');
+                // Solo reconectar si fue un cierre inesperado de red (no por error del servidor)
+                // código 1000 = cierre limpio del servidor, no reintentar en ese caso
+                if (_backendAsrActive && _alwaysOnActive && !isSpeaking && e.code !== 1000) {
+                    LOG('Backend ASR: cierre inesperado (código=' + e.code + '), reconectando en 2s...');
                     setTimeout(() => {
                         if (_backendAsrActive && _alwaysOnActive) {
                             startBackendASR();
                         }
-                    }, 1000);
+                    }, 2000);
                 }
             };
         }
@@ -2120,11 +2114,6 @@
             }
 
             _asrMode = mode;
-            _useFallbackASR = (mode === 'funasr');
-
-            // Mostrar/ocultar fila de FunASR URL
-            const funasrRow = document.getElementById('dbg-funasr-row');
-            if (funasrRow) funasrRow.style.display = (mode === 'funasr') ? 'flex' : 'none';
 
             LOG('Modo ASR cambiado a:', mode);
 
@@ -2158,11 +2147,7 @@
             }
             if (isListening) {
                 LOG('toggleMic: ya escuchando → deteniendo');
-                if (_useFallbackASR) {
-                    stopMediaRecorderASR();
-                } else {
-                    forceStopRecognition();
-                }
+                forceStopRecognition();
                 return;
             }
 
@@ -2170,28 +2155,22 @@
             requestMicPermission().then(ok => {
                 if (!ok) { stopListening(); return; }
 
-                if (_useFallbackASR) {
-                    // POS/iMin: usar Web Audio API → WAV → /humanaudio
-                    LOG('Usando modo WAV fallback (POS/iMin)');
-                    startMediaRecorderASR();
-                } else {
-                    // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
-                    LOG('Usando modo SpeechRecognition');
-                    _audioCaptureErrors = 0;  // reset contador de errores
-                    _networkSpeechErrors = 0;  // reset errores de red
-                    recognition = setupRecognition();
-                    if (recognition) {
-                        try {
-                            recognition.start();
-                            LOG('recognition.start() llamado');
-                        } catch (e) {
-                            ERR('recognition.start() excepción:', e.name, e.message);
-                            stopListening();
-                        }
-                    } else {
-                        setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
+                LOG('Usando modo SpeechRecognition');
+                _audioCaptureErrors = 0;
+                _networkSpeechErrors = 0;
+                recognition = setupRecognition();
+                if (recognition) {
+                    try {
+                        recognition.start();
+                        LOG('recognition.start() llamado');
+                    } catch (e) {
+                        ERR('recognition.start() excepción:', e.name, e.message);
                         stopListening();
                     }
+                } else {
+                    setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                    stopListening();
                 }
             });
         }

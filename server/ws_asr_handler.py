@@ -95,10 +95,32 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
     llm_stream_fn  = request.app.get('llm_response_stream')
     clear_conv_fn  = request.app.get('clear_conversation')
 
+    # ── Carga lazy del modelo si falló en startup ─────────────────────────────
     if asr_instance is None:
-        await ws.send_json({"type": "error", "msg": "Módulo ASR no disponible en el servidor"})
-        await ws.close()
-        return ws
+        logger.info("[WS-ASR] whisper_asr no disponible en app, intentando carga lazy...")
+        try:
+            from asr.whisper_asr import WhisperASR
+            # Leer config del app si está disponible, o usar defaults
+            asr_cfg = request.app.get('asr_config', {})
+            asr_instance = WhisperASR(
+                model_size=asr_cfg.get('model_size', 'small'),
+                language=asr_cfg.get('language', 'es'),
+                device=asr_cfg.get('device', 'auto'),
+            )
+            # Notificar al cliente que está cargando
+            await ws.send_json({"type": "state", "state": "loading",
+                                "text": "Cargando modelo ASR, espera..."})
+            # Cargar modelo en thread aparte para no bloquear el event loop
+            loop = asyncio.get_event_loop()
+            await loop.run_in_executor(None, asr_instance.load_model)
+            request.app['whisper_asr'] = asr_instance
+            logger.info("[WS-ASR] Carga lazy del modelo exitosa.")
+        except Exception as e:
+            logger.error(f"[WS-ASR] Carga lazy del modelo falló: {e}")
+            await ws.send_json({"type": "error",
+                                "msg": f"No se pudo cargar el modelo Whisper: {e}"})
+            await ws.close()
+            return ws
 
     # ── Estado de la sesión ASR ───────────────────────────────────────────────
     conversation_awake   = False
