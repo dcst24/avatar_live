@@ -42,6 +42,17 @@ def parse_args():
     parser.add_argument('--customvideo_config', type=str, default='',
                         help="custom action json")
 
+    # ─── ASR Backend (faster-whisper) ─────────────────────────────────
+    parser.add_argument('--asr-model', type=str, default='small',
+                        dest='asr_model',
+                        help="Tamaño del modelo Whisper para backend-asr: tiny/base/small/medium/large-v3 (default: small)")
+    parser.add_argument('--asr-lang', type=str, default='es',
+                        dest='asr_lang',
+                        help="Idioma para transcripción Whisper (default: es)")
+    parser.add_argument('--asr-device', type=str, default='auto',
+                        dest='asr_device',
+                        help="Dispositivo para Whisper: auto/cuda/cpu (default: auto)")
+
     # ─── TTS ───────────────────────────────────────────────────────────
     parser.add_argument('--tts', type=str, default='edgetts',
                         help="tts plugin: edgetts/gpt-sovits/cosyvoice/fishtts/tencent/doubao/indextts2/azuretts/qwentts")

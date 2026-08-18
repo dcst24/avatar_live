@@ -501,6 +501,45 @@
             flex-shrink: 0;
         }
 
+        /* Fila de selector de modo ASR */
+        #dbg-asr-mode-row {
+            padding: 6px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex-shrink: 0;
+        }
+        #dbg-asr-mode-row label {
+            color: #a1a1aa;
+            font-size: 11px;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        #dbg-asr-mode-select {
+            flex: 1;
+            min-width: 160px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(39, 39, 42, 0.9);
+            color: #f4f4f5;
+            font-size: 11px;
+            font-family: inherit;
+            cursor: pointer;
+            outline: none;
+        }
+        #dbg-backend-asr-status {
+            font-size: 10px;
+            color: #71717a;
+            font-family: inherit;
+            flex-shrink: 0;
+        }
+        #dbg-backend-asr-status.connected {
+            color: #86efac;
+        }
+
         /* Fila de selector de mic */
         #dbg-mic-row {
             padding: 8px 14px;
@@ -818,6 +857,16 @@
                 <button id="dbg-close" onclick="dbgToggle()">Cerrar ✕</button>
             </div>
         </div>
+        <!-- Selector de modo ASR -->
+        <div id="dbg-asr-mode-row">
+            <label>🧠 Modo ASR:</label>
+            <select id="dbg-asr-mode-select" onchange="dbgSelectAsrMode(this.value)">
+                <option value="browser" selected>Browser (Google STT)</option>
+                <option value="funasr">FunASR (ws externo)</option>
+                <option value="backend-asr">Backend ASR (Whisper local)</option>
+            </select>
+            <span id="dbg-backend-asr-status">desconectado</span>
+        </div>
         <!-- Selector de micrófono -->
         <div id="dbg-mic-row">
             <label>🎤 Micrófono:</label>
@@ -966,6 +1015,21 @@
         let _recSeconds = 0;
         // Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
         let _useFallbackASR = false;
+
+        // ─── Modo ASR activo ────────────────────────────────────────────────────
+        // 'browser'     → Google SpeechRecognition (predeterminado)
+        // 'funasr'      → FunASR vía WebSocket externo (puerto 10095)
+        // 'backend-asr' → Whisper local en nuestro propio backend (/ws/asr)
+        let _asrMode = 'browser';
+
+        // ─── Estado del WebSocket de backend-asr ───────────────────────────────
+        let _backendAsrWs = null;        // WebSocket activo al backend
+        let _backendAsrAudioCtx = null;  // AudioContext para captura PCM
+        let _backendAsrAudioSrc = null;  // MediaStreamSource
+        let _backendAsrProc = null;      // ScriptProcessorNode
+        let _backendAsrActive = false;   // true mientras el modo está activo
+        let _backendAsrSampleBuf = null; // Float32Array acumulador de muestras
+
 
         // ─── Wake-word (always-on mic) ──────────────────────────────────────────
         // Palabras / frases que activan el asistente (todas en minúsculas, sin tilde)
@@ -1320,6 +1384,12 @@
                             
                             // IMPORTANTE: Detener el micrófono en el cliente de inmediato si el avatar empieza a hablar
                             stopAlwaysOnListening();
+
+                            // En modo backend-asr: notificar al servidor para resetear buffer
+                            if (_asrMode === 'backend-asr' && _backendAsrWs &&
+                                _backendAsrWs.readyState === WebSocket.OPEN) {
+                                try { _backendAsrWs.send(JSON.stringify({ type: 'reset' })); } catch(e) {}
+                            }
                             
                             // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
                             if (_pendingAvatarBubbleText) {
@@ -1330,13 +1400,14 @@
                         } else {
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
-                            if (_conversationAwake) {
-                                if (_waitingFollowUpAck) {
-                                    // El avatar acaba de terminar el "¿Necesitas algo más?"
-                                    // → iniciar timer de 30s para despedida automática
-                                    scheduleFollowUpAckTimeout();
-                                } else {
-                                    scheduleFollowUp();
+                            // En modo backend-asr el servidor gestiona follow-up e inactividad
+                            if (_asrMode !== 'backend-asr') {
+                                if (_conversationAwake) {
+                                    if (_waitingFollowUpAck) {
+                                        scheduleFollowUpAckTimeout();
+                                    } else {
+                                        scheduleFollowUp();
+                                    }
                                 }
                             }
                             setTimeout(() => {
@@ -1738,7 +1809,10 @@
                     LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
                 }
 
-                if (_useFallbackASR) {
+                if (_asrMode === 'backend-asr') {
+                    LOG('startAlwaysOnListening: modo backend-asr (Whisper en servidor)');
+                    startBackendASR();
+                } else if (_useFallbackASR) {
                     LOG('startAlwaysOnListening: modo FunASR (always-on)');
                     startMediaRecorderASR();
                 } else {
@@ -1769,12 +1843,295 @@
             _alwaysOnActive = false;
             _wakeDetected = false;
             clearTimeout(_wakeBufferTimeout);
-            if (_useFallbackASR) {
+            if (_asrMode === 'backend-asr') {
+                stopBackendASR();
+            } else if (_useFallbackASR) {
                 cleanupStreamingASR();
             } else if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
             stopListening();
+        }
+
+        // ════════════════════════════════════════════════════════════════════════
+        // BACKEND-ASR: WebSocket + Web Audio API (PCM 16kHz → servidor Whisper)
+        // ════════════════════════════════════════════════════════════════════════
+        const BACKEND_ASR_CHUNK = 960; // muestras por chunk (60ms a 16kHz)
+
+        function _setBackendAsrStatus(text, connected) {
+            const el = document.getElementById('dbg-backend-asr-status');
+            if (!el) return;
+            el.textContent = text;
+            el.className = connected ? 'connected' : '';
+        }
+
+        function _cleanupBackendAsrAudio() {
+            try { if (_backendAsrProc) { _backendAsrProc.disconnect(); _backendAsrProc = null; } } catch (e) {}
+            try { if (_backendAsrAudioSrc) { _backendAsrAudioSrc.disconnect(); _backendAsrAudioSrc = null; } } catch (e) {}
+            try { if (_backendAsrAudioCtx) { _backendAsrAudioCtx.close(); _backendAsrAudioCtx = null; } } catch (e) {}
+            _backendAsrSampleBuf = null;
+        }
+
+        function stopBackendASR() {
+            LOG('stopBackendASR: cerrando WebSocket y audio');
+            _backendAsrActive = false;
+            _cleanupBackendAsrAudio();
+            if (_backendAsrWs) {
+                try {
+                    if (_backendAsrWs.readyState === WebSocket.OPEN) {
+                        _backendAsrWs.send(JSON.stringify({ type: 'stop' }));
+                    }
+                    _backendAsrWs.onopen = null;
+                    _backendAsrWs.onmessage = null;
+                    _backendAsrWs.onerror = null;
+                    _backendAsrWs.onclose = null;
+                    _backendAsrWs.close();
+                } catch (e) { LOG('stopBackendASR close error:', e.message); }
+                _backendAsrWs = null;
+            }
+            _setBackendAsrStatus('desconectado', false);
+        }
+
+        function startBackendASR() {
+            if (!_micStream) {
+                ERR('startBackendASR: no hay stream de mic');
+                stopListening();
+                return;
+            }
+
+            // Cerrar conexión previa si existe
+            if (_backendAsrWs && _backendAsrWs.readyState !== WebSocket.CLOSED) {
+                stopBackendASR();
+            }
+
+            const sessionid = document.getElementById('sessionid').value;
+            const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${proto}//${location.host}/ws/asr?sessionid=${sessionid}`;
+            LOG('Backend ASR: conectando a', wsUrl);
+            setState('listening', 'Conectando al ASR...');
+
+            try {
+                _backendAsrWs = new WebSocket(wsUrl);
+                _backendAsrWs.binaryType = 'arraybuffer';
+            } catch (e) {
+                ERR('Backend ASR: error creando WebSocket:', e.message);
+                setState('ready', 'Error al conectar Backend ASR');
+                stopListening();
+                return;
+            }
+
+            _backendAsrWs.onopen = function () {
+                LOG('Backend ASR: WebSocket conectado');
+                _backendAsrActive = true;
+                _setBackendAsrStatus('conectado •', true);
+                _backendAsrWs.send(JSON.stringify({
+                    type: 'config',
+                    sessionid: sessionid,
+                    lang: 'es'
+                }));
+
+                // Iniciar captura de audio PCM
+                try {
+                    _backendAsrAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    const nativeSR = _backendAsrAudioCtx.sampleRate;
+                    LOG('Backend ASR: AudioContext', nativeSR, 'Hz');
+
+                    _backendAsrAudioSrc = _backendAsrAudioCtx.createMediaStreamSource(_micStream);
+                    _backendAsrSampleBuf = new Float32Array(0);
+
+                    _backendAsrProc = _backendAsrAudioCtx.createScriptProcessor(4096, 1, 1);
+                    _backendAsrProc.onaudioprocess = function (ev) {
+                        if (!_backendAsrActive || !_backendAsrWs ||
+                            _backendAsrWs.readyState !== WebSocket.OPEN) return;
+
+                        const input = ev.inputBuffer.getChannelData(0);
+
+                        // Resamplear a 16kHz si el nativo es diferente
+                        let resampled;
+                        if (nativeSR === 16000) {
+                            resampled = new Float32Array(input);
+                        } else {
+                            const ratio = 16000 / nativeSR;
+                            const newLen = Math.round(input.length * ratio);
+                            resampled = new Float32Array(newLen);
+                            for (let i = 0; i < newLen; i++) {
+                                const si = i / ratio;
+                                const lo = Math.floor(si);
+                                const hi = Math.min(lo + 1, input.length - 1);
+                                resampled[i] = input[lo] * (1 - (si - lo)) + input[hi] * (si - lo);
+                            }
+                        }
+
+                        // Acumular en buffer
+                        const combined = new Float32Array(_backendAsrSampleBuf.length + resampled.length);
+                        combined.set(_backendAsrSampleBuf);
+                        combined.set(resampled, _backendAsrSampleBuf.length);
+                        _backendAsrSampleBuf = combined;
+
+                        // Enviar chunks de 960 samples (60ms)
+                        while (_backendAsrSampleBuf.length >= BACKEND_ASR_CHUNK) {
+                            const chunk = _backendAsrSampleBuf.subarray(0, BACKEND_ASR_CHUNK);
+                            const int16 = new Int16Array(BACKEND_ASR_CHUNK);
+                            for (let i = 0; i < BACKEND_ASR_CHUNK; i++) {
+                                const s = Math.max(-1, Math.min(1, chunk[i]));
+                                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                            }
+                            _backendAsrWs.send(int16.buffer);
+                            _backendAsrSampleBuf = _backendAsrSampleBuf.subarray(BACKEND_ASR_CHUNK);
+                        }
+                    };
+
+                    _backendAsrAudioSrc.connect(_backendAsrProc);
+                    _backendAsrProc.connect(_backendAsrAudioCtx.destination);
+
+                    isListening = true;
+                    setState('listening', 'Esperando activación…');
+                    LOG('Backend ASR: captura de audio iniciada');
+                } catch (e) {
+                    ERR('Backend ASR: error iniciando audio:', e.name, e.message);
+                    stopBackendASR();
+                    stopListening();
+                    setState('ready', 'Error al iniciar audio (Backend ASR)');
+                }
+            };
+
+            _backendAsrWs.onmessage = function (evt) {
+                if (typeof evt.data !== 'string') return;
+                try {
+                    const data = JSON.parse(evt.data);
+                    _onBackendAsrMessage(data);
+                } catch (e) {
+                    WARN('Backend ASR: mensaje inválido:', evt.data);
+                }
+            };
+
+            _backendAsrWs.onerror = function () {
+                ERR('Backend ASR: error de WebSocket');
+                _setBackendAsrStatus('error', false);
+                stopBackendASR();
+                stopListening();
+                setState('ready', 'Error Backend ASR - verifica conexión');
+            };
+
+            _backendAsrWs.onclose = function (e) {
+                LOG('Backend ASR: WebSocket cerrado (código=' + e.code + ')');
+                _setBackendAsrStatus('desconectado', false);
+                _cleanupBackendAsrAudio();
+                _backendAsrWs = null;
+                // Si sigue activo (cierre inesperado), reintentar en 1s
+                if (_backendAsrActive && _alwaysOnActive && !isSpeaking) {
+                    LOG('Backend ASR: reconectando en 1s...');
+                    setTimeout(() => {
+                        if (_backendAsrActive && _alwaysOnActive) {
+                            startBackendASR();
+                        }
+                    }, 1000);
+                }
+            };
+        }
+
+        // ─── Manejo de mensajes del backend ASR ───────────────────────────────────────
+        let _backendAsrBubble = null; // burbuja del avatar en streaming del LLM
+
+        function _onBackendAsrMessage(data) {
+            const type = data.type || '';
+            LOG('Backend ASR msg:', type, data.text || data.state || data.msg || '');
+
+            switch (type) {
+
+                case 'state':
+                    // El servidor informa cambios de estado
+                    if (data.state === 'sleeping') {
+                        setState('listening', data.text || 'Esperando activación…');
+                    } else if (data.state === 'processing') {
+                        setState('processing', data.text || 'Procesando…');
+                    } else if (data.state === 'listening') {
+                        setState('listening', data.text || 'Escuchando…');
+                    }
+                    break;
+
+                case 'transcript':
+                    // Transcripción parcial o final del ASR
+                    if (data.text) {
+                        setUserText(data.text, !data.is_final);
+                        if (data.is_final) {
+                            addChatBubble('user', data.text);
+                        }
+                    }
+                    break;
+
+                case 'llm_chunk':
+                    // Fragmento de texto del LLM en streaming
+                    setState('processing', 'Procesando…');
+                    if (!_backendAsrBubble && data.text && data.text.trim()) {
+                        _backendAsrBubble = addChatBubble('avatar', '');
+                    }
+                    if (_backendAsrBubble && data.text) {
+                        _backendAsrBubble.textContent += data.text;
+                        const container = document.getElementById('chat-container');
+                        if (container) container.scrollTop = container.scrollHeight;
+                    }
+                    break;
+
+                case 'llm_done':
+                    // Respuesta completa del LLM
+                    _backendAsrBubble = null;
+                    setUserText('', false);
+                    if (data.is_farewell || data.is_followup) {
+                        // Mensajes especiales: no reiniciar estado desde aqui,
+                        // el servidor envía el state correcto
+                    }
+                    break;
+
+                case 'session_cleared':
+                    // El servidor limpiar el historial y volvió a modo espera
+                    _backendAsrBubble = null;
+                    const container = document.getElementById('chat-container');
+                    if (container) container.innerHTML = '';
+                    setState('listening', 'Esperando activación…');
+                    break;
+
+                case 'system_msg':
+                    // Mensajes de sistema del servidor
+                    if (data.text) addChatBubble('system', data.text);
+                    break;
+
+                case 'error':
+                    ERR('Backend ASR error del servidor:', data.msg);
+                    break;
+
+                case 'pong':
+                    // Heartbeat ok
+                    break;
+
+                default:
+                    LOG('Backend ASR: mensaje desconocido:', type);
+            }
+        }
+
+        // ─── Selector de modo ASR (debug panel) ────────────────────────────────────
+        function dbgSelectAsrMode(mode) {
+            LOG('dbgSelectAsrMode:', mode);
+            if (mode === _asrMode) return;
+
+            // Detener el modo actual si está activo
+            if (_alwaysOnActive) {
+                stopAlwaysOnListening();
+            }
+
+            _asrMode = mode;
+            _useFallbackASR = (mode === 'funasr');
+
+            // Mostrar/ocultar fila de FunASR URL
+            const funasrRow = document.getElementById('dbg-funasr-row');
+            if (funasrRow) funasrRow.style.display = (mode === 'funasr') ? 'flex' : 'none';
+
+            LOG('Modo ASR cambiado a:', mode);
+
+            // Si ya está conectado, reiniciar la escucha con el nuevo modo
+            if (isConnected && !isSpeaking) {
+                setTimeout(() => startAlwaysOnListening(), 300);
+            }
         }
 
         // ─── Toggle micrófono (disponible para uso manual/debug) ──────────────────

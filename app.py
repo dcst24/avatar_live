@@ -41,6 +41,7 @@ import registry
 from server.routes import setup_routes
 from server.rtc_manager import RTCManager
 from server.session_manager import session_manager
+from asr.whisper_asr import WhisperASR
 
 import argparse
 import random
@@ -155,6 +156,21 @@ def main():
     appasync["llm_response"] = llm_response
     appasync["llm_response_stream"] = llm_response_stream
     appasync["clear_conversation"] = clear_conversation
+
+    # ── Inicializar módulo ASR backend (faster-whisper) ───────────────────────
+    try:
+        whisper_asr = WhisperASR(
+            model_size=opt.asr_model,
+            language=opt.asr_lang,
+            device=opt.asr_device,
+        )
+        whisper_asr.load_model()
+        appasync['whisper_asr'] = whisper_asr
+        logger.info(f"[ASR] Modelo Whisper '{opt.asr_model}' listo.")
+    except Exception as e:
+        logger.warning(f"[ASR] No se pudo cargar faster-whisper: {e}")
+        logger.warning("[ASR] El modo backend-asr no estará disponible. Instala: pip install faster-whisper")
+        appasync['whisper_asr'] = None
 
     appasync.on_shutdown.append(on_shutdown)
     appasync.router.add_post("/offer", offer)

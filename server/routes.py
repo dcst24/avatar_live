@@ -8,6 +8,7 @@ import asyncio
 from aiohttp import web
 
 from utils.logger import logger
+from server import ws_asr_handler
 
 
 # ─── 路由工具函数 ──────────────────────────────────────────────────────────
@@ -252,4 +253,6 @@ def setup_routes(app):
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
+    # ── WebSocket ASR backend ──────────────────────────────────────────
+    app.router.add_get("/ws/asr", ws_asr_handler.handle)
     app.router.add_static('/', path='web')

@@ -42,11 +42,13 @@ function negotiate() {
 
 function start() {
     var config = {
-        sdpSemantics: 'unified-plan'
+        sdpSemantics: 'unified-plan',
+        iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
     };
 
-    if (document.getElementById('use-stun').checked) {
-        config.iceServers = [{ urls: ['stun:stun.l.google.com:19302'] }];
+    var stunElem = document.getElementById('use-stun');
+    if (stunElem && !stunElem.checked && stunElem.style.display !== 'none') {
+        config.iceServers = [];
     }
 
     pc = new RTCPeerConnection(config);
