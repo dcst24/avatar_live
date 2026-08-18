@@ -1,7 +1,17 @@
 ###############################################################################
-#  WhisperASR — Transcripción local con faster-whisper
-#  Recibe chunks de audio PCM 16-bit LE, 16kHz, mono.
-#  Acumula muestras, aplica VAD simple por energía y transcribe en segmentos.
+#  WhisperASR — Transcripción local con soporte doble backend:
+#
+#  Backend 1: openai-whisper  (usa PyTorch — CUDA funciona en Jetson con JetPack)
+#  Backend 2: faster-whisper  (usa CTranslate2 — CUDA solo en x86, más rápido)
+#
+#  Se intenta primero faster-whisper. Si CTranslate2 no soporta CUDA en la
+#  plataforma actual, se usa openai-whisper automáticamente.
+#
+#  Flujo de audio:
+#    - Recibe chunks PCM 16-bit LE, 16kHz, mono
+#    - VAD simple por energía RMS para detectar segmentos de habla
+#    - Al detectar fin de habla → transcribe el segmento acumulado
+#    - Llama on_transcript(text, is_final)
 ###############################################################################
 
 import numpy as np
@@ -12,29 +22,29 @@ from utils.logger import logger
 
 
 # ─── Constantes de VAD ────────────────────────────────────────────────────────
-SAMPLE_RATE      = 16000          # Hz — debe coincidir con lo que envía el navegador
-SILENCE_THRESH   = 0.008          # RMS por debajo del cual se considera silencio
-SILENCE_FRAMES   = 25             # frames de silencio consecutivos para cortar (~1.5s con chunks de 60ms)
-MIN_SPEECH_SECS  = 0.3            # segundos mínimos de habla antes de transcribir
-MAX_BUFFER_SECS  = 30             # segundos máximos de buffer antes de forzar transcripción
-CHUNK_SAMPLES    = 960            # muestras por chunk (60ms a 16kHz)
+SAMPLE_RATE      = 16000    # Hz — debe coincidir con lo que envía el navegador
+SILENCE_THRESH   = 0.008    # RMS por debajo del cual se considera silencio
+SILENCE_FRAMES   = 18       # frames de silencio consecutivos para cortar (~1.1s a 60ms/frame)
+MIN_SPEECH_SECS  = 0.3      # segundos mínimos de habla antes de transcribir
+MAX_BUFFER_SECS  = 25       # segundos máximos antes de forzar transcripción
+CHUNK_SAMPLES    = 960      # muestras por chunk (60ms a 16kHz)
 
 
 class WhisperASR:
     """
-    Transcriptor de audio en tiempo real basado en faster-whisper.
+    Transcriptor de audio en tiempo real.
+
+    Detecta automáticamente el mejor backend disponible:
+      - faster-whisper + CTranslate2 CUDA  → x86 con GPU NVIDIA
+      - openai-whisper + PyTorch CUDA       → Jetson Orin NX (JetPack)
+      - openai-whisper + PyTorch CPU        → Cualquier plataforma (más lento)
 
     Uso:
-        asr = WhisperASR(model_size='small', language='es', device='cpu')
+        asr = WhisperASR(model_size='small', language='es', device='auto')
+        asr.load_model()
         asr.start()
-
-        # En cada chunk de audio recibido del cliente:
-        asr.feed(pcm_bytes)
-
-        # Para detener y vaciar el buffer:
+        asr.feed(pcm_bytes)   # llamar con cada chunk de audio
         asr.stop()
-
-    Los resultados llegan por el callback `on_transcript(text, is_final)`.
     """
 
     def __init__(
@@ -42,85 +52,103 @@ class WhisperASR:
         model_size: str = 'small',
         language: str = 'es',
         device: str = 'auto',
-        compute_type: str = 'auto',
         on_transcript: Optional[Callable[[str, bool], None]] = None,
     ):
-        """
-        Args:
-            model_size:    Tamaño del modelo Whisper ('tiny','base','small','medium','large-v3')
-            language:      Código de idioma para faster-whisper (p.ej. 'es')
-            device:        'cuda', 'cpu' o 'auto' (detecta CUDA automáticamente)
-            compute_type:  'float16', 'int8', 'auto' (auto elige el mejor según device)
-            on_transcript: Callback(text: str, is_final: bool) llamado con cada resultado
-        """
         self.model_size   = model_size
         self.language     = language
         self.on_transcript = on_transcript
+        self._backend     = None   # 'faster-whisper' | 'openai-whisper'
+        self._model       = None
+        self._device      = self._resolve_device(device)
 
-        # ── Resolver device y compute_type ──────────────────────────────────
-        if device == 'auto':
-            try:
-                import torch
-                self._device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            except ImportError:
-                self._device = 'cpu'
-        else:
-            self._device = device
-
-        if compute_type == 'auto':
-            self._compute_type = 'float16' if self._device == 'cuda' else 'int8'
-        else:
-            self._compute_type = compute_type
-
-        # ── Buffer de audio y estado VAD ─────────────────────────────────────
+        # ── Buffer y estado VAD ──────────────────────────────────────────────
         self._lock           = threading.Lock()
         self._audio_buffer   = np.array([], dtype=np.float32)
         self._silence_count  = 0
         self._speech_started = False
         self._speech_samples = 0
         self._running        = False
-        self._model          = None
 
         logger.info(
-            f"[WhisperASR] Config: model={model_size}, lang={language}, "
-            f"device={self._device}, compute={self._compute_type}"
+            f"[WhisperASR] Config: model={model_size}, lang={language}, device={self._device}"
         )
+
+    # ── Resolución de device ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _resolve_device(device: str) -> str:
+        if device != 'auto':
+            return device
+        try:
+            import torch
+            return 'cuda' if torch.cuda.is_available() else 'cpu'
+        except ImportError:
+            return 'cpu'
 
     # ── Carga del modelo ──────────────────────────────────────────────────────
 
     def load_model(self):
-        """Carga el modelo faster-whisper. Llamar una sola vez al iniciar el servidor."""
+        """
+        Carga el modelo Whisper. Detecta automáticamente el mejor backend.
+        Prioridad: faster-whisper con CUDA → faster-whisper con CPU → openai-whisper
+        """
         if self._model is not None:
             return
+
+        # ── Intento 1: faster-whisper ─────────────────────────────────────────
         try:
             from faster_whisper import WhisperModel
-            logger.info(f"[WhisperASR] Cargando modelo '{self.model_size}' en {self._device}...")
+            compute_type = 'float16' if self._device == 'cuda' else 'int8'
+            logger.info(
+                f"[WhisperASR] Cargando con faster-whisper: model={self.model_size}, "
+                f"device={self._device}, compute={compute_type}"
+            )
             self._model = WhisperModel(
                 self.model_size,
                 device=self._device,
-                compute_type=self._compute_type,
+                compute_type=compute_type,
             )
-            logger.info("[WhisperASR] Modelo cargado correctamente.")
+            self._backend = 'faster-whisper'
+            logger.info(f"[WhisperASR] Backend: faster-whisper ({self._device})")
+            return
         except Exception as e:
-            logger.error(f"[WhisperASR] Error cargando modelo: {e}")
-            raise
+            logger.warning(f"[WhisperASR] faster-whisper no disponible ({e}), probando openai-whisper...")
+
+        # ── Intento 2: openai-whisper (PyTorch — CUDA en Jetson) ─────────────
+        try:
+            import whisper as oai_whisper
+            logger.info(
+                f"[WhisperASR] Cargando con openai-whisper: model={self.model_size}, "
+                f"device={self._device}"
+            )
+            self._model = oai_whisper.load_model(self.model_size, device=self._device)
+            self._backend = 'openai-whisper'
+            logger.info(f"[WhisperASR] Backend: openai-whisper (PyTorch, device={self._device})")
+            return
+        except Exception as e:
+            logger.error(f"[WhisperASR] openai-whisper también falló: {e}")
+            raise RuntimeError(
+                f"No se pudo cargar ningún backend de Whisper. "
+                f"Instala: pip install openai-whisper\n"
+                f"Último error: {e}"
+            )
 
     # ── API pública ───────────────────────────────────────────────────────────
 
     def start(self):
-        """Activa el receptor de audio. Debe llamarse al iniciar cada sesión de escucha."""
+        """Inicia una sesión de escucha. Llamar al inicio de cada conversación."""
         with self._lock:
             self._audio_buffer   = np.array([], dtype=np.float32)
             self._silence_count  = 0
             self._speech_started = False
             self._speech_samples = 0
             self._running        = True
-        logger.debug("[WhisperASR] Sesión de escucha iniciada.")
+        logger.debug("[WhisperASR] Sesión iniciada.")
 
-    def stop(self):
+    def stop(self) -> Optional[str]:
         """
-        Detiene la sesión de escucha y fuerza la transcripción del buffer acumulado.
-        Retorna el texto transcrito o None si el buffer estaba vacío.
+        Detiene la sesión y fuerza la transcripción del buffer acumulado.
+        Retorna el texto transcrito o None.
         """
         with self._lock:
             self._running = False
@@ -146,7 +174,7 @@ class WhisperASR:
     def feed(self, pcm_bytes: bytes) -> Optional[str]:
         """
         Alimenta el ASR con un chunk de audio PCM 16-bit LE, 16kHz, mono.
-        Si detecta fin de habla por VAD, transcribe y llama on_transcript.
+        Cuando detecta fin de habla por VAD, transcribe y llama on_transcript.
 
         Returns:
             Texto transcrito si hubo resultado, None si aún acumulando.
@@ -154,21 +182,18 @@ class WhisperASR:
         if not self._running or self._model is None:
             return None
 
-        # Convertir bytes PCM 16-bit a float32 normalizado [-1, 1]
         try:
             samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32) / 32768.0
         except Exception as e:
             logger.warning(f"[WhisperASR] Error decodificando PCM: {e}")
             return None
 
-        # ── VAD simple por energía RMS ────────────────────────────────────────
         rms = float(np.sqrt(np.mean(samples ** 2))) if len(samples) > 0 else 0.0
+        is_speech = rms > SILENCE_THRESH
 
         with self._lock:
             if not self._running:
                 return None
-
-            is_speech = rms > SILENCE_THRESH
 
             if is_speech:
                 self._silence_count  = 0
@@ -178,31 +203,25 @@ class WhisperASR:
             else:
                 if self._speech_started:
                     self._silence_count += 1
-                    # Agregar silencio al buffer (para contexto)
                     self._audio_buffer = np.concatenate([self._audio_buffer, samples])
 
-            # ── Condición de corte: silencio suficiente después de habla ──────
             should_transcribe = (
                 self._speech_started and
                 self._speech_samples >= int(MIN_SPEECH_SECS * SAMPLE_RATE) and
                 self._silence_count >= SILENCE_FRAMES
             )
-
-            # ── Condición de corte: buffer demasiado largo ────────────────────
             if self._speech_started and len(self._audio_buffer) >= int(MAX_BUFFER_SECS * SAMPLE_RATE):
                 should_transcribe = True
 
             if not should_transcribe:
                 return None
 
-            # Tomar buffer y resetear estado
             buffer = self._audio_buffer.copy()
             self._audio_buffer   = np.array([], dtype=np.float32)
             self._silence_count  = 0
             self._speech_started = False
             self._speech_samples = 0
 
-        # Transcribir fuera del lock (puede ser lento)
         text = self._transcribe(buffer)
         if text and self.on_transcript:
             self.on_transcript(text, True)
@@ -211,34 +230,49 @@ class WhisperASR:
     # ── Transcripción interna ─────────────────────────────────────────────────
 
     def _transcribe(self, audio: np.ndarray) -> Optional[str]:
-        """
-        Transcribe un array float32 de audio con faster-whisper.
-        Retorna el texto transcrito o None si no se detectó habla.
-        """
+        """Transcribe un array float32 (16kHz, mono) con el backend activo."""
         if self._model is None or len(audio) == 0:
             return None
         try:
             t0 = time.perf_counter()
-            segments, info = self._model.transcribe(
-                audio,
-                language=self.language,
-                beam_size=5,
-                vad_filter=True,          # VAD interno de Whisper como segunda capa
-                vad_parameters=dict(
-                    min_silence_duration_ms=500,
-                    speech_pad_ms=200,
-                ),
-                condition_on_previous_text=False,
-                no_speech_threshold=0.6,
-                temperature=0.0,          # Determinístico
-            )
-            text = " ".join(seg.text.strip() for seg in segments).strip()
+
+            if self._backend == 'faster-whisper':
+                text = self._transcribe_faster(audio)
+            else:
+                text = self._transcribe_openai(audio)
+
             elapsed = time.perf_counter() - t0
             if text:
-                logger.info(f"[WhisperASR] Transcripción ({elapsed:.2f}s): \"{text}\"")
+                logger.info(f"[WhisperASR][{self._backend}] ({elapsed:.2f}s): \"{text}\"")
             else:
                 logger.debug(f"[WhisperASR] Sin habla detectada ({elapsed:.2f}s)")
             return text or None
         except Exception as e:
             logger.error(f"[WhisperASR] Error en transcripción: {e}")
             return None
+
+    def _transcribe_faster(self, audio: np.ndarray) -> Optional[str]:
+        segments, _ = self._model.transcribe(
+            audio,
+            language=self.language,
+            beam_size=5,
+            vad_filter=True,
+            vad_parameters=dict(min_silence_duration_ms=400, speech_pad_ms=100),
+            condition_on_previous_text=False,
+            no_speech_threshold=0.6,
+            temperature=0.0,
+        )
+        return " ".join(seg.text.strip() for seg in segments).strip() or None
+
+    def _transcribe_openai(self, audio: np.ndarray) -> Optional[str]:
+        result = self._model.transcribe(
+            audio,
+            language=self.language,
+            fp16=(self._device == 'cuda'),
+            condition_on_previous_text=False,
+            no_speech_threshold=0.6,
+            temperature=0.0,
+            best_of=1,
+            beam_size=3,
+        )
+        return result.get('text', '').strip() or None
