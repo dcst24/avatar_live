@@ -97,10 +97,17 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
 
     # ── Carga lazy del modelo si falló en startup ─────────────────────────────
     if asr_instance is None:
+        # Si ya falló antes de forma permanente, no reintentar
+        if request.app.get('whisper_asr_failed'):
+            failed_reason = request.app.get('whisper_asr_failed_reason', 'Error desconocido')
+            await ws.send_json({"type": "error",
+                                "msg": f"ASR no disponible: {failed_reason}"})
+            await ws.close()
+            return ws
+
         logger.info("[WS-ASR] whisper_asr no disponible en app, intentando carga lazy...")
         try:
             from asr.whisper_asr import WhisperASR
-            # Leer config del app si está disponible, o usar defaults
             asr_cfg = request.app.get('asr_config', {})
             asr_instance = WhisperASR(
                 model_size=asr_cfg.get('model_size', 'small'),
@@ -116,11 +123,15 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
             request.app['whisper_asr'] = asr_instance
             logger.info("[WS-ASR] Carga lazy del modelo exitosa.")
         except Exception as e:
-            logger.error(f"[WS-ASR] Carga lazy del modelo falló: {e}")
+            # Marcar fallo permanente para no reintentar en cada conexión
+            request.app['whisper_asr_failed'] = True
+            request.app['whisper_asr_failed_reason'] = str(e)
+            logger.error(f"[WS-ASR] Carga lazy del modelo falló (permanente): {e}")
             await ws.send_json({"type": "error",
                                 "msg": f"No se pudo cargar el modelo Whisper: {e}"})
             await ws.close()
             return ws
+
 
     # ── Estado de la sesión ASR ───────────────────────────────────────────────
     conversation_awake   = False
