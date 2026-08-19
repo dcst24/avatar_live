@@ -133,7 +133,17 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
             return ws
 
 
-    # ── Estado de la sesión ASR ───────────────────────────────────────────────
+    # ── Máquina de estados ASR ────────────────────────────────────────────────
+    # LISTENING   : escuchando, procesando audio y transcripciones
+    # PROCESSING  : LLM ejecutándose, descartar audio y transcripciones
+    # SPEAKING    : avatar hablando, descartar audio y transcripciones
+    ASR_LISTENING  = 'listening'
+    ASR_PROCESSING = 'processing'
+    ASR_SPEAKING   = 'speaking'
+
+    _asr_state = ASR_LISTENING   # estado actual
+
+    # ── Estado de conversación ───────────────────────────────────────────────
     conversation_awake   = False
     wake_detected        = False
     last_wake_text       = ''
@@ -143,6 +153,7 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
     followup_task    = None
     wake_buffer_task = None
     followup_ack_task = None
+    speaking_monitor_task = None
 
     # ── Helpers de envío ─────────────────────────────────────────────────────
 
@@ -155,6 +166,15 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
 
     async def send_state(state: str, text: str = ''):
         await send({"type": "state", "state": state, "text": text})
+
+    def set_asr_state(new_state: str):
+        nonlocal _asr_state
+        if _asr_state != new_state:
+            logger.info(f"[WS-ASR] Estado: {_asr_state} → {new_state}")
+            _asr_state = new_state
+            # Limpiar buffer de audio al entrar en modos no-escucha
+            if new_state in (ASR_PROCESSING, ASR_SPEAKING):
+                asr_instance.reset()
 
     # ── Lógica de sleep / wake ────────────────────────────────────────────────
 
@@ -265,11 +285,13 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
     async def send_to_llm(text: str, is_sleep: bool = False):
         nonlocal conversation_awake
         logger.info(f"[WS-ASR] Enviando al LLM: \"{text}\" (sleep={is_sleep})")
-        await send_state('processing', 'Procesando…')
+        set_asr_state(ASR_PROCESSING)
+        await send_state(ASR_PROCESSING, 'Procesando…')
 
         avatar_session = session_manager.get_session(sessionid)
         if avatar_session is None:
             await send({"type": "error", "msg": "Sesión de avatar no encontrada"})
+            set_asr_state(ASR_LISTENING)
             return
 
         if is_sleep:
@@ -283,10 +305,14 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
             await clear_history()
             await send({"type": "system_msg",
                         "text": 'Conversación finalizada. Di "Hola" para activar de nuevo.'})
+            # Lanzar monitor de fin de habla (despedida)
+            loop = asyncio.get_event_loop()
+            loop.create_task(_wait_speaking_end())
             return
 
         if llm_stream_fn is None:
             await send({"type": "error", "msg": "LLM no disponible"})
+            set_asr_state(ASR_LISTENING)
             return
 
         # Interrumpir el avatar si está hablando
@@ -328,21 +354,33 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
         except Exception as e:
             logger.error(f"[WS-ASR] Error en send_to_llm: {e}")
             await send({"type": "error", "msg": str(e)})
+            set_asr_state(ASR_LISTENING)
+            await send_state(ASR_LISTENING, 'Escuchando…')
+            return
 
         await send({"type": "llm_done", "full_text": full_text})
         logger.info(f"[WS-ASR] LLM completado. chars={len(full_text)}")
+
+        # Esperar a que el avatar empiece y termine de hablar
+        loop = asyncio.get_event_loop()
+        loop.create_task(_wait_speaking_end())
 
     # ── Procesamiento de transcripción ────────────────────────────────────────
 
     async def on_transcript(text: str, is_final: bool):
         """
         Llamado por el ASR cuando hay un resultado.
-        Aplica lógica de wake-word, sleep-word, y envío al LLM.
+        SOLO procesa si estamos en estado LISTENING.
         """
         nonlocal conversation_awake, wake_detected, last_wake_text
         nonlocal waiting_followup_ack, followup_task, followup_ack_task, wake_buffer_task
 
         if not text:
+            return
+
+        # ── GUARDIA: ignorar transcripciones si no estamos escuchando ──────────
+        if _asr_state != ASR_LISTENING:
+            logger.debug(f"[WS-ASR] Transcript ignorado (estado={_asr_state}): \"{text[:40]}\"")
             return
 
         logger.info(f"[WS-ASR] Transcript (final={is_final}): \"{text}\"")
@@ -405,7 +443,55 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
             logger.info(f"[WS-ASR] Buffer expirado → enviando wake-word sola: \"{last_wake_text}\"")
             wake_detected = False
             wake_up_model()
+            set_asr_state(ASR_PROCESSING)
+            await send_state(ASR_PROCESSING, 'Procesando…')
             await send_to_llm(last_wake_text)
+
+    # ── Monitor de fin de habla del avatar ──────────────────────────────────
+
+    async def _wait_speaking_end():
+        """
+        Espera a que el avatar empiece a hablar y luego a que termine.
+        Cuando termina, vuelve al estado LISTENING.
+        """
+        nonlocal speaking_monitor_task
+        set_asr_state(ASR_SPEAKING)
+
+        avatar_session = session_manager.get_session(sessionid)
+        if avatar_session is None:
+            # Sin sesión de avatar, volver directo a listening
+            set_asr_state(ASR_LISTENING)
+            await send_state(ASR_LISTENING, 'Escuchando…')
+            return
+
+        # Esperar a que el avatar empiece a hablar (máx 3s)
+        start_wait = time.time()
+        while not avatar_session.is_speaking() and (time.time() - start_wait) < 3.0:
+            await asyncio.sleep(0.1)
+
+        if not avatar_session.is_speaking():
+            # No empezó a hablar, volver a listening
+            logger.debug("[WS-ASR] Avatar no empezó a hablar, volviendo a listening")
+            set_asr_state(ASR_LISTENING)
+            await send_state(ASR_LISTENING, 'Escuchando…')
+            return
+
+        logger.info("[WS-ASR] Avatar empezó a hablar, esperando que termine...")
+        await send_state(ASR_SPEAKING, 'Hablando…')
+
+        # Esperar a que termine de hablar
+        while avatar_session.is_speaking():
+            await asyncio.sleep(0.2)
+
+        logger.info("[WS-ASR] Avatar terminó de hablar, volviendo a LISTENING")
+        set_asr_state(ASR_LISTENING)
+        asr_instance.reset()  # limpiar cualquier audio acumulado mientras hablaba
+        await send_state(ASR_LISTENING, 'Escuchando…')
+        # Notificar al cliente que puede escuchar de nuevo
+        await send({"type": "speaking_done"})
+
+        if conversation_awake:
+            schedule_followup()
 
     # ── Configurar callback del ASR ───────────────────────────────────────────
     loop = asyncio.get_event_loop()
@@ -417,7 +503,7 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
     # ── Iniciar sesión ASR ────────────────────────────────────────────────────
     asr_instance.on_transcript = _asr_callback
     asr_instance.start()
-    await send_state('listening', 'Esperando activación…')
+    await send_state(ASR_LISTENING, 'Esperando activación…')
     logger.info(f"[WS-ASR] Sesión iniciada. Esperando audio...")
 
     # ── Loop principal de mensajes WebSocket ──────────────────────────────────
@@ -459,11 +545,12 @@ async def handle(request: web.Request) -> web.WebSocketResponse:
         logger.error(f"[WS-ASR] Error en loop de mensajes: {e}")
 
     finally:
-        # Limpieza
         cancel_task(inactivity_task)
         cancel_task(followup_task)
         cancel_task(followup_ack_task)
         cancel_task(wake_buffer_task)
+        if speaking_monitor_task and not speaking_monitor_task.done():
+            speaking_monitor_task.cancel()
         asr_instance.reset()
         logger.info(f"[WS-ASR] Conexión cerrada. sessionid={sessionid}")
 

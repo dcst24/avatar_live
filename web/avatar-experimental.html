@@ -1393,21 +1393,34 @@
                         } else {
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
-                            // En modo backend-asr el servidor gestiona follow-up e inactividad
-                            if (_asrMode !== 'backend-asr') {
-                                if (_conversationAwake) {
-                                    if (_waitingFollowUpAck) {
-                                        scheduleFollowUpAckTimeout();
-                                    } else {
-                                        scheduleFollowUp();
+                            // En modo backend-asr: el servidor gestiona el flujo completo.
+                            // Notificar al servidor que el avatar terminó de hablar.
+                            if (_asrMode === 'backend-asr') {
+                                if (_backendAsrWs && _backendAsrWs.readyState === WebSocket.OPEN) {
+                                    try {
+                                        _backendAsrWs.send(JSON.stringify({ type: 'speaking_ended' }));
+                                        LOG('Backend ASR: notificado speaking_ended');
+                                    } catch (e) {}
+                                }
+                                // El servidor envía speaking_done cuando está listo para escuchar
+                                // No reiniciar mic aquí, esperar ese mensaje
+                            } else {
+                                // Modos browser: reiniciar escucha directamente
+                                if (_asrMode !== 'backend-asr') {
+                                    if (_conversationAwake) {
+                                        if (_waitingFollowUpAck) {
+                                            scheduleFollowUpAckTimeout();
+                                        } else {
+                                            scheduleFollowUp();
+                                        }
                                     }
                                 }
+                                setTimeout(() => {
+                                    if (!isListening && !_alwaysOnActive) {
+                                        startAlwaysOnListening();
+                                    }
+                                }, 300);
                             }
-                            setTimeout(() => {
-                                if (!isListening && !_alwaysOnActive) {
-                                    startAlwaysOnListening();
-                                }
-                            }, 300);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
@@ -2068,21 +2081,26 @@
                     break;
 
                 case 'llm_done':
-                    // Respuesta completa del LLM
+                    // LLM terminó — el servidor gestiona la transición a SPEAKING
                     _backendAsrBubble = null;
                     setUserText('', false);
-                    if (data.is_farewell || data.is_followup) {
-                        // Mensajes especiales: no reiniciar estado desde aqui,
-                        // el servidor envía el state correcto
-                    }
+                    break;
+
+                case 'speaking_done':
+                    // El servidor confirma que el avatar terminó de hablar
+                    LOG('Backend ASR: avatar terminó de hablar, mic activo');
+                    setState('listening', 'Escuchando…');
                     break;
 
                 case 'session_cleared':
-                    // El servidor limpiar el historial y volvió a modo espera
+                    // El servidor limpió el historial
                     _backendAsrBubble = null;
-                    const container = document.getElementById('chat-container');
-                    if (container) container.innerHTML = '';
+                    { const c2 = document.getElementById('chat-container'); if (c2) c2.innerHTML = ''; }
                     setState('listening', 'Esperando activación…');
+                    break;
+
+                case 'loading':
+                    setState('connecting', data.text || 'Cargando modelo ASR…');
                     break;
 
                 case 'system_msg':
