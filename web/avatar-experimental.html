@@ -1013,7 +1013,8 @@
         // 'browser'     → Google SpeechRecognition (predeterminado)
         // 'funasr'      → FunASR vía WebSocket externo (puerto 10095)
         // 'backend-asr' → Whisper local en nuestro propio backend (/ws/asr)
-        let _asrMode = 'browser';
+        const _savedAsrMode = localStorage.getItem('avatar_asr_mode');
+        let _asrMode = (_savedAsrMode === 'backend-asr' || _savedAsrMode === 'browser') ? _savedAsrMode : 'browser';
 
         // ─── Estado del WebSocket de backend-asr ───────────────────────────────
         let _backendAsrWs = null;        // WebSocket activo al backend
@@ -1817,7 +1818,12 @@
 
                 if (_asrMode === 'backend-asr') {
                     LOG('startAlwaysOnListening: modo backend-asr (Whisper en servidor)');
-                    startBackendASR();
+                    _backendAsrActive = true;
+                    if (_backendAsrWs && _backendAsrWs.readyState === WebSocket.OPEN) {
+                        _startBackendAsrAudio();
+                    } else {
+                        startBackendASR();
+                    }
                 } else if (_useFallbackASR) {
                     LOG('startAlwaysOnListening: modo FunASR (always-on)');
                     startMediaRecorderASR();
@@ -1932,15 +1938,22 @@
         // Inicia solo el pipeline de audio (AudioContext + ScriptProcessor)
         // Puede llamarse tras speaking_done para reanudar sin reconectar el WS
         function _startBackendAsrAudio() {
-            if (!_micStream || !_backendAsrWs || _backendAsrWs.readyState !== WebSocket.OPEN) {
-                WARN('_startBackendAsrAudio: sin stream o WS cerrado');
+            if (!_micStream || !_micStream.active || !_backendAsrWs || _backendAsrWs.readyState !== WebSocket.OPEN) {
+                WARN('_startBackendAsrAudio: sin stream activo o WS no OPEN → reconectando backend ASR');
+                startBackendASR();
                 return;
             }
             _cleanupBackendAsrAudio(); // limpiar anterior si existe
             try {
                 _backendAsrAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const nativeSR = _backendAsrAudioCtx.sampleRate;
-                LOG('Backend ASR: AudioContext', nativeSR, 'Hz');
+                LOG('Backend ASR: AudioContext', nativeSR, 'Hz', 'estado:', _backendAsrAudioCtx.state);
+
+                if (_backendAsrAudioCtx.state === 'suspended') {
+                    _backendAsrAudioCtx.resume().then(() => {
+                        LOG('Backend ASR: AudioContext resumiendo OK');
+                    }).catch(e => WARN('Backend ASR: AudioContext resume error:', e));
+                }
 
                 _backendAsrAudioSrc = _backendAsrAudioCtx.createMediaStreamSource(_micStream);
                 _backendAsrSampleBuf = new Float32Array(0);
@@ -1991,7 +2004,8 @@
                 _backendAsrProc.connect(_backendAsrAudioCtx.destination);
 
                 isListening = true;
-                LOG('Backend ASR: pipeline de audio iniciado/reanudado');
+                _backendAsrActive = true;
+                LOG('Backend ASR: pipeline de audio activo (isListening=true)');
             } catch (e) {
                 ERR('Backend ASR: error iniciando audio:', e.name, e.message);
             }
@@ -2100,11 +2114,11 @@
                     break;
 
                 case 'speaking_done':
-                    // El servidor confirma que el avatar terminó de hablar
-                    LOG('Backend ASR: avatar terminó de hablar → reanudando audio');
-                    setState('listening', 'Escuchando…');
-                    // Reanudar pipeline de audio (fue pausado cuando el avatar empezó a hablar)
-                    _startBackendAsrAudio();
+                    // El servidor confirma que el avatar terminó de hablar → reanudar escucha continua
+                    LOG('Backend ASR: avatar terminó de hablar → reanudando escucha');
+                    setState('listening', _conversationAwake ? 'Escuchando…' : 'Esperando activación…');
+                    isListening = false;
+                    startAlwaysOnListening();
                     break;
 
                 case 'session_cleared':
@@ -2147,6 +2161,12 @@
             }
 
             _asrMode = mode;
+            try {
+                localStorage.setItem('avatar_asr_mode', mode);
+                LOG('Modo ASR guardado en localStorage:', mode);
+            } catch (e) {
+                WARN('Error guardando modo ASR en localStorage:', e);
+            }
 
             LOG('Modo ASR cambiado a:', mode);
 
@@ -2722,6 +2742,13 @@
         window.addEventListener('DOMContentLoaded', () => {
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const isFirefox = /Firefox\//.test(navigator.userAgent);
+
+            // Sincronizar selector de modo ASR en el panel con el valor guardado
+            const selAsr = document.getElementById('dbg-asr-mode-select');
+            if (selAsr) {
+                selAsr.value = _asrMode;
+                LOG('Selector ASR restaurado desde localStorage:', _asrMode);
+            }
 
             LOG('DOMContentLoaded - isMobile:', isMobile, '| isFirefox:', isFirefox);
             LOG('Secure context:', window.isSecureContext, '| protocol:', location.protocol);
