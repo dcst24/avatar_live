@@ -98,7 +98,7 @@ class WhisperASR:
         # ── Intento 1: faster-whisper ─────────────────────────────────────────
         try:
             from faster_whisper import WhisperModel
-            compute_type = 'float16' if self._device == 'cuda' else 'int8'
+            compute_type = 'int8_float16' if self._device == 'cuda' else 'int8'
             logger.info(
                 f"[WhisperASR] Cargando con faster-whisper: model={self.model_size}, "
                 f"device={self._device}, compute={compute_type}"
