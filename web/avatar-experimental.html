@@ -1850,7 +1850,10 @@
             _wakeDetected = false;
             clearTimeout(_wakeBufferTimeout);
             if (_asrMode === 'backend-asr') {
-                stopBackendASR();
+                // En backend-asr: NO cerrar el WS, solo detener el audio.
+                // El WS se mantiene abierto para recibir speaking_done del servidor.
+                _cleanupBackendAsrAudio();
+                LOG('stopAlwaysOnListening: backend-asr — audio pausado, WS activo');
             } else if (_useFallbackASR) {
                 cleanupStreamingASR();
             } else if (recognition) {
@@ -1926,6 +1929,74 @@
                 return;
             }
 
+        // Inicia solo el pipeline de audio (AudioContext + ScriptProcessor)
+        // Puede llamarse tras speaking_done para reanudar sin reconectar el WS
+        function _startBackendAsrAudio() {
+            if (!_micStream || !_backendAsrWs || _backendAsrWs.readyState !== WebSocket.OPEN) {
+                WARN('_startBackendAsrAudio: sin stream o WS cerrado');
+                return;
+            }
+            _cleanupBackendAsrAudio(); // limpiar anterior si existe
+            try {
+                _backendAsrAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const nativeSR = _backendAsrAudioCtx.sampleRate;
+                LOG('Backend ASR: AudioContext', nativeSR, 'Hz');
+
+                _backendAsrAudioSrc = _backendAsrAudioCtx.createMediaStreamSource(_micStream);
+                _backendAsrSampleBuf = new Float32Array(0);
+
+                _backendAsrProc = _backendAsrAudioCtx.createScriptProcessor(4096, 1, 1);
+                _backendAsrProc.onaudioprocess = function (ev) {
+                    if (!_backendAsrActive || !_backendAsrWs ||
+                        _backendAsrWs.readyState !== WebSocket.OPEN) return;
+
+                    const input = ev.inputBuffer.getChannelData(0);
+
+                    // Resamplear a 16kHz si el nativo es diferente
+                    let resampled;
+                    if (nativeSR === 16000) {
+                        resampled = new Float32Array(input);
+                    } else {
+                        const ratio = 16000 / nativeSR;
+                        const newLen = Math.round(input.length * ratio);
+                        resampled = new Float32Array(newLen);
+                        for (let i = 0; i < newLen; i++) {
+                            const si = i / ratio;
+                            const lo = Math.floor(si);
+                            const hi = Math.min(lo + 1, input.length - 1);
+                            resampled[i] = input[lo] * (1 - (si - lo)) + input[hi] * (si - lo);
+                        }
+                    }
+
+                    // Acumular en buffer
+                    const combined = new Float32Array(_backendAsrSampleBuf.length + resampled.length);
+                    combined.set(_backendAsrSampleBuf);
+                    combined.set(resampled, _backendAsrSampleBuf.length);
+                    _backendAsrSampleBuf = combined;
+
+                    // Enviar chunks de 960 samples (60ms)
+                    while (_backendAsrSampleBuf.length >= BACKEND_ASR_CHUNK) {
+                        const chunk = _backendAsrSampleBuf.subarray(0, BACKEND_ASR_CHUNK);
+                        const int16 = new Int16Array(BACKEND_ASR_CHUNK);
+                        for (let i = 0; i < BACKEND_ASR_CHUNK; i++) {
+                            const s = Math.max(-1, Math.min(1, chunk[i]));
+                            int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+                        }
+                        _backendAsrWs.send(int16.buffer);
+                        _backendAsrSampleBuf = _backendAsrSampleBuf.subarray(BACKEND_ASR_CHUNK);
+                    }
+                };
+
+                _backendAsrAudioSrc.connect(_backendAsrProc);
+                _backendAsrProc.connect(_backendAsrAudioCtx.destination);
+
+                isListening = true;
+                LOG('Backend ASR: pipeline de audio iniciado/reanudado');
+            } catch (e) {
+                ERR('Backend ASR: error iniciando audio:', e.name, e.message);
+            }
+        }
+
             _backendAsrWs.onopen = function () {
                 LOG('Backend ASR: WebSocket conectado');
                 _backendAsrActive = true;
@@ -1937,68 +2008,10 @@
                 }));
 
                 // Iniciar captura de audio PCM
-                try {
-                    _backendAsrAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    const nativeSR = _backendAsrAudioCtx.sampleRate;
-                    LOG('Backend ASR: AudioContext', nativeSR, 'Hz');
+                _startBackendAsrAudio();
 
-                    _backendAsrAudioSrc = _backendAsrAudioCtx.createMediaStreamSource(_micStream);
-                    _backendAsrSampleBuf = new Float32Array(0);
-
-                    _backendAsrProc = _backendAsrAudioCtx.createScriptProcessor(4096, 1, 1);
-                    _backendAsrProc.onaudioprocess = function (ev) {
-                        if (!_backendAsrActive || !_backendAsrWs ||
-                            _backendAsrWs.readyState !== WebSocket.OPEN) return;
-
-                        const input = ev.inputBuffer.getChannelData(0);
-
-                        // Resamplear a 16kHz si el nativo es diferente
-                        let resampled;
-                        if (nativeSR === 16000) {
-                            resampled = new Float32Array(input);
-                        } else {
-                            const ratio = 16000 / nativeSR;
-                            const newLen = Math.round(input.length * ratio);
-                            resampled = new Float32Array(newLen);
-                            for (let i = 0; i < newLen; i++) {
-                                const si = i / ratio;
-                                const lo = Math.floor(si);
-                                const hi = Math.min(lo + 1, input.length - 1);
-                                resampled[i] = input[lo] * (1 - (si - lo)) + input[hi] * (si - lo);
-                            }
-                        }
-
-                        // Acumular en buffer
-                        const combined = new Float32Array(_backendAsrSampleBuf.length + resampled.length);
-                        combined.set(_backendAsrSampleBuf);
-                        combined.set(resampled, _backendAsrSampleBuf.length);
-                        _backendAsrSampleBuf = combined;
-
-                        // Enviar chunks de 960 samples (60ms)
-                        while (_backendAsrSampleBuf.length >= BACKEND_ASR_CHUNK) {
-                            const chunk = _backendAsrSampleBuf.subarray(0, BACKEND_ASR_CHUNK);
-                            const int16 = new Int16Array(BACKEND_ASR_CHUNK);
-                            for (let i = 0; i < BACKEND_ASR_CHUNK; i++) {
-                                const s = Math.max(-1, Math.min(1, chunk[i]));
-                                int16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                            }
-                            _backendAsrWs.send(int16.buffer);
-                            _backendAsrSampleBuf = _backendAsrSampleBuf.subarray(BACKEND_ASR_CHUNK);
-                        }
-                    };
-
-                    _backendAsrAudioSrc.connect(_backendAsrProc);
-                    _backendAsrProc.connect(_backendAsrAudioCtx.destination);
-
-                    isListening = true;
-                    setState('listening', 'Esperando activación…');
-                    LOG('Backend ASR: captura de audio iniciada');
-                } catch (e) {
-                    ERR('Backend ASR: error iniciando audio:', e.name, e.message);
-                    stopBackendASR();
-                    stopListening();
-                    setState('ready', 'Error al iniciar audio (Backend ASR)');
-                }
+                isListening = true;
+                setState('listening', 'Esperando activación…');
             };
 
             _backendAsrWs.onmessage = function (evt) {
@@ -2088,8 +2101,10 @@
 
                 case 'speaking_done':
                     // El servidor confirma que el avatar terminó de hablar
-                    LOG('Backend ASR: avatar terminó de hablar, mic activo');
+                    LOG('Backend ASR: avatar terminó de hablar → reanudando audio');
                     setState('listening', 'Escuchando…');
+                    // Reanudar pipeline de audio (fue pausado cuando el avatar empezó a hablar)
+                    _startBackendAsrAudio();
                     break;
 
                 case 'session_cleared':
