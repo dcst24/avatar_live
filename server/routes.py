@@ -237,6 +237,33 @@ async def avatar_experimental_pendon_2(request):
     return web.FileResponse('web/avatar-experimental-pendon-2.html')
 
 
+async def get_productos(request):
+    """Obtener el catálogo completo y planimetría de productos"""
+    try:
+        with open('data/productos.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return json_ok(data=data)
+    except Exception as e:
+        logger.exception('get_productos exception:')
+        return json_error(str(e))
+
+
+async def get_producto_barcode(request):
+    """Buscar un producto por código de barras"""
+    codigo = request.match_info.get('codigo', '').trim() if hasattr(request.match_info.get('codigo', ''), 'trim') else request.match_info.get('codigo', '').strip()
+    try:
+        with open('data/productos.json', 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        productos = data.get('productos', [])
+        for prod in productos:
+            if str(prod.get('codigo_barra')).strip() == codigo:
+                return json_ok(data=prod)
+        return json_error("Producto no encontrado", code=404)
+    except Exception as e:
+        logger.exception('get_producto_barcode exception:')
+        return json_error(str(e))
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -248,8 +275,11 @@ def setup_routes(app):
     app.router.add_post("/interrupt_talk", interrupt_talk)
     app.router.add_post("/is_speaking", is_speaking)
     app.router.add_post("/clear_history", clear_history)
+    app.router.add_get("/api/productos", get_productos)
+    app.router.add_get("/api/producto/barcode/{codigo}", get_producto_barcode)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
     app.router.add_static('/', path='web')
+
