@@ -832,24 +832,7 @@
         function dbgSelectMic(deviceId) {
             _preferredDeviceId = deviceId || null;
             if (_preferredDeviceId) {
-                const sel = document.getElementById('dbg-mic-select');
-                const label = sel.options[sel.selectedIndex]?.textContent || deviceId;
-                LOG(`🎤 Micrófono seleccionado: "${label}"`);
-                LOG('Pulsa el mic para grabar con este dispositivo.');
-            } else {
-                LOG('🎤 Micrófono: default del sistema');
-            }
-        }
-
-        // ─── Info de arranque ──────────────────────────────────────────────────────
-        LOG('=== INIT ===');
-        LOG('UA:', navigator.userAgent);
-        LOG('Secure context:', window.isSecureContext);
-        LOG('SpeechRecognition:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
-        LOG('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
-        LOG('Protocol:', location.protocol, '| Host:', location.host);
-
-        // ─── Estado ────────────────────────────────────────────────────────────────
+                     // ─── Estado ────────────────────────────────────────────────────────────────
         let isConnected = false;
         let isListening = false;
         let recognition = null;
@@ -859,17 +842,19 @@
         let _micStream = null;
         let _recTimerInterval = null;
         let _recSeconds = 0;
-        let _manualMicActive = false; // Indica si el micrófono fue activado manualmente con el botón
+        let _manualMicActive = false;
 
-        // ─── Wake-word (always-on mic) ──────────────────────────────────────────
+        // ─── Wake-word (always-on mic) & Sesión Activa ───────────────────────────
         const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
         const WAKE_WORD = WAKE_WORDS[0];
 
-        let _wakeDetected = false;
-        let _alwaysOnActive = false;
+        // Palabras de despedida que cierran la sesión activa
+        const GOODBYE_WORDS = ['chao', 'adiós', 'adios', 'hasta luego', 'nos vemos', 'gracias', 'hasta mañana', 'bye', 'hasta la próxima', 'que estés bien'];
+        const INACTIVITY_TIMEOUT_MS = 25000; // 25s de inactividad reinician el flujo a espera de wake-word
 
-        const WAKE_BUFFER_MS = 3000;
-        let _wakeBufferTimeout = null;
+        let _sessionActive = false;       // true si el flujo de conversación está activo sin requerir wake-word
+        let _alwaysOnActive = false;
+        let _inactivityTimer = null;      // Timer ID para inactividad
 
         const WAKE_ONLY_GREETINGS = [
             '¡Hola! ¿En qué te puedo ayudar?',
@@ -887,6 +872,11 @@
             return WAKE_WORDS.some(w => lower.includes(w));
         }
 
+        function _containsGoodbyeWord(text) {
+            const lower = text.toLowerCase();
+            return GOODBYE_WORDS.some(w => lower.includes(w));
+        }
+
         function _extractQuestion(text) {
             const lower = text.toLowerCase();
             let best = { idx: -1, word: '' };
@@ -898,6 +888,20 @@
             }
             if (best.idx === -1) return text.trim();
             return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+        }
+
+        function _resetInactivityTimer() {
+            clearTimeout(_inactivityTimer);
+            if (_sessionActive) {
+                _inactivityTimer = setTimeout(() => {
+                    LOG('Inactividad detectada (25s sin preguntas) → reiniciando flujo a espera de wake-word');
+                    _sessionActive = false;
+                    setUserText('', false);
+                    if (!isSpeaking) {
+                        setState('listening', 'Esperando activación…');
+                    }
+                }, INACTIVITY_TIMEOUT_MS);
+            }
         }
 
         LOG('Modo ASR inicial: SpeechRecognition');
@@ -1018,7 +1022,7 @@
                             setState('speaking', 'Hablando…');
                         } else {
                             wrap.classList.remove('avatar-speaking');
-                            LOG('Avatar terminó de hablar → reiniciando escucha always-on');
+                            LOG('Avatar terminó de hablar → reiniciando escucha (sesión activa: ' + _sessionActive + ')');
                             setTimeout(() => {
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
@@ -1050,8 +1054,6 @@
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
-        // Solicita el permiso y enumera dispositivos liberando el stream inmediatamente
-        // para no bloquear el hardware del micrófono en Android o PC cuando SpeechRecognition inicie.
         async function requestMicPermission() {
             LOG('requestMicPermission: verificando micrófono...');
             if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
@@ -1076,7 +1078,12 @@
                 const short = activeMicLabel.length > 28
                     ? activeMicLabel.slice(0, 26) + '…'
                     : activeMicLabel;
-                setState('listening', `🎤 ${short}`);
+
+                if (_sessionActive) {
+                    setState('listening', `🎤 Sesión activa — Escuchando…`);
+                } else {
+                    setState('listening', `Esperando activación…`);
+                }
                 await dbgLoadDevices();
 
                 LOG('Permiso de micrófono OK — Hardware libre para SpeechRecognition');
@@ -1117,9 +1124,9 @@
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (${_manualMicActive ? 'manual' : 'always-on'})`);
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (sesión activa: ${_sessionActive})`);
                 isListening = true;
-                setState('listening', _manualMicActive ? 'Escuchando…' : 'Esperando activación…');
+                setState('listening', _sessionActive ? 'Escuchando pregunta…' : 'Esperando activación…');
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
@@ -1144,39 +1151,43 @@
                 if (interim) LOG(`Resultado interim: "${interim}"`);
 
                 const rawText = (final || interim).trim();
+                if (!rawText) return;
 
-                // ── Detección de wake-word / inicio manual ─────────────────────
-                if (_manualMicActive) {
-                    _wakeDetected = true;
-                } else if (!_wakeDetected) {
-                    if (_containsWakeWord(rawText)) {
-                        _wakeDetected = true;
-                        LOG(`Wake-word detectada en: "${rawText}"`);
-                        setState('listening', 'Escuchando pregunta…');
-                        clearTimeout(_wakeBufferTimeout);
-                        _wakeBufferTimeout = setTimeout(() => {
-                            if (_wakeDetected && !_manualMicActive) {
-                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
-                                _wakeDetected = false;
-                                _alwaysOnActive = false;
-                                sendToLLM(_randomGreeting());
-                            }
-                        }, WAKE_BUFFER_MS);
-                    } else {
-                        setUserText(final || interim, true);
-                        return;
-                    }
+                // ── Flujo de Sesión Activa / Wake Word ────────────────────────
+                if (_manualMicActive || _sessionActive) {
+                    _sessionActive = true;
+                    _resetInactivityTimer();
+                } else if (_containsWakeWord(rawText)) {
+                    _sessionActive = true;
+                    _resetInactivityTimer();
+                    LOG(`Wake-word detectada en: "${rawText}" → Sesión activada`);
+                    setState('listening', 'Escuchando pregunta…');
+                } else {
+                    // Sin wake-word y sin sesión activa: mostrar en dim pero no enviar al LLM
+                    setUserText(final || interim, true);
+                    return;
                 }
 
                 setUserText(final || interim, !final);
 
                 if (final) {
-                    const question = _manualMicActive ? final.trim() : _extractQuestion(final);
-                    LOG(`Texto procesado: "${question}"`);
+                    let question = _extractQuestion(final);
+                    if (!question && _containsWakeWord(final)) {
+                        question = _randomGreeting();
+                    } else if (!question) {
+                        question = final.trim();
+                    }
+
+                    LOG(`Texto procesado: "${question}" | sesión activa: ${_sessionActive}`);
+
+                    // Si el usuario se despide, cerrar la sesión activa tras responder
+                    if (_containsGoodbyeWord(final)) {
+                        LOG('Despedida detectada → cerrando sesión activa');
+                        _sessionActive = false;
+                        clearTimeout(_inactivityTimer);
+                    }
 
                     if (question) {
-                        clearTimeout(_wakeBufferTimeout);
-                        _wakeDetected = false;
                         _manualMicActive = false;
                         LOG(`Enviando al LLM: "${question}"`);
                         _alwaysOnActive = false;
@@ -1275,7 +1286,7 @@
             }
         }
 
-        // ─── Escucha siempre activa con wake-word ────────────────────────────────
+        // ─── Escucha siempre activa con wake-word / sesión activa ────────────────
         function startAlwaysOnListening() {
             if (!isConnected) {
                 LOG('startAlwaysOnListening: avatar no conectado, ignorando');
@@ -1292,10 +1303,14 @@
 
             _alwaysOnActive = true;
             _manualMicActive = false;
-            _wakeDetected = false;
-            clearTimeout(_wakeBufferTimeout);
-            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
-            setState('listening', `Esperando activación…`);
+            LOG(`startAlwaysOnListening: iniciando escucha continua (sesión activa: ${_sessionActive})`);
+
+            if (_sessionActive) {
+                setState('listening', 'Escuchando…');
+                _resetInactivityTimer();
+            } else {
+                setState('listening', 'Esperando activación…');
+            }
 
             requestMicPermission().then(ok => {
                 if (!ok) {
@@ -1339,8 +1354,8 @@
         function stopAlwaysOnListening() {
             LOG('stopAlwaysOnListening: deteniendo escucha continua');
             _alwaysOnActive = false;
-            _wakeDetected = false;
-            clearTimeout(_wakeBufferTimeout);
+            _sessionActive = false;
+            clearTimeout(_inactivityTimer);
             if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
@@ -1375,8 +1390,9 @@
             }
 
             _manualMicActive = true;
-            _wakeDetected = true;
+            _sessionActive = true;
             _alwaysOnActive = false;
+            _resetInactivityTimer();
 
             setState('listening', 'Preparando micrófono…');
             requestMicPermission().then(ok => {

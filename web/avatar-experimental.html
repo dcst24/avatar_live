@@ -216,81 +216,12 @@
             color: var(--text-muted);
         }
 
-        /* ── Botón MIC (sobre el avatar, abajo-centro) ──────── */
-        #btn-mic {
-            position: absolute;
-            bottom: 36px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 30;
-
-            width: 88px;
-            height: 88px;
-            border-radius: 50%;
-            border: none;
-            cursor: pointer;
-
-            /* VERDE */
-            background: linear-gradient(135deg, var(--mic-green), var(--mic-green-dim));
-            box-shadow: 0 4px 28px var(--mic-green-glow), 0 0 0 4px rgba(34, 197, 94, 0.15);
-
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.15s, box-shadow 0.15s;
-            outline: none;
-        }
-
-        #btn-mic:hover {
-            transform: translateX(-50%) scale(1.07);
-            box-shadow: 0 6px 38px rgba(34, 197, 94, 0.75), 0 0 0 6px rgba(34, 197, 94, 0.2);
-        }
-
-        #btn-mic:active {
-            transform: translateX(-50%) scale(0.95);
-        }
-
-        #btn-mic.listening {
-            background: linear-gradient(135deg, var(--danger), #b91c1c);
-            box-shadow: 0 4px 28px rgba(239, 68, 68, 0.6), 0 0 0 4px rgba(239, 68, 68, 0.15);
-            animation: mic-pulse 1.2s ease-in-out infinite;
-        }
-
-        #btn-mic.listening:hover {
-            transform: translateX(-50%) scale(1.07);
-        }
-
-        #btn-mic.listening:active {
-            transform: translateX(-50%) scale(0.95);
-        }
-
-        @keyframes mic-pulse {
-
-            0%,
-            100% {
-                box-shadow: 0 4px 28px rgba(239, 68, 68, 0.6), 0 0 0 4px rgba(239, 68, 68, 0.15);
-            }
-
-            50% {
-                box-shadow: 0 4px 46px rgba(239, 68, 68, 0.95), 0 0 0 14px rgba(239, 68, 68, 0.12);
-            }
-        }
-
-        #btn-mic svg {
-            width: 34px;
-            height: 34px;
-            fill: white;
-            pointer-events: none;
-        }
-
-        #btn-mic.disabled-btn {
-            opacity: 0.35;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
+        
 
         /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
-        
+        #btn-mic {
+            display: none !important;
+        }
 
         /* ── Botón conectar (top-left, discreto) ────────────── */
         #btn-connect {
@@ -711,18 +642,7 @@
                 </div>
             </div>
 
-            <!-- Botón MIC (overlay, abajo-centro) -->
-            <button id="btn-mic" class="disabled-btn" onclick="toggleMic()" title="Presiona para hablar">
-                <!-- Mic icon -->
-                <svg id="icon-mic" viewBox="0 0 24 24">
-                    <path
-                        d="M12 1a4 4 0 0 1 4 4v6a4 4 0 0 1-8 0V5a4 4 0 0 1 4-4zm6.364 9.364a1 1 0 0 1 1 1A7.364 7.364 0 0 1 13 18.92V21h2a1 1 0 0 1 0 2H9a1 1 0 0 1 0-2h2v-2.08A7.364 7.364 0 0 1 4.636 11.364a1 1 0 0 1 2 0A5.364 5.364 0 0 0 12 16.727a5.364 5.364 0 0 0 5.364-5.363 1 1 0 0 1 1-1z" />
-                </svg>
-                <!-- Stop icon (hidden) -->
-                <svg id="icon-stop" viewBox="0 0 24 24" style="display:none">
-                    <path d="M6 6h12v12H6z" />
-                </svg>
-            </button>
+            
 
             <!-- Botón conectar (discreto, bottom-left) -->
             <button id="btn-connect" onclick="connectRTC()">
@@ -794,17 +714,14 @@
     <script>
         // ══════════════════════════════════════════════════════════════════════════════
         // DEBUG LOGGER — escribe en consola del navegador Y en el panel on-screen 🪲
-        // En Android: toca 🪲 (abajo-derecha) para ver todos los logs en pantalla.
         // ══════════════════════════════════════════════════════════════════════════════
-        const _DBG_MAX = 200;  // máximo de entradas en el panel
+        const _DBG_MAX = 200;
 
         function _dbgWrite(level, args) {
-            // 1. Consola nativa
             if (level === 'log') console.log('[Avatar]', ...args);
             if (level === 'warn') console.warn('[Avatar]', ...args);
             if (level === 'err') console.error('[Avatar]', ...args);
 
-            // 2. Panel on-screen
             const list = document.getElementById('dbg-list');
             if (!list) return;
 
@@ -820,10 +737,8 @@
                 `<span class="dbg-msg">${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
             list.appendChild(entry);
 
-            // Limitar a _DBG_MAX entradas
             while (list.children.length > _DBG_MAX) list.removeChild(list.firstChild);
 
-            // Auto-scroll solo si el panel está abierto
             const panel = document.getElementById('dbg-panel');
             if (panel && panel.classList.contains('open')) {
                 list.scrollTop = list.scrollHeight;
@@ -838,7 +753,6 @@
             const panel = document.getElementById('dbg-panel');
             panel.classList.toggle('open');
             if (panel.classList.contains('open')) {
-                // Scroll al final al abrir
                 const list = document.getElementById('dbg-list');
                 list.scrollTop = list.scrollHeight;
             }
@@ -851,7 +765,7 @@
         }
 
         // ─── Selector de micrófono en panel debug ─────────────────────────────────
-        let _preferredDeviceId = null;  // null = usar default del sistema
+        let _preferredDeviceId = null;
 
         async function dbgLoadDevices() {
             const sel = document.getElementById('dbg-mic-select');
@@ -867,17 +781,18 @@
                     LOG(`  [${i}] id="${d.deviceId.slice(0, 16)}…" label="${d.label || '(sin permiso)'}"`);
                 });
 
-                // Reconstruir opciones del selector
-                sel.innerHTML = '<option value="">-- default del sistema --</option>';
-                audioInputs.forEach((d, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = d.deviceId;
-                    opt.textContent = d.label
-                        ? d.label
-                        : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
-                    if (d.deviceId === _preferredDeviceId) opt.selected = true;
-                    sel.appendChild(opt);
-                });
+                if (sel) {
+                    sel.innerHTML = '<option value="">-- default del sistema --</option>';
+                    audioInputs.forEach((d, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        opt.textContent = d.label
+                            ? d.label
+                            : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
+                        if (d.deviceId === _preferredDeviceId) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                }
 
                 if (audioInputs.length === 0) ERR('¡No se encontraron micrófonos!');
             } catch (e) {
@@ -889,15 +804,13 @@
             _preferredDeviceId = deviceId || null;
             if (_preferredDeviceId) {
                 const sel = document.getElementById('dbg-mic-select');
-                const label = sel.options[sel.selectedIndex]?.textContent || deviceId;
+                const label = sel?.options[sel.selectedIndex]?.textContent || deviceId;
                 LOG(`🎤 Micrófono seleccionado: "${label}"`);
-                LOG('Pulsa el mic para grabar con este dispositivo.');
             } else {
                 LOG('🎤 Micrófono: default del sistema');
             }
         }
 
-        // ─── Info de arranque ──────────────────────────────────────────────────────
         LOG('=== INIT ===');
         LOG('UA:', navigator.userAgent);
         LOG('Secure context:', window.isSecureContext);
@@ -912,19 +825,24 @@
         let isSpeaking = false;
         let speakCheckInterval = null;
         let _audioUnlocked = false;
-        let _micStream = null;
-        let _recTimerInterval = null;
-        let _recSeconds = 0;
-        let _manualMicActive = false; // Indica si el micrófono fue activado manualmente con el botón
 
-        // ─── Wake-word (always-on mic) ──────────────────────────────────────────
+        // ─── Wake-word & Modo Conversación Abierta (Experimental) ───────────────
         const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
         const WAKE_WORD = WAKE_WORDS[0];
 
         let _wakeDetected = false;
         let _alwaysOnActive = false;
 
-        const WAKE_BUFFER_MS = 3000;
+        let _conversationAwake = false;  // true si el flujo de conversación está activo sin requerir wake-word
+        let _inactivityTimeoutId = null; // temporizador de inactividad
+        let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
+        let _waitingFollowUpAck = false;  // true cuando se preguntó "¿Necesitas algo más?" y esperamos respuesta
+        let _followUpAckTimeoutId = null; // timer del segundo wait de 30s tras "¿Necesitas algo más?"
+        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
+        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
+        const INACTIVITY_TIMEOUT_MS = 120000;   // 2 minutos antes de volver a modo de espera
+
+        const BUFFER_MS = 5000;                 // ms de espera para pregunta tras la wake-word
         let _wakeBufferTimeout = null;
 
         const WAKE_ONLY_GREETINGS = [
@@ -956,7 +874,165 @@
             return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
         }
 
-        LOG('Modo ASR inicial: SpeechRecognition');
+        function _isSleepWord(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+            const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias', 'nos vemos', 'que estes bien', 'chao chao', 'bye'];
+            return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
+        }
+
+        function clearServerHistory() {
+            const sessionid = document.getElementById('sessionid').value;
+            LOG('Borrando historial de conversación en servidor para sesión:', sessionid);
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionid: String(sessionid) })
+            }).catch(e => WARN('clearServerHistory error:', e));
+        }
+
+        function sleepModel(showBubble = false) {
+            LOG("Durmiendo el modelo experimental (conversación cerrada).");
+            _conversationAwake = false;
+            _wakeDetected = false;
+            _waitingFollowUpAck = false;
+            clearTimeout(_inactivityTimeoutId);
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            clearServerHistory();
+            setState('listening', 'Esperando activación…');
+            if (showBubble) {
+                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+            }
+        }
+
+        function wakeUpModel() {
+            if (!_conversationAwake) {
+                LOG("Despertando el modelo experimental (conversación abierta).");
+                _conversationAwake = true;
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }
+            resetInactivityTimer();
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(_inactivityTimeoutId);
+            if (!_conversationAwake) return;
+            _inactivityTimeoutId = setTimeout(() => {
+                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
+                _conversationAwake = false;
+                _wakeDetected = false;
+                setState('listening', 'Esperando activación…');
+                clearServerHistory();
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }, INACTIVITY_TIMEOUT_MS);
+        }
+
+        function addChatBubble(role, text) {
+            const container = document.getElementById('chat-container');
+            if (!container) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role}`;
+            bubble.textContent = text;
+            container.appendChild(bubble);
+
+            container.scrollTop = container.scrollHeight;
+
+            while (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+
+            setTimeout(() => {
+                bubble.classList.add('fade-out');
+                setTimeout(() => {
+                    if (bubble.parentNode) {
+                        bubble.parentNode.removeChild(bubble);
+                    }
+                }, 500);
+            }, 30000);
+
+            return bubble;
+        }
+
+        function queueAvatarBubble(text) {
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = text;
+            
+            if (isSpeaking) {
+                addChatBubble('avatar', _pendingAvatarBubbleText);
+                _pendingAvatarBubbleText = null;
+                return;
+            }
+            
+            _pendingAvatarBubbleTimeout = setTimeout(() => {
+                if (_pendingAvatarBubbleText) {
+                    addChatBubble('avatar', _pendingAvatarBubbleText);
+                    _pendingAvatarBubbleText = null;
+                }
+            }, 4000);
+        }
+
+        function scheduleFollowUp() {
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
+            if (!_conversationAwake) return;
+            _followUpTimeoutId = setTimeout(() => {
+                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                const followUpText = "¿Necesitas algo más?";
+                _waitingFollowUpAck = true;
+                
+                queueAvatarBubble(followUpText);
+                stopAlwaysOnListening();
+                
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: followUpText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('Error al enviar follow-up:', e));
+            }, 30000);
+        }
+
+        function scheduleFollowUpAckTimeout() {
+            clearTimeout(_followUpAckTimeoutId);
+            if (!_waitingFollowUpAck || !_conversationAwake) return;
+            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            _followUpAckTimeoutId = setTimeout(() => {
+                if (!_waitingFollowUpAck) return;
+                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                _waitingFollowUpAck = false;
+                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
+                queueAvatarBubble(farewellText);
+                stopAlwaysOnListening();
+                clearServerHistory();
+                _conversationAwake = false;
+                _wakeDetected = false;
+                clearTimeout(_inactivityTimeoutId);
+                clearTimeout(_followUpTimeoutId);
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: farewellText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).then(() => {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                    setState('listening', 'Esperando activación…');
+                }).catch(e => WARN('Error al enviar despedida final:', e));
+            }, 30000);
+        }
+
+        LOG('Modo ASR: SpeechRecognition');
 
         // ─── Estado UI ─────────────────────────────────────────────────────────────
         function setState(state, text) {
@@ -1032,19 +1108,18 @@
                     if (_v.paused) {
                         _v.muted = true;
                         _v.play()
-                            .then(function () { LOG('video.play() OK muted - audio se activa al pulsar el mic'); clearInterval(_vTimer); })
+                            .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
                             .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
                     } else {
-                        LOG('Video reproduciendo (srcObject listo, paused=false)');
+                        LOG('Video reproduciendo');
                         clearInterval(_vTimer);
                     }
                 } else if (_vChecks > 30) {
-                    WARN('15s sin stream en el video. Verifica WebRTC (codec VP8/H264) o la red.');
+                    WARN('15s sin stream en el video.');
                     clearInterval(_vTimer);
                 }
             }, 500);
             setTimeout(() => {
-                document.getElementById('btn-mic').classList.remove('disabled-btn');
                 startSpeakingMonitor();
                 LOG('Monitor de speaking activo — iniciando always-on listening');
                 startAlwaysOnListening();
@@ -1072,9 +1147,22 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            if (_pendingAvatarBubbleText) {
+                                clearTimeout(_pendingAvatarBubbleTimeout);
+                                addChatBubble('avatar', _pendingAvatarBubbleText);
+                                _pendingAvatarBubbleText = null;
+                            }
                         } else {
                             wrap.classList.remove('avatar-speaking');
-                            LOG('Avatar terminó de hablar → reiniciando escucha always-on');
+                            LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
+                            
+                            if (_conversationAwake) {
+                                scheduleFollowUp();
+                                if (_waitingFollowUpAck) {
+                                    scheduleFollowUpAckTimeout();
+                                }
+                            }
+
                             setTimeout(() => {
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
@@ -1086,28 +1174,7 @@
             }, 800);
         }
 
-        // ─── Listar dispositivos de audio ─────────────────────────────────────────
-        async function logAudioDevices() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                WARN('enumerateDevices no disponible');
-                return;
-            }
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                LOG(`Dispositivos de entrada de audio encontrados: ${audioInputs.length}`);
-                audioInputs.forEach((d, i) => {
-                    LOG(`  [${i}] deviceId="${d.deviceId}" label="${d.label || '(sin etiqueta — requiere permiso)'}"`);
-                });
-                if (audioInputs.length === 0) ERR('¡No hay dispositivos de audio de entrada!');
-            } catch (e) {
-                ERR('Error en enumerateDevices:', e);
-            }
-        }
-
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
-        // Solicita el permiso y enumera dispositivos liberando el stream inmediatamente
-        // para no bloquear el hardware del micrófono en Android o PC cuando SpeechRecognition inicie.
         async function requestMicPermission() {
             LOG('requestMicPermission: verificando micrófono...');
             if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
@@ -1122,17 +1189,16 @@
                 });
 
                 const tracks = stream.getAudioTracks();
-                let activeMicLabel = '(desconocido)';
                 tracks.forEach((t, i) => {
-                    activeMicLabel = t.label || activeMicLabel;
                     LOG(`  Track[${i}]: label="${t.label}" readyState=${t.readyState}`);
                     t.stop(); // Liberar track para no bloquear SpeechRecognition
                 });
 
-                const short = activeMicLabel.length > 28
-                    ? activeMicLabel.slice(0, 26) + '…'
-                    : activeMicLabel;
-                setState('listening', `🎤 ${short}`);
+                if (_conversationAwake) {
+                    setState('listening', `Escuchando pregunta…`);
+                } else {
+                    setState('listening', `Esperando activación…`);
+                }
                 await dbgLoadDevices();
 
                 LOG('Permiso de micrófono OK — Hardware libre para SpeechRecognition');
@@ -1173,13 +1239,9 @@
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (${_manualMicActive ? 'manual' : 'always-on'})`);
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
-                setState('listening', _manualMicActive ? 'Escuchando…' : 'Esperando activación…');
-                const btn = document.getElementById('btn-mic');
-                btn.classList.add('listening');
-                document.getElementById('icon-mic').style.display = 'none';
-                document.getElementById('icon-stop').style.display = 'block';
+                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 setUserText('', false);
             };
 
@@ -1200,40 +1262,53 @@
                 if (interim) LOG(`Resultado interim: "${interim}"`);
 
                 const rawText = (final || interim).trim();
+                if (!rawText) return;
 
-                // ── Detección de wake-word / inicio manual ─────────────────────
-                if (_manualMicActive) {
-                    _wakeDetected = true;
-                } else if (!_wakeDetected) {
+                if (!_conversationAwake) {
                     if (_containsWakeWord(rawText)) {
-                        _wakeDetected = true;
-                        LOG(`Wake-word detectada en: "${rawText}"`);
+                        wakeUpModel();
+                        LOG(`Wake-word detectada en: "${rawText}" → Modelo despierto`);
                         setState('listening', 'Escuchando pregunta…');
                         clearTimeout(_wakeBufferTimeout);
                         _wakeBufferTimeout = setTimeout(() => {
-                            if (_wakeDetected && !_manualMicActive) {
+                            if (_conversationAwake && !_extractQuestion(rawText)) {
                                 LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
-                                _wakeDetected = false;
-                                _alwaysOnActive = false;
                                 sendToLLM(_randomGreeting());
                             }
-                        }, WAKE_BUFFER_MS);
+                        }, BUFFER_MS);
                     } else {
                         setUserText(final || interim, true);
                         return;
                     }
+                } else {
+                    resetInactivityTimer();
+                    clearTimeout(_followUpTimeoutId);
+                    clearTimeout(_followUpAckTimeoutId);
+                    _waitingFollowUpAck = false;
                 }
 
                 setUserText(final || interim, !final);
 
                 if (final) {
-                    const question = _manualMicActive ? final.trim() : _extractQuestion(final);
-                    LOG(`Texto procesado: "${question}"`);
+                    let question = _extractQuestion(final);
+                    if (!question && _containsWakeWord(final)) {
+                        question = _randomGreeting();
+                    } else if (!question) {
+                        question = final.trim();
+                    }
+
+                    LOG(`Texto procesado: "${question}" | awake: ${_conversationAwake}`);
 
                     if (question) {
                         clearTimeout(_wakeBufferTimeout);
-                        _wakeDetected = false;
-                        _manualMicActive = false;
+
+                        if (_isSleepWord(question)) {
+                            LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                            sendToLLM(question, true);
+                            sleepModel(true);
+                            return;
+                        }
+
                         LOG(`Enviando al LLM: "${question}"`);
                         _alwaysOnActive = false;
                         sendToLLM(question);
@@ -1318,13 +1393,7 @@
         function stopListening() {
             LOG('stopListening');
             isListening = false;
-            _manualMicActive = false;
             clearTimeout(_stopTimeout);
-
-            const btn = document.getElementById('btn-mic');
-            btn.classList.remove('listening');
-            document.getElementById('icon-mic').style.display = 'block';
-            document.getElementById('icon-stop').style.display = 'none';
 
             if (!isSpeaking && !_alwaysOnActive) {
                 setState('processing', 'Procesando…');
@@ -1347,11 +1416,14 @@
             }
 
             _alwaysOnActive = true;
-            _manualMicActive = false;
-            _wakeDetected = false;
-            clearTimeout(_wakeBufferTimeout);
-            LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
-            setState('listening', `Esperando activación…`);
+            LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
+
+            if (_conversationAwake) {
+                setState('listening', 'Escuchando pregunta…');
+                resetInactivityTimer();
+            } else {
+                setState('listening', 'Esperando activación…');
+            }
 
             requestMicPermission().then(ok => {
                 if (!ok) {
@@ -1395,7 +1467,6 @@
         function stopAlwaysOnListening() {
             LOG('stopAlwaysOnListening: deteniendo escucha continua');
             _alwaysOnActive = false;
-            _wakeDetected = false;
             clearTimeout(_wakeBufferTimeout);
             if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
@@ -1403,70 +1474,44 @@
             stopListening();
         }
 
-        // ─── Toggle micrófono (para uso manual con el botón) ─────────────────────
-        function toggleMic() {
-            LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking);
-
-            if (!_audioUnlocked) {
-                const videoEl = document.getElementById('video');
-                videoEl.muted = false;
-                _audioUnlocked = true;
-                if (videoEl.srcObject) videoEl.play().catch(e => WARN('play() fallback:', e.name));
-            }
-
-            if (!isConnected) {
-                WARN('toggleMic: avatar no conectado');
-                setState('connecting', 'Conecta el avatar primero');
-                return;
-            }
-            if (isSpeaking) {
-                LOG('toggleMic: avatar hablando → interrumpiendo');
-                interruptAvatar();
-                return;
-            }
-            if (isListening) {
-                LOG('toggleMic: ya escuchando → deteniendo');
-                forceStopRecognition();
-                return;
-            }
-
-            _manualMicActive = true;
-            _wakeDetected = true;
-            _alwaysOnActive = false;
-
-            setState('listening', 'Preparando micrófono…');
-            requestMicPermission().then(ok => {
-                if (!ok) { stopListening(); return; }
-
-                LOG('Usando modo SpeechRecognition (manual)');
-                _audioCaptureErrors = 0;
-                _networkSpeechErrors = 0;
-                recognition = setupRecognition();
-                if (recognition) {
-                    try {
-                        recognition.start();
-                        LOG('recognition.start() llamado');
-                    } catch (e) {
-                        ERR('recognition.start() excepción:', e.name, e.message);
-                        stopListening();
-                    }
-                } else {
-                    setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
-                    stopListening();
-                }
-            });
-        }
-
-
-
-        // ─── Enviar al LLM / backend ───────────────────────────────────────────────
-        async function sendToLLM(text) {
+        // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
+        async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
-            LOG(`sendToLLM: "${text}"`);
+            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('processing', 'Procesando…');
             setUserText(text, false);
+            addChatBubble('user', text);
 
             const sessionid = document.getElementById('sessionid').value;
+
+            if (isSleepWord) {
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
+                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
+                    farewellText = "De nada. ¡Que tengas un excelente día!";
+                }
+
+                queueAvatarBubble(farewellText);
+                clearServerHistory();
+
+                try {
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: farewellText,
+                            type: 'echo',
+                            sessionid: String(sessionid)
+                        })
+                    });
+                } catch (err) {
+                    ERR('sendToLLM farewell error:', err);
+                } finally {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                }
+                return;
+            }
+
             try {
                 const res = await fetch('/human', {
                     method: 'POST',
@@ -1475,12 +1520,45 @@
                         text,
                         type: 'chat',
                         interrupt: true,
+                        stream: true,
                         sessionid: String(sessionid)
                     })
                 });
                 LOG('sendToLLM: respuesta status', res.status);
+                
+                if (!res.body) {
+                    throw new Error("Respuesta del servidor no soporta streaming.");
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let fullText = '';
+                let avatarBubble = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+
+                    if (!avatarBubble && fullText.trim()) {
+                        avatarBubble = addChatBubble('avatar', '');
+                    }
+
+                    if (avatarBubble) {
+                        avatarBubble.textContent = fullText;
+                        const container = document.getElementById('chat-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }
+                }
+
+                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
+
             } catch (err) {
-                ERR('sendToLLM: error de red:', err);
+                ERR('sendToLLM: error de red o streaming:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
             }
         }
@@ -1518,23 +1596,22 @@
             }
 
             if (isFirefox) {
-                // Firefox elimino SpeechRecognition en v56+. _useFallbackASR ya es true.
                 WARN('Firefox detectado: SpeechRecognition NO disponible en Firefox.');
-                WARN('Para usar el microfono usa Chrome, Chromium o Edge.');
+                WARN('Para usar el micrófono usa Chrome, Chromium o Edge.');
             }
 
             if (isMobile) {
                 LOG('Mobile detectado - overlay visible, esperando tap');
             } else {
-                LOG('Desktop detectado - auto-conectando. Video inicia muted (se desmuta al pulsar el mic)');
+                LOG('Desktop detectado - auto-conectando.');
                 const overlay = document.getElementById('tap-overlay');
                 if (overlay) overlay.style.display = 'none';
-                // NO seteamos video.muted=false: Chromium bloquea autoplay con sonido sin gesto.
-                // El video arranca muted y se desmuta cuando el usuario pulsa el mic.
                 setTimeout(connectRTC, 800);
             }
         });
     </script>
+</body>
+</html>
 </body>
 
 </html>
