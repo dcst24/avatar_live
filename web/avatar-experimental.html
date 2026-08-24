@@ -290,9 +290,7 @@
         }
 
         /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
-        #btn-mic {
-            display: none !important;
-        }
+        
 
         /* ── Botón conectar (top-left, discreto) ────────────── */
         #btn-connect {
@@ -545,47 +543,13 @@
             flex-shrink: 0;
         }
 
-        #dbg-funasr-row {
-            padding: 6px 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
+        
 
-        #dbg-funasr-row label {
-            color: #a1a1aa;
-            font-size: 11px;
-            font-family: inherit;
-            flex-shrink: 0;
-        }
+        
 
-        #dbg-funasr-url {
-            flex: 1;
-            min-width: 180px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(39, 39, 42, 0.9);
-            color: #f4f4f5;
-            font-size: 11px;
-            font-family: inherit;
-            outline: none;
-        }
+        
 
-        #dbg-funasr-test {
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(39, 39, 42, 0.8);
-            color: #f4f4f5;
-            font-size: 11px;
-            cursor: pointer;
-            font-family: inherit;
-            flex-shrink: 0;
-        }
+        
 
         /* ── Responsividad en dispositivos móviles y tabletas ── */
         @media (max-width: 768px) {
@@ -640,14 +604,8 @@
                 padding: 6px 14px;
                 font-size: 12px;
             }
-            #dbg-mic-row, #dbg-funasr-row {
-                padding: 10px 14px;
-                gap: 12px;
-            }
-            #dbg-mic-select, #dbg-funasr-url, #dbg-mic-refresh, #dbg-funasr-test {
-                padding: 6px 10px;
-                font-size: 12px;
-            }
+            #dbg-mic-row, 
+            #dbg-mic-select, 
             #dbg-list {
                 font-size: 12px;
             }
@@ -826,12 +784,7 @@
             </select>
             <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
         </div>
-        <!-- FunASR URL config -->
-        <div id="dbg-funasr-row">
-            <label>FunASR:</label>
-            <input id="dbg-funasr-url" type="text" placeholder="wss://192.168.x.x:10095" />
-            <button id="dbg-funasr-test" onclick="dbgTestFunASR()">Probar</button>
-        </div>
+        
         <div id="dbg-list"></div>
     </div>
 
@@ -959,40 +912,21 @@
         let isSpeaking = false;
         let speakCheckInterval = null;
         let _audioUnlocked = false;
-        let _micStream = null;    // stream getUserMedia activo
-        let _mediaRecorder = null;    // fallback MediaRecorder para POS/iMin
-        let _audioChunks = [];      // chunks grabados
-        let _recTimerInterval = null;    // timer de duración visible en UI
+        let _micStream = null;
+        let _recTimerInterval = null;
         let _recSeconds = 0;
-        // Si SpeechRecognition falla una vez, usamos MediaRecorder para siempre en este dispositivo
-        let _useFallbackASR = false;
+        let _manualMicActive = false; // Indica si el micrófono fue activado manualmente con el botón
 
         // ─── Wake-word (always-on mic) ──────────────────────────────────────────
-        // Palabras / frases que activan el asistente (todas en minúsculas, sin tilde)
         const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
-        const WAKE_WORD = WAKE_WORDS[0]; // alias para compatibilidad con logs existentes
+        const WAKE_WORD = WAKE_WORDS[0];
 
-        let _wakeDetected = false;       // true cuando ya se detectó la wake-word en el audio actual
-        let _alwaysOnActive = false;     // true cuando el loop de escucha continua está activo
-        let _lastWakeWordText = '';      // texto de la wake-word detectada (p.ej. "Hola")
+        let _wakeDetected = false;
+        let _alwaysOnActive = false;
 
-        // ─── Modo Conversación Abierta (Experimental) ──────────────────────────
-        let _conversationAwake = false;  // true si el usuario ya despertó al modelo
-        let _inactivityTimeoutId = null; // temporizador de inactividad
-        let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
-        let _waitingFollowUpAck = false;  // true cuando se preguntó "¿Necesitas algo más?" y esperamos respuesta
-        let _followUpAckTimeoutId = null; // timer del segundo wait de 30s tras "¿Necesitas algo más?"
-        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
-        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
-        const INACTIVITY_TIMEOUT_MS = 120000; // 2 minutos (120,000 ms) antes de volver a dormir
+        const WAKE_BUFFER_MS = 3000;
+        let _wakeBufferTimeout = null;
 
-        // Buffer de tiempo tras detectar la wake-word: si el usuario hace una pausa
-        // (p.ej. "Hola... ¿dónde está el martillo?") esperamos hasta WAKE_BUFFER_MS
-        // antes de considerar que no vendrá pregunta y reiniciar el ciclo.
-        const BUFFER_MS = 5000;     // ms que esperamos una pregunta tras la wake-word (sincronizado con avatar-general)
-        let _wakeBufferTimeout = null;   // timeout ID del buffer
-
-        // Saludo genérico que el avatar usa cuando lo llaman sin pregunta
         const WAKE_ONLY_GREETINGS = [
             '¡Hola! ¿En qué te puedo ayudar?',
             '¡Buenas! ¿Buscas algo en especial?',
@@ -1004,13 +938,11 @@
             return WAKE_ONLY_GREETINGS[Math.floor(Math.random() * WAKE_ONLY_GREETINGS.length)];
         }
 
-        // Detecta si el texto contiene alguna de las wake-words
         function _containsWakeWord(text) {
             const lower = text.toLowerCase();
             return WAKE_WORDS.some(w => lower.includes(w));
         }
 
-        // Extrae la pregunta eliminando la wake-word encontrada del inicio
         function _extractQuestion(text) {
             const lower = text.toLowerCase();
             let best = { idx: -1, word: '' };
@@ -1024,180 +956,7 @@
             return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
         }
 
-        function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
-            const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias'];
-            return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
-        }
-
-        // Borra el historial de conversación en el servidor para esta sesión
-        function clearServerHistory() {
-            const sessionid = document.getElementById('sessionid').value;
-            LOG('Borrando historial de conversación en servidor para sesión:', sessionid);
-            fetch('/clear_history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionid: String(sessionid) })
-            }).catch(e => WARN('clearServerHistory error:', e));
-        }
-
-        function sleepModel(showBubble = false) {
-            LOG("Durmiendo el modelo experimental (conversación cerrada).");
-            _conversationAwake = false;
-            _wakeDetected = false;
-            _waitingFollowUpAck = false;
-            clearTimeout(_inactivityTimeoutId);
-            clearTimeout(_followUpTimeoutId);
-            clearTimeout(_followUpAckTimeoutId);
-            clearServerHistory(); // Limpiar historial al cerrar la conversación
-            setState('listening', 'Esperando activación…');
-            if (showBubble) {
-                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-            }
-        }
-
-        function wakeUpModel() {
-            if (!_conversationAwake) {
-                LOG("Despertando el modelo experimental (conversación abierta).");
-                _conversationAwake = true;
-                // Limpiar burbujas de chat al iniciar nueva sesión
-                const container = document.getElementById('chat-container');
-                if (container) container.innerHTML = '';
-            }
-            resetInactivityTimer();
-        }
-
-        function resetInactivityTimer() {
-            clearTimeout(_inactivityTimeoutId);
-            if (!_conversationAwake) return;
-            _inactivityTimeoutId = setTimeout(() => {
-                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
-                _conversationAwake = false;
-                _wakeDetected = false;
-                setState('listening', 'Esperando activación…');
-                clearServerHistory(); // Limpiar historial por inactividad
-                // Limpiar chat al vencer la sesión
-                const container = document.getElementById('chat-container');
-                if (container) container.innerHTML = '';
-            }, INACTIVITY_TIMEOUT_MS);
-        }
-
-        function addChatBubble(role, text) {
-            const container = document.getElementById('chat-container');
-            if (!container) return;
-
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${role}`;
-            bubble.textContent = text;
-            container.appendChild(bubble);
-
-            // Desplazarse al final
-            container.scrollTop = container.scrollHeight;
-
-            // Limitar a máximo 5 burbujas para no saturar la pantalla
-            while (container.children.length > 5) {
-                container.removeChild(container.firstChild);
-            }
-
-            // Auto-borrado tras 30 segundos con transición suave
-            setTimeout(() => {
-                bubble.classList.add('fade-out');
-                setTimeout(() => {
-                    if (bubble.parentNode) {
-                        bubble.parentNode.removeChild(bubble);
-                    }
-                }, 500);
-            }, 30000);
-
-            return bubble;
-        }
-
-        function queueAvatarBubble(text) {
-            clearTimeout(_pendingAvatarBubbleTimeout);
-            _pendingAvatarBubbleText = text;
-            
-            if (isSpeaking) {
-                // Si ya está hablando, mostrar de inmediato
-                addChatBubble('avatar', _pendingAvatarBubbleText);
-                _pendingAvatarBubbleText = null;
-                return;
-            }
-            
-            // Timeout de seguridad de 4 segundos
-            _pendingAvatarBubbleTimeout = setTimeout(() => {
-                if (_pendingAvatarBubbleText) {
-                    addChatBubble('avatar', _pendingAvatarBubbleText);
-                    _pendingAvatarBubbleText = null;
-                }
-            }, 4000);
-        }
-
-        function scheduleFollowUp() {
-            clearTimeout(_followUpTimeoutId);
-            clearTimeout(_followUpAckTimeoutId);
-            _waitingFollowUpAck = false;
-            if (!_conversationAwake) return;
-            _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
-                const followUpText = "¿Necesitas algo más?";
-                _waitingFollowUpAck = true; // Marcamos que estamos esperando respuesta al follow-up
-                
-                // Encolar burbuja del avatar para cuando empiece a hablar
-                queueAvatarBubble(followUpText);
-
-                // IMPORTANTE: Detener el micrófono antes de que el avatar hable, para evitar auto-grabación
-                stopAlwaysOnListening();
-                
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: followUpText,
-                        type: 'echo',
-                        sessionid: String(sessionid)
-                    })
-                }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 30000);
-        }
-
-        // Inicia el temporizador de 30s que, si el usuario no responde al "¿Necesitas algo más?",
-        // hace que el avatar diga una despedida y vuelva a modo de espera de wake-word.
-        function scheduleFollowUpAckTimeout() {
-            clearTimeout(_followUpAckTimeoutId);
-            if (!_waitingFollowUpAck || !_conversationAwake) return;
-            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
-            _followUpAckTimeoutId = setTimeout(() => {
-                if (!_waitingFollowUpAck) return;
-                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
-                _waitingFollowUpAck = false;
-                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
-                queueAvatarBubble(farewellText);
-                stopAlwaysOnListening();
-                clearServerHistory(); // Borrar historial al cerrar por timeout de follow-up
-                // Marcar como dormido ANTES de enviar el echo para que al terminar de hablar
-                // el monitor NO reactive el follow-up.
-                _conversationAwake = false;
-                _wakeDetected = false;
-                clearTimeout(_inactivityTimeoutId);
-                clearTimeout(_followUpTimeoutId);
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: farewellText,
-                        type: 'echo',
-                        sessionid: String(sessionid)
-                    })
-                }).then(() => {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('listening', 'Esperando activación…');
-                }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 30000);
-        }
-
-        LOG('Modo ASR inicial:', _useFallbackASR ? 'MediaRecorder (fallback)' : 'SpeechRecognition');
+        LOG('Modo ASR inicial: SpeechRecognition');
 
         // ─── Estado UI ─────────────────────────────────────────────────────────────
         function setState(state, text) {
@@ -1265,9 +1024,6 @@
             document.getElementById('btn-connect').classList.add('connected');
             isConnected = true;
 
-
-            // FIX AUTOPLAY LINUX/UBUNTU: vigilar cuando el stream llega al video y forzar play() muted.
-            // Chromium bloquea autoplay con sonido, pero permite muted. El audio se desbloquea al pulsar el mic.
             const _v = document.getElementById('video');
             let _vChecks = 0;
             const _vTimer = setInterval(function () {
@@ -1299,7 +1055,7 @@
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
-                if (!isConnected) return;
+                if (!isConnected || isListening) return;
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1316,34 +1072,14 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
-                            setUserText('', false); // Limpiar/ocultar texto flotante del usuario
-                            
-                            // IMPORTANTE: Detener el micrófono en el cliente de inmediato si el avatar empieza a hablar
-                            stopAlwaysOnListening();
-                            
-                            // Mostrar burbuja encolada del avatar justo cuando empiece a hablar
-                            if (_pendingAvatarBubbleText) {
-                                clearTimeout(_pendingAvatarBubbleTimeout);
-                                addChatBubble('avatar', _pendingAvatarBubbleText);
-                                _pendingAvatarBubbleText = null;
-                            }
                         } else {
                             wrap.classList.remove('avatar-speaking');
                             LOG('Avatar terminó de hablar → reiniciando escucha always-on');
-                            if (_conversationAwake) {
-                                if (_waitingFollowUpAck) {
-                                    // El avatar acaba de terminar el "¿Necesitas algo más?"
-                                    // → iniciar timer de 30s para despedida automática
-                                    scheduleFollowUpAckTimeout();
-                                } else {
-                                    scheduleFollowUp();
-                                }
-                            }
                             setTimeout(() => {
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
                                 }
-                            }, 300);
+                            }, 800);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
@@ -1369,30 +1105,13 @@
             }
         }
 
-        // ─── Pedir permiso de micrófono y fijar routing al dispositivo correcto ────
-        // ESTRATEGIA PARA MIC EXTERNO EN ANDROID:
-        // 1. getUserMedia abre el mic externo y MANTIENE el stream abierto.
-        // 2. Mientras el stream está activo, Android bloquea el routing en ese
-        //    dispositivo. SpeechRecognition (que corre en el mismo proceso Chrome)
-        //    hereda ese routing y usa el mismo hardware.
-        // 3. Al terminar (stopListening), cerramos el stream.
+        // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
+        // Solicita el permiso y enumera dispositivos liberando el stream inmediatamente
+        // para no bloquear el hardware del micrófono en Android o PC cuando SpeechRecognition inicie.
         async function requestMicPermission() {
-            LOG('requestMicPermission: solicitando getUserMedia...');
+            LOG('requestMicPermission: verificando micrófono...');
             if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
             try {
-                // Reutilizar el stream de micrófono si ya está abierto y activo
-                if (_micStream && _micStream.active) {
-                    LOG('requestMicPermission: reutilizando stream de mic activo');
-                    return true;
-                }
-
-                // Liberar stream anterior si existe
-                if (_micStream) {
-                    _micStream.getTracks().forEach(t => { t.stop(); LOG('Track previo detenido:', t.label); });
-                    _micStream = null;
-                }
-
-                // Usar el deviceId seleccionado en el panel si existe
                 const audioConstraints = _preferredDeviceId
                     ? { deviceId: { exact: _preferredDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
                     : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
@@ -1402,42 +1121,28 @@
                     video: false
                 });
 
-                _micStream = stream;
                 const tracks = stream.getAudioTracks();
-                LOG(`getUserMedia OK — tracks: ${tracks.length}`);
-
                 let activeMicLabel = '(desconocido)';
                 tracks.forEach((t, i) => {
-                    const settings = t.getSettings();
                     activeMicLabel = t.label || activeMicLabel;
-                    LOG(`  Track[${i}]: label="${t.label}" deviceId="${settings.deviceId || 'N/A'}" readyState=${t.readyState}`);
+                    LOG(`  Track[${i}]: label="${t.label}" readyState=${t.readyState}`);
+                    t.stop(); // Liberar track para no bloquear SpeechRecognition
                 });
 
-                // Mostrar en status badge
                 const short = activeMicLabel.length > 28
                     ? activeMicLabel.slice(0, 26) + '…'
                     : activeMicLabel;
                 setState('listening', `🎤 ${short}`);
-                LOG('Mic activo:', activeMicLabel);
-
-                // Refrescar selector de mic en el panel con labels reales
                 await dbgLoadDevices();
 
-                LOG('Stream getUserMedia ACTIVO — SpeechRecognition usará el mismo dispositivo');
+                LOG('Permiso de micrófono OK — Hardware libre para SpeechRecognition');
                 return true;
             } catch (e) {
-                ERR('getUserMedia falló:', e.name, e.message);
+                ERR('requestMicPermission falló:', e.name, e.message);
                 if (e.name === 'NotAllowedError') {
                     setState('ready', '⚠ Permiso de micrófono denegado');
                 } else if (e.name === 'NotFoundError') {
                     setState('ready', '⚠ No se encontró micrófono');
-                } else if (e.name === 'NotReadableError' || e.name === 'OverconstrainedError') {
-                    // El deviceId seleccionado puede no existir — volver al default
-                    WARN('Dispositivo seleccionado no disponible, volviendo al default');
-                    _preferredDeviceId = null;
-                    const sel = document.getElementById('dbg-mic-select');
-                    if (sel) sel.value = '';
-                    setState('ready', '⚠ Mic seleccionado no disponible — intenta de nuevo');
                 } else {
                     setState('ready', '⚠ Error de micrófono: ' + e.name);
                 }
@@ -1446,11 +1151,10 @@
         }
 
         // ─── Speech Recognition ────────────────────────────────────────────────────
-        // Variables de estado para detección de cierre rápido
         let _recStartMs = 0;
         let _gotAnyResult = false;
-        let _audioCaptureErrors = 0;  // contador errores audio-capture
-        let _networkSpeechErrors = 0;  // errores 'network' de SpeechRecognition (Chromium sin API keys)
+        let _audioCaptureErrors = 0;
+        let _networkSpeechErrors = 0;
 
         function setupRecognition() {
             LOG('setupRecognition: creando instancia...');
@@ -1459,28 +1163,19 @@
                 ERR('SpeechRecognition NO disponible en este navegador');
                 return null;
             }
-            LOG('SpeechRecognition disponible:', SpeechRec.name || 'webkitSpeechRecognition');
 
             const rec = new SpeechRec();
             rec.lang = 'es-CL';
             rec.interimResults = true;
             rec.continuous = false;
             rec.maxAlternatives = 1;
-            LOG('SpeechRecognition configurado: lang=es-CL, interimResults=true, continuous=false');
 
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                LOG('SpeechRecognition.onstart — ESCUCHANDO (always-on)');
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (${_manualMicActive ? 'manual' : 'always-on'})`);
                 isListening = true;
-                if (_conversationAwake) {
-                    setState('listening', 'Escuchando…');
-                    resetInactivityTimer();
-                } else if (_wakeDetected) {
-                    setState('listening', 'Escuchando pregunta…');
-                } else {
-                    setState('listening', 'Esperando activación…');
-                }
+                setState('listening', _manualMicActive ? 'Escuchando…' : 'Esperando activación…');
                 const btn = document.getElementById('btn-mic');
                 btn.classList.add('listening');
                 document.getElementById('icon-mic').style.display = 'none';
@@ -1488,22 +1183,8 @@
                 setUserText('', false);
             };
 
-            rec.onaudiostart = () => LOG('SpeechRecognition.onaudiostart — audio comenzó a capturarse');
-            rec.onsoundstart = () => LOG('SpeechRecognition.onsoundstart — sonido detectado');
-            rec.onspeechstart = () => LOG('SpeechRecognition.onspeechstart — habla detectada');
-            rec.onspeechend = () => LOG('SpeechRecognition.onspeechend — habla terminó');
-            rec.onsoundend = () => LOG('SpeechRecognition.onsoundend — sonido terminó');
-            rec.onaudioend = () => LOG('SpeechRecognition.onaudioend — captura de audio terminó');
-
             rec.onresult = (event) => {
-                if (isSpeaking) {
-                    LOG("onresult ignorado porque el avatar está hablando");
-                    return;
-                }
                 _gotAnyResult = true;
-                clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando el usuario empieza a hablar
-                clearTimeout(_followUpAckTimeoutId); // Cancelar timer de despedida automática
-                _waitingFollowUpAck = false; // Usuario respondió al follow-up, no hacer despedida automática
                 let interim = '';
                 let final = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) {
@@ -1518,73 +1199,44 @@
                 }
                 if (interim) LOG(`Resultado interim: "${interim}"`);
 
-                const rawText = (final || interim).trim().toLowerCase();
+                const rawText = (final || interim).trim();
 
-                // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
-                if (_conversationAwake) {
-                    resetInactivityTimer();
-                    setUserText(final || interim, !final);
-                    if (final) {
-                        const question = final.trim();
-                        if (question) {
-                            const isSleep = _isSleepWord(question);
-                            if (isSleep) {
-                                LOG(`Despedida detectada en SpeechRecognition: "${question}". Durmiendo.`);
-                                sleepModel(false);
-                            }
-                            LOG(`Conversación abierta → Enviando directamente al LLM: "${question}"`);
-                            _alwaysOnActive = false; // Detener mic hasta que responda
-                            sendToLLM(question, isSleep);
-                        }
-                    }
-                    return;
-                }
-
-                // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
-                if (!_wakeDetected) {
+                // ── Detección de wake-word / inicio manual ─────────────────────
+                if (_manualMicActive) {
+                    _wakeDetected = true;
+                } else if (!_wakeDetected) {
                     if (_containsWakeWord(rawText)) {
                         _wakeDetected = true;
-                        _lastWakeWordText = (final || interim).trim();
-                        LOG(`Wake-word detectada en: "${rawText}", guardando texto: "${_lastWakeWordText}"`);
+                        LOG(`Wake-word detectada en: "${rawText}"`);
                         setState('listening', 'Escuchando pregunta…');
-                        // Iniciar buffer: si no llega pregunta en WAKE_BUFFER_MS,
-                        // responder con la wake-word que se dijo originalmente y despertar el modelo
                         clearTimeout(_wakeBufferTimeout);
                         _wakeBufferTimeout = setTimeout(() => {
-                            if (_wakeDetected) {
-                                LOG('Buffer expirado sin pregunta → enviando wake-word sola al LLM:', _lastWakeWordText);
+                            if (_wakeDetected && !_manualMicActive) {
+                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
                                 _wakeDetected = false;
                                 _alwaysOnActive = false;
-                                wakeUpModel();
-                                sendToLLM(_lastWakeWordText);
+                                sendToLLM(_randomGreeting());
                             }
                         }, WAKE_BUFFER_MS);
                     } else {
-                        // Sin wake-word: mostrar en dim pero no enviar al LLM
                         setUserText(final || interim, true);
                         return;
                     }
                 }
 
-                // ── Wake-word detectada: mostrar texto y procesar final ───────────
                 setUserText(final || interim, !final);
 
                 if (final) {
-                    const question = _extractQuestion(final);
-                    LOG(`Texto tras wake-word: "${question}"`);
+                    const question = _manualMicActive ? final.trim() : _extractQuestion(final);
+                    LOG(`Texto procesado: "${question}"`);
 
                     if (question) {
                         clearTimeout(_wakeBufferTimeout);
                         _wakeDetected = false;
-                        LOG(`Enviando pregunta al LLM: "${question}"`);
-                        _alwaysOnActive = false;  // mic off hasta que avatar termine
-                        wakeUpModel();
+                        _manualMicActive = false;
+                        LOG(`Enviando al LLM: "${question}"`);
+                        _alwaysOnActive = false;
                         sendToLLM(question);
-                    } else {
-                        // Solo wake-word sin texto adicional: el buffer ya está corriendo;
-                        // onend reiniciará el ciclo y si en el siguiente round tampoco
-                        // hay pregunta, el timeout enviará el saludo.
-                        LOG('Solo wake-word sin pregunta en este resultado — esperando buffer');
                     }
                 }
             };
@@ -1616,8 +1268,7 @@
                 const elapsed = Date.now() - _recStartMs;
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
 
-                // ─── FIX: cierre rápido sin resultado (Android primera vez) ────────
-                if (!_gotAnyResult && elapsed < 1500 && !_useFallbackASR) {
+                if (!_gotAnyResult && elapsed < 1500) {
                     WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
                     stopListening();
                     setTimeout(() => {
@@ -1635,31 +1286,25 @@
 
                 stopListening();
 
-                // ─── Always-on: reiniciar si no enviamos nada al LLM ────────────
-                // (_alwaysOnActive se pone en false cuando sendToLLM es llamado)
                 if (_alwaysOnActive) {
-                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 200ms');
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 600ms');
                     setTimeout(() => {
                         if (_alwaysOnActive && !isListening) {
                             startAlwaysOnListening();
                         }
-                    }, 200);
+                    }, 600);
                 }
             };
 
             return rec;
         }
 
-        // ─── Forzar parada de recognition (con fallback abort) ────────────────────
-        // En Android con mic externo, recognition.stop() a veces no dispara onend
-        // y el botón queda bloqueado. Este wrapper espera 2.5 s y fuerza abort + UI reset.
         let _stopTimeout = null;
         function forceStopRecognition() {
             if (!recognition) { stopListening(); return; }
             LOG('forceStopRecognition: llamando stop()...');
             recognition.stop();
 
-            // Timeout de seguridad: si onend no dispara en 2.5 s → abortar manualmente
             clearTimeout(_stopTimeout);
             _stopTimeout = setTimeout(() => {
                 if (isListening) {
@@ -1673,17 +1318,14 @@
         function stopListening() {
             LOG('stopListening');
             isListening = false;
+            _manualMicActive = false;
             clearTimeout(_stopTimeout);
-
-            // NO cerramos el stream de micrófono aquí para permitir su reutilización instantánea
-            // y mantener el ruteo del micrófono externo estable en Android.
 
             const btn = document.getElementById('btn-mic');
             btn.classList.remove('listening');
             document.getElementById('icon-mic').style.display = 'block';
             document.getElementById('icon-stop').style.display = 'none';
 
-            // En modo always-on, el estado lo gestiona startAlwaysOnListening o sendToLLM
             if (!isSpeaking && !_alwaysOnActive) {
                 setState('processing', 'Procesando…');
             }
@@ -1705,16 +1347,11 @@
             }
 
             _alwaysOnActive = true;
-            if (_conversationAwake) {
-                setState('listening', 'Escuchando…');
-                resetInactivityTimer();
-            } else if (_wakeDetected) {
-                setState('listening', 'Escuchando pregunta…');
-            } else {
-                clearTimeout(_wakeBufferTimeout);
-                setState('listening', 'Esperando activación…');
-            }
+            _manualMicActive = false;
+            _wakeDetected = false;
+            clearTimeout(_wakeBufferTimeout);
             LOG(`startAlwaysOnListening: iniciando escucha continua (wake-words: ${WAKE_WORDS.join(', ')})`);
+            setState('listening', `Esperando activación…`);
 
             requestMicPermission().then(ok => {
                 if (!ok) {
@@ -1724,10 +1361,6 @@
                     return;
                 }
 
-                // ── Desbloquear audio del avatar ────────────────────────────────
-                // El <video> arranca muted. En el flujo original se desmuteaba al
-                // presionar el botón del mic (gesto de usuario). Ahora que el botón
-                // está oculto, lo desbloqueamos cuando el permiso de mic es concedido.
                 if (!_audioUnlocked) {
                     const videoEl = document.getElementById('video');
                     videoEl.muted = false;
@@ -1738,28 +1371,23 @@
                     LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
                 }
 
-                if (_useFallbackASR) {
-                    LOG('startAlwaysOnListening: modo FunASR (always-on)');
-                    startMediaRecorderASR();
-                } else {
-                    LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
-                    _audioCaptureErrors = 0;
-                    _networkSpeechErrors = 0;
-                    recognition = setupRecognition();
-                    if (recognition) {
-                        try {
-                            recognition.start();
-                            LOG('recognition.start() llamado (always-on)');
-                        } catch (e) {
-                            ERR('recognition.start() excepción (always-on):', e.name, e.message);
-                            _alwaysOnActive = false;
-                            stopListening();
-                        }
-                    } else {
-                        WARN('SpeechRecognition no disponible en este navegador');
+                LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
+                _audioCaptureErrors = 0;
+                _networkSpeechErrors = 0;
+                recognition = setupRecognition();
+                if (recognition) {
+                    try {
+                        recognition.start();
+                        LOG('recognition.start() llamado (always-on)');
+                    } catch (e) {
+                        ERR('recognition.start() excepción (always-on):', e.name, e.message);
                         _alwaysOnActive = false;
-                        setState('ready', '⚠ SpeechRecognition no disponible');
+                        stopListening();
                     }
+                } else {
+                    WARN('SpeechRecognition no disponible en este navegador');
+                    _alwaysOnActive = false;
+                    setState('ready', '⚠ SpeechRecognition no disponible');
                 }
             });
         }
@@ -1769,19 +1397,16 @@
             _alwaysOnActive = false;
             _wakeDetected = false;
             clearTimeout(_wakeBufferTimeout);
-            if (_useFallbackASR) {
-                cleanupStreamingASR();
-            } else if (recognition) {
+            if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
             stopListening();
         }
 
-        // ─── Toggle micrófono (disponible para uso manual/debug) ──────────────────
+        // ─── Toggle micrófono (para uso manual con el botón) ─────────────────────
         function toggleMic() {
-            LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking, '| fallback:', _useFallbackASR);
+            LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking);
 
-            // Desbloquear audio en primer uso del mic
             if (!_audioUnlocked) {
                 const videoEl = document.getElementById('video');
                 videoEl.muted = false;
@@ -1801,482 +1426,47 @@
             }
             if (isListening) {
                 LOG('toggleMic: ya escuchando → deteniendo');
-                if (_useFallbackASR) {
-                    stopMediaRecorderASR();
-                } else {
-                    forceStopRecognition();
-                }
+                forceStopRecognition();
                 return;
             }
+
+            _manualMicActive = true;
+            _wakeDetected = true;
+            _alwaysOnActive = false;
 
             setState('listening', 'Preparando micrófono…');
             requestMicPermission().then(ok => {
                 if (!ok) { stopListening(); return; }
 
-                if (_useFallbackASR) {
-                    // POS/iMin: usar Web Audio API → WAV → /humanaudio
-                    LOG('Usando modo WAV fallback (POS/iMin)');
-                    startMediaRecorderASR();
-                } else {
-                    // Mobile/PC: usar SpeechRecognition (Google Cloud STT)
-                    LOG('Usando modo SpeechRecognition');
-                    _audioCaptureErrors = 0;  // reset contador de errores
-                    _networkSpeechErrors = 0;  // reset errores de red
-                    recognition = setupRecognition();
-                    if (recognition) {
-                        try {
-                            recognition.start();
-                            LOG('recognition.start() llamado');
-                        } catch (e) {
-                            ERR('recognition.start() excepción:', e.name, e.message);
-                            stopListening();
-                        }
-                    } else {
-                        setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                LOG('Usando modo SpeechRecognition (manual)');
+                _audioCaptureErrors = 0;
+                _networkSpeechErrors = 0;
+                recognition = setupRecognition();
+                if (recognition) {
+                    try {
+                        recognition.start();
+                        LOG('recognition.start() llamado');
+                    } catch (e) {
+                        ERR('recognition.start() excepción:', e.name, e.message);
                         stopListening();
                     }
+                } else {
+                    setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
+                    stopListening();
                 }
             });
         }
 
-        // ─── WAV ASR via Web Audio API (fallback para POS/iMin) ──────────────────
-        // MediaRecorder produce WebM/Opus que soundfile NO puede leer.
-        // Web Audio API captura PCM crudo → lo codificamos como WAV (16-bit mono)
-        // → soundfile lo lee perfectamente.
-        // Esta es la misma técnica que usa la demo webrtc.github.io/samples.
-        let _audioCtx = null;
-        let _audioSrc = null;
-        let _scriptProc = null;
-
-        // FunASR streaming state variables
-        let _funasrWs = null;
-        let _funasrStopTimeout = null;
-        let _waitingForFinalResponse = false;
-        let _lastPartialText = '';
 
 
-        // FunASR WebSocket STT
-        let _funasrUrl = (function () {
-            try { return localStorage.getItem('funasr_url') || ('wss://' + location.hostname + ':10095'); } catch (e) { return 'wss://' + location.hostname + ':10095'; }
-        })();
-
-        window.addEventListener('DOMContentLoaded', function () {
-            var inp = document.getElementById('dbg-funasr-url');
-            if (inp) inp.value = _funasrUrl;
-        });
-
-        function dbgTestFunASR() {
-            var url = document.getElementById('dbg-funasr-url').value.trim();
-            if (!url) { WARN('Ingresa la URL de FunASR'); return; }
-            _funasrUrl = url;
-            try { localStorage.setItem('funasr_url', url); } catch (e) { }
-            LOG('FunASR URL guardada: ' + url);
-            try {
-                var testWs = new WebSocket(url);
-                testWs.onopen = function () { LOG('FunASR conexion OK: ' + url); testWs.close(); };
-                testWs.onerror = function () { ERR('FunASR FALLO en ' + url + ' - verifica que el servidor corra en puerto 10095'); };
-                setTimeout(function () { try { testWs.close(); } catch (e) { } }, 4000);
-            } catch (e) { ERR('FunASR test error: ' + e.message); }
-        }
-
-        function cleanupStreamingASR() {
-            LOG('cleanupStreamingASR');
-            clearInterval(_recTimerInterval);
-            if (_funasrStopTimeout) {
-                clearTimeout(_funasrStopTimeout);
-                _funasrStopTimeout = null;
-            }
-
-            // Disconnect audio nodes
-            try {
-                if (_scriptProc) {
-                    _scriptProc.disconnect();
-                    _scriptProc = null;
-                }
-            } catch (e) {
-                WARN('Error desconectando _scriptProc:', e);
-            }
-            try {
-                if (_audioSrc) {
-                    _audioSrc.disconnect();
-                    _audioSrc = null;
-                }
-            } catch (e) {
-                WARN('Error desconectando _audioSrc:', e);
-            }
-            try {
-                if (_audioCtx) {
-                    _audioCtx.close();
-                    _audioCtx = null;
-                }
-            } catch (e) {
-                WARN('Error cerrando _audioCtx:', e);
-            }
-
-            // Close WS
-            try {
-                if (_funasrWs) {
-                    _funasrWs.onopen = null;
-                    _funasrWs.onclose = null;
-                    _funasrWs.onerror = null;
-                    _funasrWs.onmessage = null;
-                    _funasrWs.close();
-                    _funasrWs = null;
-                }
-            } catch (e) {
-                WARN('Error cerrando _funasrWs:', e);
-            }
-            _waitingForFinalResponse = false;
-        }
-
-        function startMediaRecorderASR() {
-            if (!_micStream) {
-                ERR('startMediaRecorderASR: no hay stream de mic');
-                stopListening();
-                return;
-            }
-
-            cleanupStreamingASR();
-            _lastPartialText = '';
-            _waitingForFinalResponse = false;
-
-            const url = _funasrUrl;
-            LOG('FunASR streaming: conectando a ' + url);
-            setState('listening', 'Conectando a ASR…');
-
-            try {
-                _funasrWs = new WebSocket(url);
-            } catch (e) {
-                ERR('FunASR streaming: no se pudo crear WebSocket:', e.message);
-                setState('ready', 'Error al conectar con ASR');
-                stopListening();
-                return;
-            }
-            _funasrWs.binaryType = 'arraybuffer';
-
-            _funasrWs.onopen = function () {
-                LOG('FunASR streaming: WS conectado, inicializando grabador...');
-                try {
-                    const request = {
-                        chunk_size: [5, 10, 5],
-                        wav_name: "h5",
-                        is_speaking: true,
-                        chunk_interval: 10,
-                        mode: "2pass"
-                    };
-                    _funasrWs.send(JSON.stringify(request));
-
-                    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    const nativeSR = _audioCtx.sampleRate;
-                    LOG(`FunASR streaming: AudioContext iniciado a ${nativeSR} Hz`);
-
-                    _audioSrc = _audioCtx.createMediaStreamSource(_micStream);
-
-                    let sampleBuf = new Float32Array(0);
-                    const bufSize = 4096;
-                    _scriptProc = _audioCtx.createScriptProcessor(bufSize, 1, 1);
-                    _scriptProc.onaudioprocess = (ev) => {
-                        if (!isListening || _waitingForFinalResponse || !_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
-                            return;
-                        }
-
-                        const inputData = ev.inputBuffer.getChannelData(0);
-
-                        let resampledData;
-                        if (nativeSR === 16000) {
-                            resampledData = new Float32Array(inputData);
-                        } else {
-                            const ratio = 16000 / nativeSR;
-                            const newLen = Math.round(inputData.length * ratio);
-                            resampledData = new Float32Array(newLen);
-                            for (let i = 0; i < newLen; i++) {
-                                const si = i / ratio;
-                                const lo = Math.floor(si);
-                                const hi = Math.min(lo + 1, inputData.length - 1);
-                                const fr = si - lo;
-                                resampledData[i] = inputData[lo] * (1 - fr) + inputData[hi] * fr;
-                            }
-                        }
-
-                        const newBuf = new Float32Array(sampleBuf.length + resampledData.length);
-                        newBuf.set(sampleBuf, 0);
-                        newBuf.set(resampledData, sampleBuf.length);
-                        sampleBuf = newBuf;
-
-                        const CHUNK_SIZE = 960;
-                        while (sampleBuf.length >= CHUNK_SIZE) {
-                            const chunkFloat = sampleBuf.subarray(0, CHUNK_SIZE);
-                            const chunkInt16 = new Int16Array(CHUNK_SIZE);
-                            for (let i = 0; i < CHUNK_SIZE; i++) {
-                                const s = Math.max(-1, Math.min(1, chunkFloat[i]));
-                                chunkInt16[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-                            }
-
-                            if (_funasrWs && _funasrWs.readyState === WebSocket.OPEN) {
-                                _funasrWs.send(chunkInt16.buffer);
-                            }
-                            sampleBuf = sampleBuf.subarray(CHUNK_SIZE);
-                        }
-                    };
-
-                    _audioSrc.connect(_scriptProc);
-                    _scriptProc.connect(_audioCtx.destination);
-
-                    isListening = true;
-                    _recSeconds = 0;
-                    setState('listening', 'Escuchando… (0s)');
-                    const btn = document.getElementById('btn-mic');
-                    btn.classList.add('listening');
-                    document.getElementById('icon-mic').style.display = 'none';
-                    document.getElementById('icon-stop').style.display = 'block';
-                    setUserText('🎙 Habla ahora…', true);
-
-                    clearInterval(_recTimerInterval);
-                    _recTimerInterval = setInterval(() => {
-                        _recSeconds++;
-                        setState('listening', `Escuchando… (${_recSeconds}s)`);
-                    }, 1000);
-
-                } catch (e) {
-                    ERR('FunASR streaming: error configurando captura de audio:', e.name, e.message);
-                    cleanupStreamingASR();
-                    stopListening();
-                    setState('ready', 'Error al iniciar micrófono');
-                }
-            };
-
-            _funasrWs.onmessage = function (evt) {
-                if (isSpeaking) {
-                    LOG("FunASR msg ignorado porque el avatar está hablando");
-                    return;
-                }
-                try {
-                    const data = JSON.parse(evt.data);
-                    const text = (data.text || '').replace(/ +/g, '').trim();
-                    const mode = data.mode || '';
-                    const isFinal = data.is_final === true;
-
-                    if (text) {
-                        clearTimeout(_followUpTimeoutId); // Cancelar follow-up cuando se detecta voz
-                        clearTimeout(_followUpAckTimeoutId); // Cancelar timer de despedida automática
-                        _waitingFollowUpAck = false; // Usuario respondió al follow-up
-                        LOG(`FunASR streaming msg: mode=${mode} final=${isFinal} text="${text}"`);
-                        _lastPartialText = text;
-
-                        // ── MODO CONVERSACIÓN ABIERTA (DESPIERTA) ──────────────────────────
-                        if (_conversationAwake) {
-                            resetInactivityTimer();
-                            setUserText(text, false);
-
-                            if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
-                                LOG(`FunASR VAD fin de habla (conversación abierta): "${text}"`);
-                                clearTimeout(_wakeBufferTimeout);
-                                _wakeDetected = false;
-                                cleanupStreamingASR();
-                                stopListening();
-                                const isSleep = _isSleepWord(text);
-                                if (isSleep) {
-                                    LOG(`Despedida detectada (FunASR): "${text}". Durmiendo.`);
-                                    sleepModel(false);
-                                }
-                                LOG(`FunASR → enviando al LLM directamente: "${text}"`);
-                                _alwaysOnActive = false; // mic off
-                                sendToLLM(text, isSleep);
-                            }
-                            return;
-                        }
-
-                        // ── MODO ESPERA DE WAKE-WORD (DORMIDA) ─────────────────────────────
-                        if (!_wakeDetected) {
-                            if (_containsWakeWord(text)) {
-                                _wakeDetected = true;
-                                _lastWakeWordText = text;
-                                LOG(`Wake-word detectada (FunASR): "${text}"`);
-                                setState('listening', 'Escuchando pregunta…');
-                                // Buffer: si no llega pregunta en WAKE_BUFFER_MS → enviar wake-word sola
-                                clearTimeout(_wakeBufferTimeout);
-                                _wakeBufferTimeout = setTimeout(() => {
-                                    if (_wakeDetected) {
-                                        LOG('Buffer FunASR expirado sin pregunta → enviando wake-word sola:', _lastWakeWordText);
-                                        _wakeDetected = false;
-                                        cleanupStreamingASR();
-                                        _alwaysOnActive = false;
-                                        wakeUpModel();
-                                        sendToLLM(_lastWakeWordText);
-                                    }
-                                }, WAKE_BUFFER_MS);
-                            }
-                        }
-                        setUserText(text, !_wakeDetected);
-
-                        // ── Resultado final (fin de habla por VAD) ───────────────────
-                        if (mode === '2pass-offline' || mode === 'offline' || isFinal) {
-                            LOG(`FunASR VAD fin de habla: "${text}" | wake=${_wakeDetected}`);
-
-                            if (_wakeDetected) {
-                                const question = _extractQuestion(text);
-                                LOG(`FunASR → pregunta extraída: "${question}"`);
-
-                                if (question) {
-                                    clearTimeout(_wakeBufferTimeout);
-                                    _wakeDetected = false;
-                                    cleanupStreamingASR();
-                                    stopListening();
-                                    LOG(`FunASR → enviando al LLM: "${question}"`);
-                                    _alwaysOnActive = false;  // mic off hasta que avatar termine
-                                    wakeUpModel();
-                                    sendToLLM(question);
-                                } else {
-                                    // Solo wake-word: el buffer ya está corriendo;
-                                    // reiniciar escucha para capturar la pregunta que viene
-                                    LOG('FunASR → solo wake-word, buffer activo → reiniciando escucha');
-                                    cleanupStreamingASR();
-                                    stopListening();
-                                    if (_alwaysOnActive) {
-                                        setTimeout(() => startAlwaysOnListening(), 300);
-                                    }
-                                }
-                            } else {
-                                // Sin wake-word: reiniciar silenciosamente
-                                LOG('FunASR → sin wake-word detectada, reiniciando escucha...');
-                                cleanupStreamingASR();
-                                stopListening();
-                                if (_alwaysOnActive) {
-                                    setTimeout(() => startAlwaysOnListening(), 500);
-                                }
-                            }
-                        }
-                    }
-                } catch (e) {
-                    WARN('FunASR streaming: error parseando respuesta:', e.message);
-                }
-            };
-
-            _funasrWs.onerror = function (e) {
-                ERR('FunASR WS error en ' + url);
-                cleanupStreamingASR();
-                stopListening();
-                setState('ready', 'Error FunASR - verifica conexión');
-            };
-
-            _funasrWs.onclose = function (e) {
-                LOG('FunASR WS cerrado (código=' + e.code + ')');
-                const wasWaiting = _waitingForFinalResponse;
-                const textToSend = _lastPartialText;
-                cleanupStreamingASR();
-                stopListening();
-                if (wasWaiting && textToSend && textToSend.trim()) {
-                    LOG('FunASR cerrado mientras esperaba final; enviando último texto parcial:', textToSend);
-                    sendToLLM(textToSend.trim());
-                } else if (!wasWaiting) {
-                    setState('ready', 'Conexión con ASR terminada');
-                }
-            };
-        }
-
-        async function stopMediaRecorderASR() {
-            LOG('stopMediaRecorderASR (parada manual solicitada)');
-            clearInterval(_recTimerInterval);
-
-            if (!_funasrWs || _funasrWs.readyState !== WebSocket.OPEN) {
-                cleanupStreamingASR();
-                stopListening();
-                return;
-            }
-
-            _waitingForFinalResponse = true;
-
-            try {
-                if (_scriptProc) {
-                    _scriptProc.disconnect();
-                    _scriptProc = null;
-                }
-            } catch (e) { }
-            try {
-                if (_audioSrc) {
-                    _audioSrc.disconnect();
-                    _audioSrc = null;
-                }
-            } catch (e) { }
-            try {
-                if (_audioCtx) {
-                    await _audioCtx.close();
-                    _audioCtx = null;
-                }
-            } catch (e) { }
-
-            setState('processing', 'Procesando fin de audio…');
-
-            try {
-                const request = {
-                    chunk_size: [5, 10, 5],
-                    wav_name: "h5",
-                    is_speaking: false,
-                    chunk_interval: 10,
-                    mode: "2pass"
-                };
-                _funasrWs.send(JSON.stringify(request));
-                LOG('FunASR streaming: enviado is_speaking:false, esperando transcripción final...');
-
-                _funasrStopTimeout = setTimeout(() => {
-                    WARN('FunASR manual stop: timeout de 3s sin respuesta final');
-                    const textToSend = _lastPartialText;
-                    cleanupStreamingASR();
-                    stopListening();
-                    if (textToSend && textToSend.trim()) {
-                        sendToLLM(textToSend.trim());
-                    } else {
-                        setState('ready', 'Sin audio detectado');
-                    }
-                }, 3000);
-
-            } catch (e) {
-                ERR('FunASR manual stop error:', e.message);
-                cleanupStreamingASR();
-                stopListening();
-            }
-        }
-
-
-
-        async function sendToLLM(text, isSleepWord = false) {
+        // ─── Enviar al LLM / backend ───────────────────────────────────────────────
+        async function sendToLLM(text) {
             if (!text) return;
-            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
+            LOG(`sendToLLM: "${text}"`);
             setState('processing', 'Procesando…');
             setUserText(text, false);
-            addChatBubble('user', text);
 
             const sessionid = document.getElementById('sessionid').value;
-
-            if (isSleepWord) {
-                // Generar despedida local sin consultar al LLM
-                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
-                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
-                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
-                    farewellText = "De nada. ¡Que tengas un excelente día!";
-                }
-
-                queueAvatarBubble(farewellText);
-                clearServerHistory(); // Borrar historial al despedirse
-
-                try {
-                    await fetch('/human', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: farewellText,
-                            type: 'echo',
-                            sessionid: String(sessionid)
-                        })
-                    });
-                } catch (err) {
-                    ERR('sendToLLM farewell error:', err);
-                } finally {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                }
-                return;
-            }
-
             try {
                 const res = await fetch('/human', {
                     method: 'POST',
@@ -2285,46 +1475,12 @@
                         text,
                         type: 'chat',
                         interrupt: true,
-                        stream: true,
                         sessionid: String(sessionid)
                     })
                 });
                 LOG('sendToLLM: respuesta status', res.status);
-                
-                if (!res.body) {
-                    throw new Error("Respuesta del servidor no soporta streaming.");
-                }
-
-                const reader = res.body.getReader();
-                const decoder = new TextDecoder("utf-8");
-                let fullText = '';
-                let avatarBubble = null;
-
-                while (true) {
-                    const { done, value } = await reader.read();
-                    if (done) break;
-
-                    const chunk = decoder.decode(value, { stream: true });
-                    fullText += chunk;
-
-                    // Crear la burbuja en el primer fragmento de texto
-                    if (!avatarBubble && fullText.trim()) {
-                        avatarBubble = addChatBubble('avatar', '');
-                    }
-
-                    if (avatarBubble) {
-                        avatarBubble.textContent = fullText;
-                        const container = document.getElementById('chat-container');
-                        if (container) {
-                            container.scrollTop = container.scrollHeight;
-                        }
-                    }
-                }
-
-                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
-
             } catch (err) {
-                ERR('sendToLLM: error de red o streaming:', err);
+                ERR('sendToLLM: error de red:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
             }
         }
