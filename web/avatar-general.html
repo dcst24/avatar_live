@@ -738,17 +738,14 @@
     <script>
         // ══════════════════════════════════════════════════════════════════════════════
         // DEBUG LOGGER — escribe en consola del navegador Y en el panel on-screen 🪲
-        // En Android: toca 🪲 (abajo-derecha) para ver todos los logs en pantalla.
         // ══════════════════════════════════════════════════════════════════════════════
-        const _DBG_MAX = 200;  // máximo de entradas en el panel
+        const _DBG_MAX = 200;
 
         function _dbgWrite(level, args) {
-            // 1. Consola nativa
             if (level === 'log') console.log('[Avatar]', ...args);
             if (level === 'warn') console.warn('[Avatar]', ...args);
             if (level === 'err') console.error('[Avatar]', ...args);
 
-            // 2. Panel on-screen
             const list = document.getElementById('dbg-list');
             if (!list) return;
 
@@ -764,10 +761,8 @@
                 `<span class="dbg-msg">${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
             list.appendChild(entry);
 
-            // Limitar a _DBG_MAX entradas
             while (list.children.length > _DBG_MAX) list.removeChild(list.firstChild);
 
-            // Auto-scroll solo si el panel está abierto
             const panel = document.getElementById('dbg-panel');
             if (panel && panel.classList.contains('open')) {
                 list.scrollTop = list.scrollHeight;
@@ -782,7 +777,6 @@
             const panel = document.getElementById('dbg-panel');
             panel.classList.toggle('open');
             if (panel.classList.contains('open')) {
-                // Scroll al final al abrir
                 const list = document.getElementById('dbg-list');
                 list.scrollTop = list.scrollHeight;
             }
@@ -795,7 +789,7 @@
         }
 
         // ─── Selector de micrófono en panel debug ─────────────────────────────────
-        let _preferredDeviceId = null;  // null = usar default del sistema
+        let _preferredDeviceId = null;
 
         async function dbgLoadDevices() {
             const sel = document.getElementById('dbg-mic-select');
@@ -811,17 +805,18 @@
                     LOG(`  [${i}] id="${d.deviceId.slice(0, 16)}…" label="${d.label || '(sin permiso)'}"`);
                 });
 
-                // Reconstruir opciones del selector
-                sel.innerHTML = '<option value="">-- default del sistema --</option>';
-                audioInputs.forEach((d, i) => {
-                    const opt = document.createElement('option');
-                    opt.value = d.deviceId;
-                    opt.textContent = d.label
-                        ? d.label
-                        : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
-                    if (d.deviceId === _preferredDeviceId) opt.selected = true;
-                    sel.appendChild(opt);
-                });
+                if (sel) {
+                    sel.innerHTML = '<option value="">-- default del sistema --</option>';
+                    audioInputs.forEach((d, i) => {
+                        const opt = document.createElement('option');
+                        opt.value = d.deviceId;
+                        opt.textContent = d.label
+                            ? d.label
+                            : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
+                        if (d.deviceId === _preferredDeviceId) opt.selected = true;
+                        sel.appendChild(opt);
+                    });
+                }
 
                 if (audioInputs.length === 0) ERR('¡No se encontraron micrófonos!');
             } catch (e) {
@@ -832,29 +827,47 @@
         function dbgSelectMic(deviceId) {
             _preferredDeviceId = deviceId || null;
             if (_preferredDeviceId) {
-                     // ─── Estado ────────────────────────────────────────────────────────────────
+                const sel = document.getElementById('dbg-mic-select');
+                const label = sel?.options[sel.selectedIndex]?.textContent || deviceId;
+                LOG(`🎤 Micrófono seleccionado: "${label}"`);
+            } else {
+                LOG('🎤 Micrófono: default del sistema');
+            }
+        }
+
+        LOG('=== INIT ===');
+        LOG('UA:', navigator.userAgent);
+        LOG('Secure context:', window.isSecureContext);
+        LOG('SpeechRecognition:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
+        LOG('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
+        LOG('Protocol:', location.protocol, '| Host:', location.host);
+
+        // ─── Estado ────────────────────────────────────────────────────────────────
         let isConnected = false;
         let isListening = false;
         let recognition = null;
         let isSpeaking = false;
         let speakCheckInterval = null;
         let _audioUnlocked = false;
-        let _micStream = null;
-        let _recTimerInterval = null;
-        let _recSeconds = 0;
-        let _manualMicActive = false;
 
-        // ─── Wake-word (always-on mic) & Sesión Activa ───────────────────────────
+        // ─── Wake-word & Modo Conversación Abierta (Experimental) ───────────────
         const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
         const WAKE_WORD = WAKE_WORDS[0];
 
-        // Palabras de despedida que cierran la sesión activa
-        const GOODBYE_WORDS = ['chao', 'adiós', 'adios', 'hasta luego', 'nos vemos', 'gracias', 'hasta mañana', 'bye', 'hasta la próxima', 'que estés bien'];
-        const INACTIVITY_TIMEOUT_MS = 25000; // 25s de inactividad reinician el flujo a espera de wake-word
-
-        let _sessionActive = false;       // true si el flujo de conversación está activo sin requerir wake-word
+        let _wakeDetected = false;
         let _alwaysOnActive = false;
-        let _inactivityTimer = null;      // Timer ID para inactividad
+
+        let _conversationAwake = false;  // true si el flujo de conversación está activo sin requerir wake-word
+        let _inactivityTimeoutId = null; // temporizador de inactividad
+        let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
+        let _waitingFollowUpAck = false;  // true cuando se preguntó "¿Necesitas algo más?" y esperamos respuesta
+        let _followUpAckTimeoutId = null; // timer del segundo wait de 30s tras "¿Necesitas algo más?"
+        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
+        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
+        const INACTIVITY_TIMEOUT_MS = 120000;   // 2 minutos antes de volver a modo de espera
+
+        const BUFFER_MS = 5000;                 // ms de espera para pregunta tras la wake-word
+        let _wakeBufferTimeout = null;
 
         const WAKE_ONLY_GREETINGS = [
             '¡Hola! ¿En qué te puedo ayudar?',
@@ -872,11 +885,6 @@
             return WAKE_WORDS.some(w => lower.includes(w));
         }
 
-        function _containsGoodbyeWord(text) {
-            const lower = text.toLowerCase();
-            return GOODBYE_WORDS.some(w => lower.includes(w));
-        }
-
         function _extractQuestion(text) {
             const lower = text.toLowerCase();
             let best = { idx: -1, word: '' };
@@ -890,21 +898,328 @@
             return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
         }
 
-        function _resetInactivityTimer() {
-            clearTimeout(_inactivityTimer);
-            if (_sessionActive) {
-                _inactivityTimer = setTimeout(() => {
-                    LOG('Inactividad detectada (25s sin preguntas) → reiniciando flujo a espera de wake-word');
-                    _sessionActive = false;
-                    setUserText('', false);
-                    if (!isSpeaking) {
-                        setState('listening', 'Esperando activación…');
-                    }
-                }, INACTIVITY_TIMEOUT_MS);
+        function _isSleepWord(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+            const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias', 'nos vemos', 'que estes bien', 'chao chao', 'bye'];
+            return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
+        }
+
+        function clearServerHistory() {
+            const sessionid = document.getElementById('sessionid').value;
+            LOG('Borrando historial de conversación en servidor para sesión:', sessionid);
+            fetch('/clear_history', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ sessionid: String(sessionid) })
+            }).catch(e => WARN('clearServerHistory error:', e));
+        }
+
+        function sleepModel(showBubble = false) {
+            LOG("Durmiendo el modelo experimental (conversación cerrada).");
+            _conversationAwake = false;
+            _wakeDetected = false;
+            _waitingFollowUpAck = false;
+            clearTimeout(_inactivityTimeoutId);
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            clearServerHistory();
+            setState('listening', 'Esperando activación…');
+            if (showBubble) {
+                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
             }
         }
 
-        LOG('Modo ASR inicial: SpeechRecognition');
+        function wakeUpModel() {
+            if (!_conversationAwake) {
+                LOG("Despertando el modelo experimental (conversación abierta).");
+                _conversationAwake = true;
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }
+            resetInactivityTimer();
+        }
+
+        function resetInactivityTimer() {
+            clearTimeout(_inactivityTimeoutId);
+            if (!_conversationAwake) return;
+            _inactivityTimeoutId = setTimeout(() => {
+                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
+                _conversationAwake = false;
+                _wakeDetected = false;
+                setState('listening', 'Esperando activación…');
+                clearServerHistory();
+                const container = document.getElementById('chat-container');
+                if (container) container.innerHTML = '';
+            }, INACTIVITY_TIMEOUT_MS);
+        }
+
+        function addChatBubble(role, text) {
+            const container = document.getElementById('chat-container');
+            if (!container) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role}`;
+            bubble.textContent = text;
+            container.appendChild(bubble);
+
+            container.scrollTop = container.scrollHeight;
+
+            while (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+
+            setTimeout(() => {
+                bubble.classList.add('fade-out');
+                setTimeout(() => {
+                    if (bubble.parentNode) {
+                        bubble.parentNode.removeChild(bubble);
+                    }
+                }, 500);
+            }, 30000);
+
+            return bubble;
+        }
+
+        function queueAvatarBubble(text) {
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = text;
+            
+            if (isSpeaking) {
+                addChatBubble('avatar', _pendingAvatarBubbleText);
+                _pendingAvatarBubbleText = null;
+                return;
+            }
+            
+            _pendingAvatarBubbleTimeout = setTimeout(() => {
+                if (_pendingAvatarBubbleText) {
+                    addChatBubble('avatar', _pendingAvatarBubbleText);
+                    _pendingAvatarBubbleText = null;
+                }
+            }, 4000);
+        }
+
+        function scheduleFollowUp() {
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
+            if (!_conversationAwake) return;
+            _followUpTimeoutId = setTimeout(() => {
+                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                const followUpText = "¿Necesitas algo más?";
+                _waitingFollowUpAck = true;
+                
+                queueAvatarBubble(followUpText);
+                stopAlwaysOnListening();
+                
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: followUpText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('Error al enviar follow-up:', e));
+            }, 30000);
+        }
+
+        function scheduleFollowUpAckTimeout() {
+            clearTimeout(_followUpAckTimeoutId);
+            if (!_waitingFollowUpAck || !_conversationAwake) return;
+            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            _followUpAckTimeoutId = setTimeout(() => {
+                if (!_waitingFollowUpAck) return;
+                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                _waitingFollowUpAck = false;
+                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
+                queueAvatarBubble(farewellText);
+                stopAlwaysOnListening();
+                clearServerHistory();
+                _conversationAwake = false;
+                _wakeDetected = false;
+                clearTimeout(_inactivityTimeoutId);
+                clearTimeout(_followUpTimeoutId);
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: farewellText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                }).then(() => {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                    setState('listening', 'Esperando activación…');
+                }).catch(e => WARN('Error al enviar despedida final:', e));
+            }, 30000);
+        }
+
+        // ─── Lector de Código de Barras (Módulo 1) ──────────────────────────────────
+        let _cardDismissTimeout = null;
+
+        function keepBarcodeFocus() {
+            const inp = document.getElementById('barcode-input');
+            if (!inp) return;
+            const dbgPanel = document.getElementById('dbg-panel');
+            if (dbgPanel && dbgPanel.classList.contains('open')) return;
+            if (document.activeElement !== inp) {
+                inp.focus();
+            }
+        }
+
+        async function handleBarcodeScan(code) {
+            LOG(`Escáner de código de barras detectado: "${code}"`);
+            try {
+                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(code)}`);
+                const result = await res.json();
+
+                if (result.code === 0 && result.data) {
+                    const prod = result.data;
+                    LOG('Producto encontrado:', prod.nombre);
+                    showProductCard(prod);
+
+                    const art = prod.articulo || 'El';
+                    const artLower = art.toLowerCase();
+                    const esPlural = artLower === 'los' || artLower === 'las';
+                    const verbCuesta = esPlural ? 'cuestan' : 'cuesta';
+                    const verbEncuentra = esPlural ? 'se encuentran' : 'se encuentra';
+
+                    let speechText = '';
+                    if (prod.oferta === 'SI' && prod.precio_oferta) {
+                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos, ¡y hoy está en oferta a ${prod.precio_oferta.toLocaleString('es-CL')} pesos! ${art} ${prod.nombre} ${verbEncuentra} en el ${prod.pasillo}.`;
+                    } else {
+                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos y ${verbEncuentra} en el ${prod.pasillo}.`;
+                    }
+
+                    const sessionid = document.getElementById('sessionid').value;
+                    queueAvatarBubble(speechText);
+                    stopAlwaysOnListening();
+
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: speechText,
+                            type: 'echo',
+                            interrupt: true,
+                            sessionid: String(sessionid)
+                        })
+                    });
+                } else {
+                    WARN(`Producto no encontrado para el código: ${code}`);
+                    showProductNotFound(code);
+
+                    const notFoundText = `Lo siento, no encontré ningún producto registrado con el código de barras ${code}.`;
+                    const sessionid = document.getElementById('sessionid').value;
+                    queueAvatarBubble(notFoundText);
+                    stopAlwaysOnListening();
+
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: notFoundText,
+                            type: 'echo',
+                            interrupt: true,
+                            sessionid: String(sessionid)
+                        })
+                    });
+                }
+            } catch (e) {
+                ERR('Error al procesar código de barras:', e);
+            } finally {
+                const inp = document.getElementById('barcode-input');
+                if (inp) inp.focus();
+            }
+        }
+
+        function showProductCard(prod) {
+            const container = document.getElementById('product-card-container');
+            if (!container) return;
+
+            clearTimeout(_cardDismissTimeout);
+            container.innerHTML = '';
+
+            const isOffer = prod.oferta === 'SI' && prod.precio_oferta;
+            const mainPrice = isOffer ? prod.precio_oferta : prod.precio;
+
+            const tagsHtml = (prod.etiquetas || []).map(t => {
+                let tagClass = '';
+                const lower = t.toLowerCase();
+                if (lower.includes('azucar')) tagClass = 'tag-azucar';
+                else if (lower.includes('sin gluten')) tagClass = 'tag-singluten';
+                else if (lower.includes('gluten')) tagClass = 'tag-gluten';
+                else if (lower.includes('sal') || lower.includes('sodio')) tagClass = 'tag-sal';
+                return `<span class="product-tag-pill ${tagClass}">${t}</span>`;
+            }).join('');
+
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.innerHTML = `
+                <div class="product-card-badge">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                        <path d="M2 4h2v16H2V4zm4 0h1v16H6V4zm3 0h2v16H9V4zm4 0h1v16h-1V4zm3 0h2v16h-2V4zm4 0h1v16h-1V4z"/>
+                    </svg>
+                    <span>CÓDIGO: ${prod.codigo_barra}</span>
+                </div>
+                <div class="product-card-title">${prod.nombre}</div>
+                <div class="product-card-category">${prod.categoria}</div>
+                <div class="product-card-prices">
+                    <span class="product-card-price-main">$${mainPrice.toLocaleString('es-CL')}</span>
+                    ${isOffer ? `<span class="product-card-price-regular">$${prod.precio.toLocaleString('es-CL')}</span>` : ''}
+                    ${isOffer ? `<span class="product-card-offer-tag">OFERTA</span>` : ''}
+                </div>
+                <div class="product-card-aisle">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                        <circle cx="12" cy="9" r="2.5"/>
+                    </svg>
+                    <span>${prod.pasillo}</span>
+                </div>
+                ${tagsHtml ? `<div class="product-card-tags">${tagsHtml}</div>` : ''}
+            `;
+
+            container.appendChild(card);
+
+            _cardDismissTimeout = setTimeout(() => {
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    if (card.parentNode) card.parentNode.removeChild(card);
+                }, 500);
+            }, 15000);
+        }
+
+        function showProductNotFound(code) {
+            const container = document.getElementById('product-card-container');
+            if (!container) return;
+
+            clearTimeout(_cardDismissTimeout);
+            container.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            card.innerHTML = `
+                <div class="product-card-badge" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                    <span>NO ENCONTRADO</span>
+                </div>
+                <div class="product-card-title" style="font-size: 15px;">Código ${code} no registrado</div>
+                <div style="font-size: 12px; color: #a1a1aa;">Verifique que el producto esté ingresado en el sistema.</div>
+            `;
+
+            container.appendChild(card);
+
+            _cardDismissTimeout = setTimeout(() => {
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    if (card.parentNode) card.parentNode.removeChild(card);
+                }, 500);
+            }, 8000);
+        }
+
+        LOG('Modo ASR: SpeechRecognition');
 
         // ─── Estado UI ─────────────────────────────────────────────────────────────
         function setState(state, text) {
@@ -980,19 +1295,18 @@
                     if (_v.paused) {
                         _v.muted = true;
                         _v.play()
-                            .then(function () { LOG('video.play() OK muted - audio se activa al pulsar el mic'); clearInterval(_vTimer); })
+                            .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
                             .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
                     } else {
-                        LOG('Video reproduciendo (srcObject listo, paused=false)');
+                        LOG('Video reproduciendo');
                         clearInterval(_vTimer);
                     }
                 } else if (_vChecks > 30) {
-                    WARN('15s sin stream en el video. Verifica WebRTC (codec VP8/H264) o la red.');
+                    WARN('15s sin stream en el video.');
                     clearInterval(_vTimer);
                 }
             }, 500);
             setTimeout(() => {
-                document.getElementById('btn-mic').classList.remove('disabled-btn');
                 startSpeakingMonitor();
                 LOG('Monitor de speaking activo — iniciando always-on listening');
                 startAlwaysOnListening();
@@ -1003,7 +1317,7 @@
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
-                if (!isConnected || isListening) return;
+                if (!isConnected) return;
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1020,37 +1334,31 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            if (_pendingAvatarBubbleText) {
+                                clearTimeout(_pendingAvatarBubbleTimeout);
+                                addChatBubble('avatar', _pendingAvatarBubbleText);
+                                _pendingAvatarBubbleText = null;
+                            }
                         } else {
                             wrap.classList.remove('avatar-speaking');
-                            LOG('Avatar terminó de hablar → reiniciando escucha (sesión activa: ' + _sessionActive + ')');
+                            LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
+                            
+                            if (_conversationAwake) {
+                                scheduleFollowUp();
+                                if (_waitingFollowUpAck) {
+                                    scheduleFollowUpAckTimeout();
+                                }
+                            }
+
                             setTimeout(() => {
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
                                 }
-                            }, 800);
+                            }, 600);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
-            }, 800);
-        }
-
-        // ─── Listar dispositivos de audio ─────────────────────────────────────────
-        async function logAudioDevices() {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                WARN('enumerateDevices no disponible');
-                return;
-            }
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                LOG(`Dispositivos de entrada de audio encontrados: ${audioInputs.length}`);
-                audioInputs.forEach((d, i) => {
-                    LOG(`  [${i}] deviceId="${d.deviceId}" label="${d.label || '(sin etiqueta — requiere permiso)'}"`);
-                });
-                if (audioInputs.length === 0) ERR('¡No hay dispositivos de audio de entrada!');
-            } catch (e) {
-                ERR('Error en enumerateDevices:', e);
-            }
+            }, 500);
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
@@ -1068,19 +1376,13 @@
                 });
 
                 const tracks = stream.getAudioTracks();
-                let activeMicLabel = '(desconocido)';
                 tracks.forEach((t, i) => {
-                    activeMicLabel = t.label || activeMicLabel;
                     LOG(`  Track[${i}]: label="${t.label}" readyState=${t.readyState}`);
                     t.stop(); // Liberar track para no bloquear SpeechRecognition
                 });
 
-                const short = activeMicLabel.length > 28
-                    ? activeMicLabel.slice(0, 26) + '…'
-                    : activeMicLabel;
-
-                if (_sessionActive) {
-                    setState('listening', `🎤 Sesión activa — Escuchando…`);
+                if (_conversationAwake) {
+                    setState('listening', `Escuchando pregunta…`);
                 } else {
                     setState('listening', `Esperando activación…`);
                 }
@@ -1124,13 +1426,9 @@
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (sesión activa: ${_sessionActive})`);
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
-                setState('listening', _sessionActive ? 'Escuchando pregunta…' : 'Esperando activación…');
-                const btn = document.getElementById('btn-mic');
-                btn.classList.add('listening');
-                document.getElementById('icon-mic').style.display = 'none';
-                document.getElementById('icon-stop').style.display = 'block';
+                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 setUserText('', false);
             };
 
@@ -1153,19 +1451,27 @@
                 const rawText = (final || interim).trim();
                 if (!rawText) return;
 
-                // ── Flujo de Sesión Activa / Wake Word ────────────────────────
-                if (_manualMicActive || _sessionActive) {
-                    _sessionActive = true;
-                    _resetInactivityTimer();
-                } else if (_containsWakeWord(rawText)) {
-                    _sessionActive = true;
-                    _resetInactivityTimer();
-                    LOG(`Wake-word detectada en: "${rawText}" → Sesión activada`);
-                    setState('listening', 'Escuchando pregunta…');
+                if (!_conversationAwake) {
+                    if (_containsWakeWord(rawText)) {
+                        wakeUpModel();
+                        LOG(`Wake-word detectada en: "${rawText}" → Modelo despierto`);
+                        setState('listening', 'Escuchando pregunta…');
+                        clearTimeout(_wakeBufferTimeout);
+                        _wakeBufferTimeout = setTimeout(() => {
+                            if (_conversationAwake && !_extractQuestion(rawText)) {
+                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
+                                sendToLLM(_randomGreeting());
+                            }
+                        }, BUFFER_MS);
+                    } else {
+                        setUserText(final || interim, true);
+                        return;
+                    }
                 } else {
-                    // Sin wake-word y sin sesión activa: mostrar en dim pero no enviar al LLM
-                    setUserText(final || interim, true);
-                    return;
+                    resetInactivityTimer();
+                    clearTimeout(_followUpTimeoutId);
+                    clearTimeout(_followUpAckTimeoutId);
+                    _waitingFollowUpAck = false;
                 }
 
                 setUserText(final || interim, !final);
@@ -1178,17 +1484,18 @@
                         question = final.trim();
                     }
 
-                    LOG(`Texto procesado: "${question}" | sesión activa: ${_sessionActive}`);
-
-                    // Si el usuario se despide, cerrar la sesión activa tras responder
-                    if (_containsGoodbyeWord(final)) {
-                        LOG('Despedida detectada → cerrando sesión activa');
-                        _sessionActive = false;
-                        clearTimeout(_inactivityTimer);
-                    }
+                    LOG(`Texto procesado: "${question}" | awake: ${_conversationAwake}`);
 
                     if (question) {
-                        _manualMicActive = false;
+                        clearTimeout(_wakeBufferTimeout);
+
+                        if (_isSleepWord(question)) {
+                            LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                            sendToLLM(question, true);
+                            sleepModel(true);
+                            return;
+                        }
+
                         LOG(`Enviando al LLM: "${question}"`);
                         _alwaysOnActive = false;
                         sendToLLM(question);
@@ -1273,20 +1580,14 @@
         function stopListening() {
             LOG('stopListening');
             isListening = false;
-            _manualMicActive = false;
             clearTimeout(_stopTimeout);
-
-            const btn = document.getElementById('btn-mic');
-            btn.classList.remove('listening');
-            document.getElementById('icon-mic').style.display = 'block';
-            document.getElementById('icon-stop').style.display = 'none';
 
             if (!isSpeaking && !_alwaysOnActive) {
                 setState('processing', 'Procesando…');
             }
         }
 
-        // ─── Escucha siempre activa con wake-word / sesión activa ────────────────
+        // ─── Escucha siempre activa con wake-word ────────────────────────────────
         function startAlwaysOnListening() {
             if (!isConnected) {
                 LOG('startAlwaysOnListening: avatar no conectado, ignorando');
@@ -1302,12 +1603,11 @@
             }
 
             _alwaysOnActive = true;
-            _manualMicActive = false;
-            LOG(`startAlwaysOnListening: iniciando escucha continua (sesión activa: ${_sessionActive})`);
+            LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
 
-            if (_sessionActive) {
-                setState('listening', 'Escuchando…');
-                _resetInactivityTimer();
+            if (_conversationAwake) {
+                setState('listening', 'Escuchando pregunta…');
+                resetInactivityTimer();
             } else {
                 setState('listening', 'Esperando activación…');
             }
@@ -1354,79 +1654,51 @@
         function stopAlwaysOnListening() {
             LOG('stopAlwaysOnListening: deteniendo escucha continua');
             _alwaysOnActive = false;
-            _sessionActive = false;
-            clearTimeout(_inactivityTimer);
+            clearTimeout(_wakeBufferTimeout);
             if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
             stopListening();
         }
 
-        // ─── Toggle micrófono (para uso manual con el botón) ─────────────────────
-        function toggleMic() {
-            LOG('toggleMic — isConnected:', isConnected, '| isListening:', isListening, '| isSpeaking:', isSpeaking);
-
-            if (!_audioUnlocked) {
-                const videoEl = document.getElementById('video');
-                videoEl.muted = false;
-                _audioUnlocked = true;
-                if (videoEl.srcObject) videoEl.play().catch(e => WARN('play() fallback:', e.name));
-            }
-
-            if (!isConnected) {
-                WARN('toggleMic: avatar no conectado');
-                setState('connecting', 'Conecta el avatar primero');
-                return;
-            }
-            if (isSpeaking) {
-                LOG('toggleMic: avatar hablando → interrumpiendo');
-                interruptAvatar();
-                return;
-            }
-            if (isListening) {
-                LOG('toggleMic: ya escuchando → deteniendo');
-                forceStopRecognition();
-                return;
-            }
-
-            _manualMicActive = true;
-            _sessionActive = true;
-            _alwaysOnActive = false;
-            _resetInactivityTimer();
-
-            setState('listening', 'Preparando micrófono…');
-            requestMicPermission().then(ok => {
-                if (!ok) { stopListening(); return; }
-
-                LOG('Usando modo SpeechRecognition (manual)');
-                _audioCaptureErrors = 0;
-                _networkSpeechErrors = 0;
-                recognition = setupRecognition();
-                if (recognition) {
-                    try {
-                        recognition.start();
-                        LOG('recognition.start() llamado');
-                    } catch (e) {
-                        ERR('recognition.start() excepción:', e.name, e.message);
-                        stopListening();
-                    }
-                } else {
-                    setState('ready', '⚠ SpeechRecognition no disponible en este navegador');
-                    stopListening();
-                }
-            });
-        }
-
-
-
-        // ─── Enviar al LLM / backend ───────────────────────────────────────────────
-        async function sendToLLM(text) {
+        // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
+        async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
-            LOG(`sendToLLM: "${text}"`);
+            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('processing', 'Procesando…');
             setUserText(text, false);
+            addChatBubble('user', text);
 
             const sessionid = document.getElementById('sessionid').value;
+
+            if (isSleepWord) {
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
+                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
+                    farewellText = "De nada. ¡Que tengas un excelente día!";
+                }
+
+                queueAvatarBubble(farewellText);
+                clearServerHistory();
+
+                try {
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: farewellText,
+                            type: 'echo',
+                            sessionid: String(sessionid)
+                        })
+                    });
+                } catch (err) {
+                    ERR('sendToLLM farewell error:', err);
+                } finally {
+                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                }
+                return;
+            }
+
             try {
                 const res = await fetch('/human', {
                     method: 'POST',
@@ -1435,12 +1707,45 @@
                         text,
                         type: 'chat',
                         interrupt: true,
+                        stream: true,
                         sessionid: String(sessionid)
                     })
                 });
                 LOG('sendToLLM: respuesta status', res.status);
+                
+                if (!res.body) {
+                    throw new Error("Respuesta del servidor no soporta streaming.");
+                }
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let fullText = '';
+                let avatarBubble = null;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+
+                    const chunk = decoder.decode(value, { stream: true });
+                    fullText += chunk;
+
+                    if (!avatarBubble && fullText.trim()) {
+                        avatarBubble = addChatBubble('avatar', '');
+                    }
+
+                    if (avatarBubble) {
+                        avatarBubble.textContent = fullText;
+                        const container = document.getElementById('chat-container');
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    }
+                }
+
+                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
+
             } catch (err) {
-                ERR('sendToLLM: error de red:', err);
+                ERR('sendToLLM: error de red o streaming:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
             }
         }
@@ -1465,7 +1770,7 @@
             }, 300);
         }
 
-        // ─── Auto-conectar al cargar ───────────────────────────────────────────────
+        // ─── Auto-conectar e Inicialización del Escáner al cargar ────────────────
         window.addEventListener('DOMContentLoaded', () => {
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const isFirefox = /Firefox\//.test(navigator.userAgent);
@@ -1478,19 +1783,33 @@
             }
 
             if (isFirefox) {
-                // Firefox elimino SpeechRecognition en v56+. _useFallbackASR ya es true.
                 WARN('Firefox detectado: SpeechRecognition NO disponible en Firefox.');
-                WARN('Para usar el microfono usa Chrome, Chromium o Edge.');
+                WARN('Para usar el micrófono usa Chrome, Chromium o Edge.');
             }
+
+            // Inicialización de Lector de Código de Barras (Módulo 1)
+            const barcodeInp = document.getElementById('barcode-input');
+            if (barcodeInp) {
+                barcodeInp.focus();
+                barcodeInp.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const code = barcodeInp.value.trim();
+                        barcodeInp.value = '';
+                        if (code) {
+                            await handleBarcodeScan(code);
+                        }
+                    }
+                });
+            }
+            setInterval(keepBarcodeFocus, 400);
 
             if (isMobile) {
                 LOG('Mobile detectado - overlay visible, esperando tap');
             } else {
-                LOG('Desktop detectado - auto-conectando. Video inicia muted (se desmuta al pulsar el mic)');
+                LOG('Desktop detectado - auto-conectando.');
                 const overlay = document.getElementById('tap-overlay');
                 if (overlay) overlay.style.display = 'none';
-                // NO seteamos video.muted=false: Chromium bloquea autoplay con sonido sin gesto.
-                // El video arranca muted y se desmuta cuando el usuario pulsa el mic.
                 setTimeout(connectRTC, 800);
             }
         });

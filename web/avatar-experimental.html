@@ -1215,13 +1215,15 @@
 
                     let speechText = '';
                     if (prod.oferta === 'SI' && prod.precio_oferta) {
-                        speechText = `${art} ${prod.nombre} ${verbCuesta} $${prod.precio.toLocaleString('es-CL')} pesos, ¡y hoy está en oferta a $${prod.precio_oferta.toLocaleString('es-CL')} pesos! ${art} ${prod.nombre} ${verbEncuentra} en el ${prod.pasillo}.`;
+                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos, ¡y hoy está en oferta a ${prod.precio_oferta.toLocaleString('es-CL')} pesos! ${art} ${prod.nombre} ${verbEncuentra} en el ${prod.pasillo}.`;
                     } else {
-                        speechText = `${art} ${prod.nombre} ${verbCuesta} $${prod.precio.toLocaleString('es-CL')} pesos y ${verbEncuentra} en el ${prod.pasillo}.`;
+                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos y ${verbEncuentra} en el ${prod.pasillo}.`;
                     }
 
                     const sessionid = document.getElementById('sessionid').value;
                     queueAvatarBubble(speechText);
+                    stopAlwaysOnListening();
+
                     await fetch('/human', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1239,6 +1241,8 @@
                     const notFoundText = `Lo siento, no encontré ningún producto registrado con el código de barras ${code}.`;
                     const sessionid = document.getElementById('sessionid').value;
                     queueAvatarBubble(notFoundText);
+                    stopAlwaysOnListening();
+
                     await fetch('/human', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1440,7 +1444,7 @@
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
-                if (!isConnected || isListening) return;
+                if (!isConnected) return;
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1477,11 +1481,11 @@
                                 if (!isListening && !_alwaysOnActive) {
                                     startAlwaysOnListening();
                                 }
-                            }, 800);
+                            }, 600);
                         }
                     }
                 } catch (e) { /* silencio en prod */ }
-            }, 800);
+            }, 500);
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
