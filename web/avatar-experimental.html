@@ -619,7 +619,7 @@
             top: 0;
             left: 0;
             width: 100%;
-            height: 200px;
+            height: 160px;
             z-index: 40;
             overflow: hidden;
             pointer-events: none;
@@ -695,6 +695,16 @@
             height: 100%;
             object-fit: fill;
             display: block;
+            flex-shrink: 0;
+        }
+
+        /* Slide con dos imágenes angostas, 50% cada una */
+        .carousel-slide.dual img {
+            width: 50%;
+            height: 100%;
+            object-fit: fill;
+            display: block;
+            flex-shrink: 0;
         }
 
         /* Dots indicadores */
@@ -747,20 +757,19 @@
                 <div id="carousel-fade-left"></div>
                 <div id="carousel-fade-right"></div>
                 <div class="carousel-track" id="carousel-track">
+                    <!-- Slide 1: imagen ancha, ocupa todo el ancho -->
                     <div class="carousel-slide active">
-                        <img src="imgs/zapatillas_urbanas_deportivas.jpg" alt="Zapatillas Urbanas y Deportivas hasta 50% dcto" />
+                        <img src="imgs/zapatillas_urbanas_deportivas.jpg" alt="Zapatillas hasta 50% dcto" />
                     </div>
-                    <div class="carousel-slide">
-                        <img src="imgs/perfumes.jpg" alt="Cuidado Capilar Profesional 30% dcto" />
+                    <!-- Slide 2: par de imágenes angostas -->
+                    <div class="carousel-slide dual">
+                        <img src="imgs/perfumes.jpg" alt="Cuidado Capilar 30% dcto" />
+                        <img src="imgs/parlantes.jpg" alt="Parlantes Bluetooth 60% dcto" />
                     </div>
-                    <div class="carousel-slide">
-                        <img src="imgs/parlantes.jpg" alt="Parlantes Bluetooth hasta 60% dcto" />
-                    </div>
-                    <div class="carousel-slide">
-                        <img src="imgs/vestuario_hombre_deporte.webp" alt="Vestuario Hombre y Deporte 30% dcto" />
-                    </div>
-                    <div class="carousel-slide">
-                        <img src="imgs/jugueteria_trajes_tipicos.webp" alt="Juguetería y Trajes Típicos desde 40% dcto" />
+                    <!-- Slide 3: par de imágenes angostas -->
+                    <div class="carousel-slide dual">
+                        <img src="imgs/vestuario_hombre_deporte.webp" alt="Vestuario Hombre 30% dcto" />
+                        <img src="imgs/jugueteria_trajes_tipicos.webp" alt="Juguetería 40% dcto" />
                     </div>
                 </div>
                 <div id="carousel-dots"></div>
