@@ -607,6 +607,116 @@
             from { opacity: 1; transform: translateY(0) scale(1); }
             to { opacity: 0; transform: translateY(-10px) scale(0.95); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; opacity: 0; }
         }
+
+        /* ── Carrusel de ofertas (parte superior, superpuesto) ── */
+        #offers-carousel {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 200px;
+            z-index: 40;
+            overflow: hidden;
+            pointer-events: none;
+        }
+
+        /* Fade superior e inferior para integrarse al video */
+        #offers-carousel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 28px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent);
+            z-index: 2;
+            pointer-events: none;
+        }
+        #offers-carousel::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 52px;
+            background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+            z-index: 2;
+            pointer-events: none;
+        }
+
+        /* Fade lateral izquierdo y derecho */
+        #carousel-fade-left,
+        #carousel-fade-right {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 60px;
+            z-index: 3;
+            pointer-events: none;
+        }
+        #carousel-fade-left {
+            left: 0;
+            background: linear-gradient(to right, rgba(0,0,0,0.7), transparent);
+        }
+        #carousel-fade-right {
+            right: 0;
+            background: linear-gradient(to left, rgba(0,0,0,0.7), transparent);
+        }
+
+        .carousel-track {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            position: relative;
+        }
+
+        .carousel-slide {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transition: opacity 0.9s ease;
+            display: flex;
+            align-items: stretch;
+        }
+
+        .carousel-slide.active {
+            opacity: 1;
+        }
+
+        .carousel-slide img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            object-position: center top;
+            display: block;
+        }
+
+        /* Dots indicadores */
+        #carousel-dots {
+            position: absolute;
+            bottom: 8px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 5;
+            display: flex;
+            gap: 6px;
+            pointer-events: none;
+        }
+
+        .carousel-dot {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.35);
+            transition: background 0.4s, transform 0.4s;
+        }
+
+        .carousel-dot.active {
+            background: rgba(255,255,255,0.95);
+            transform: scale(1.4);
+        }
     </style>
 </head>
 
@@ -627,6 +737,30 @@
             <!-- Burbujas de chat sobrepuestas -->
             <div id="chat-container"></div>
             <div id="speaking-ring"></div>
+
+            <!-- Carrusel de ofertas (parte superior) -->
+            <div id="offers-carousel">
+                <div id="carousel-fade-left"></div>
+                <div id="carousel-fade-right"></div>
+                <div class="carousel-track" id="carousel-track">
+                    <div class="carousel-slide active">
+                        <img src="imgs/zapatillas_urbanas_deportivas.jpg" alt="Zapatillas Urbanas y Deportivas hasta 50% dcto" />
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="imgs/perfumes.jpg" alt="Cuidado Capilar Profesional 30% dcto" />
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="imgs/parlantes.jpg" alt="Parlantes Bluetooth hasta 60% dcto" />
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="imgs/vestuario_hombre_deporte.webp" alt="Vestuario Hombre y Deporte 30% dcto" />
+                    </div>
+                    <div class="carousel-slide">
+                        <img src="imgs/jugueteria_trajes_tipicos.webp" alt="Juguetería y Trajes Típicos desde 40% dcto" />
+                    </div>
+                </div>
+                <div id="carousel-dots"></div>
+            </div>
 
             <!-- Status badge (arriba-centro) -->
             <div id="status-badge">
@@ -1582,6 +1716,68 @@
                 startAlwaysOnListening();
             }, 300);
         }
+
+        // ══════════════════════════════════════════════════════════════════════════════
+        // CARRUSEL DE OFERTAS
+        // ══════════════════════════════════════════════════════════════════════════════
+        (function initCarousel() {
+            const slides = document.querySelectorAll('.carousel-slide');
+            const dotsContainer = document.getElementById('carousel-dots');
+            let current = 0;
+            let carouselTimer = null;
+            let pausedBySpeaking = false;
+
+            // Generar dots dinámicamente
+            slides.forEach((_, i) => {
+                const dot = document.createElement('div');
+                dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
+                dotsContainer.appendChild(dot);
+            });
+
+            const dots = dotsContainer.querySelectorAll('.carousel-dot');
+
+            function goTo(index) {
+                slides[current].classList.remove('active');
+                dots[current].classList.remove('active');
+                current = (index + slides.length) % slides.length;
+                slides[current].classList.add('active');
+                dots[current].classList.add('active');
+            }
+
+            function startAuto() {
+                stopAuto();
+                carouselTimer = setInterval(() => {
+                    if (!pausedBySpeaking) goTo(current + 1);
+                }, 4500);
+            }
+
+            function stopAuto() {
+                if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
+            }
+
+            startAuto();
+
+            // Pausar cuando el avatar está hablando para no distraer
+            const _origStartSpeakingMonitor = typeof startSpeakingMonitor === 'function' ? startSpeakingMonitor : null;
+
+            // Observador de clase: cuando avatar-speaking se agrega/quita en #avatar-wrap
+            const speakObs = new MutationObserver(() => {
+                const wrap = document.getElementById('avatar-wrap');
+                if (wrap && wrap.classList.contains('avatar-speaking')) {
+                    pausedBySpeaking = true;
+                } else {
+                    // Reanudar tras breve pausa cuando el avatar termina
+                    setTimeout(() => { pausedBySpeaking = false; }, 2000);
+                }
+            });
+
+            const avatarWrap = document.getElementById('avatar-wrap');
+            if (avatarWrap) {
+                speakObs.observe(avatarWrap, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            LOG('Carrusel de ofertas iniciado (' + slides.length + ' slides, intervalo 4.5s)');
+        })();
 
         // ─── Auto-conectar al cargar ───────────────────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
