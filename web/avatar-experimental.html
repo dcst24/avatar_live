@@ -1419,8 +1419,8 @@
                         clearTimeout(_wakeBufferTimeout);
                         _wakeBufferTimeout = setTimeout(() => {
                             if (_conversationAwake && !_extractQuestion(rawText)) {
-                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
-                                sendToLLM(_randomGreeting());
+                                LOG('Buffer expirado sin pregunta → saludo directo del avatar');
+                                sendGreetingAsAvatar();
                             }
                         }, BUFFER_MS);
                     } else {
@@ -1439,7 +1439,11 @@
                 if (final) {
                     let question = _extractQuestion(final);
                     if (!question && _containsWakeWord(final)) {
-                        question = _randomGreeting();
+                        // Solo wake-word sin pregunta → el avatar saluda, no el usuario
+                        clearTimeout(_wakeBufferTimeout);
+                        _alwaysOnActive = false;
+                        sendGreetingAsAvatar();
+                        return;
                     } else if (!question) {
                         question = final.trim();
                     }
@@ -1619,6 +1623,29 @@
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
             stopListening();
+        }
+
+        // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
+        async function sendGreetingAsAvatar() {
+            const greetingText = _randomGreeting();
+            LOG(`sendGreetingAsAvatar: "${greetingText}"`);
+            setState('thinking', 'Pensando…');
+            queueAvatarBubble(greetingText);
+
+            const sessionid = document.getElementById('sessionid').value;
+            try {
+                await fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: greetingText,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                });
+            } catch (err) {
+                ERR('sendGreetingAsAvatar: error de red:', err);
+            }
         }
 
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
