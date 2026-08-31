@@ -1551,14 +1551,18 @@
                             LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
                             
                             if (_conversationAwake) {
+                                setState('listening', 'Escuchando pregunta…');
                                 scheduleFollowUp();
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
                                 }
+                            } else {
+                                setState('listening', 'Esperando activación…');
                             }
 
                             setTimeout(() => {
-                                if (!isListening && !_alwaysOnActive) {
+                                if (!isListening) {
+                                    _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
                             }, 600);
@@ -1882,6 +1886,7 @@
             const sessionid = document.getElementById('sessionid').value;
 
             if (isSleepWord) {
+                stopAlwaysOnListening();
                 const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
                 let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
@@ -1898,6 +1903,7 @@
                         body: JSON.stringify({
                             text: farewellText,
                             type: 'echo',
+                            interrupt: true,
                             sessionid: String(sessionid)
                         })
                     });
