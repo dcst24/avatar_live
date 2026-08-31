@@ -9,6 +9,8 @@
 ###############################################################################
 
 import time
+import re
+import torch
 import numpy as np
 import resampy
 
@@ -17,12 +19,27 @@ from .base_tts import BaseTTS, State
 from registry import register
 
 
+def normalize_text_for_tts(text: str) -> str:
+    """
+    Normaliza el texto para síntesis de voz:
+    - Remueve puntos en separadores de miles (ej: '1.990' -> '1990', '12.500' -> '12500', '1.500.000' -> '1500000')
+      para que el motor fonético (espeak-ng/Kokoro) pronuncie 'mil novecientos noventa'
+      en lugar de 'uno, novecientos noventa'.
+    """
+    if not text:
+        return text
+    # Eliminar puntos de miles en números
+    while re.search(r'(\d+)\.(\d{3})(?!\d)', text):
+        text = re.sub(r'(\d+)\.(\d{3})(?!\d)', r'\1\2', text)
+    return text
+
+
 @register("tts", "kokoro")
 class KokoroTTS(BaseTTS):
     """
     TTS local usando Kokoro-82M.
     Ventaja principal: elimina la latencia de red de EdgeTTS (~300-800ms)
-    ya que todo corre localmente en CPU/GPU.
+    ya que todo corre localmente en GPU/CPU.
 
     Uso:
         python setup_ssl.py ... --tts kokoro --REF_FILE ef_dora
@@ -36,16 +53,18 @@ class KokoroTTS(BaseTTS):
         # Voz: se toma de --REF_FILE. Si no se pasa, usa ef_dora por defecto.
         self.voice = getattr(opt, 'REF_FILE', 'ef_dora') or 'ef_dora'
 
-        logger.info(f"[Kokoro TTS] Inicializando pipeline español (lang_code='e')...")
+        # Determinar dispositivo de inferencia (GPU CUDA preferido)
+        self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+        logger.info(f"[Kokoro TTS] Inicializando pipeline español (lang_code='e') en device={self.device}...")
         t = time.time()
         try:
             from kokoro import KPipeline
-            # lang_code='e' = español; el modelo se descarga automáticamente (~350MB)
-            # la primera vez que se usa.
-            self.pipeline = KPipeline(lang_code='e')
+            # lang_code='e' = español; se especifica device ('cuda' o 'cpu') para máxima velocidad
+            self.pipeline = KPipeline(lang_code='e', device=self.device)
             logger.info(
                 f"[Kokoro TTS] Listo en {time.time() - t:.2f}s | "
-                f"Voz: {self.voice} | Sample rate out: {self.sample_rate}Hz"
+                f"Voz: {self.voice} | Device: {self.device} | Sample rate out: {self.sample_rate}Hz"
             )
         except ImportError:
             logger.error(
@@ -71,9 +90,12 @@ class KokoroTTS(BaseTTS):
         t = time.time()
 
         try:
+            # Normalizar números para pronunciación correcta en español (ej: 1.990 -> 1990)
+            clean_text = normalize_text_for_tts(text)
+
             # Kokoro devuelve un generador: (graphemes, phonemes, audio_np_float32)
             # El audio ya viene en float32 a 24kHz, listo para resampling.
-            generator = self.pipeline(text, voice=voice)
+            generator = self.pipeline(clean_text, voice=voice)
 
             leftover = np.array([], dtype=np.float32)
             first_chunk_sent = False
