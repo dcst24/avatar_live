@@ -92,9 +92,18 @@ class KokoroTTS(BaseTTS):
                     f"{time.time() - t:.3f}s ({len(audio_segment)} samples @ 24kHz)"
                 )
 
+                # Convertir a numpy float32 si es un Tensor de PyTorch
+                if hasattr(audio_segment, 'detach'):
+                    audio_np = audio_segment.detach().cpu().numpy().astype(np.float32)
+                else:
+                    audio_np = np.asarray(audio_segment, dtype=np.float32)
+                
+                if audio_np.ndim > 1:
+                    audio_np = audio_np.squeeze()
+
                 # Resamplear de 24kHz → 16kHz (sample_rate del sistema)
                 audio_16k = resampy.resample(
-                    audio_segment.astype(np.float32),
+                    audio_np,
                     sr_orig=self.KOKORO_SAMPLE_RATE,
                     sr_new=self.sample_rate
                 )
