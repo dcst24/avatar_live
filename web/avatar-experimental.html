@@ -1474,6 +1474,39 @@
         }
 
         // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
+        // Watchdog: si el avatar lleva más de MAX_SPEAKING_MS en estado "hablando"
+        // sin que el backend reporte speaking=false (fallo de red / latencia), lo resetea.
+        const MAX_SPEAKING_MS = 45000; // 45 segundos máximo hablando
+        let _speakingStartMs = 0;
+        let _speakingWatchdog = null;
+
+        function _clearSpeakingWatchdog() {
+            clearTimeout(_speakingWatchdog);
+            _speakingWatchdog = null;
+        }
+
+        function _armSpeakingWatchdog() {
+            _clearSpeakingWatchdog();
+            _speakingStartMs = Date.now();
+            _speakingWatchdog = setTimeout(() => {
+                if (isSpeaking) {
+                    WARN(`[Speaking Watchdog] Avatar en estado "hablando" por más de ${MAX_SPEAKING_MS / 1000}s sin fin reportado. Forzando reset.`);
+                    isSpeaking = false;
+                    const wrap = document.getElementById('avatar-wrap');
+                    if (wrap) wrap.classList.remove('avatar-speaking');
+                    if (_conversationAwake) {
+                        setState('listening', 'Escuchando pregunta…');
+                        scheduleFollowUp();
+                    } else {
+                        setState('listening', 'Esperando activación…');
+                    }
+                    setTimeout(() => {
+                        if (!isListening && !_alwaysOnActive) startAlwaysOnListening();
+                    }, 600);
+                }
+            }, MAX_SPEAKING_MS);
+        }
+
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
@@ -1494,6 +1527,7 @@
                         if (speaking) {
                             wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            _armSpeakingWatchdog(); // iniciar watchdog al comenzar a hablar
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -1501,6 +1535,7 @@
                             }
                         } else {
                             wrap.classList.remove('avatar-speaking');
+                            _clearSpeakingWatchdog(); // limpiar watchdog al terminar de hablar
                             LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
                             
                             if (_conversationAwake) {
@@ -1517,9 +1552,12 @@
                             }, 600);
                         }
                     }
-                } catch (e) { /* silencio en prod */ }
+                } catch (e) {
+                    WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
+                }
             }, 500);
         }
+
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
         async function requestMicPermission() {

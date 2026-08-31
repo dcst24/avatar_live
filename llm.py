@@ -189,7 +189,9 @@ Respuesta: "El taladro normalmente está en el pasillo 46, pero actualmente no t
 
 # Caracteres de puntuación donde se cortará el texto para enviar al avatar
 # (el avatar empieza a hablar por fragmentos, sin esperar la respuesta completa)
-SENTENCE_ENDINGS = set(",.!;:，。！？：；\n")
+# NOTA: se excluyen '.' y ',' deliberadamente para evitar cortes en precios
+# del tipo "1.190" (separador de miles en español) y pausas no deseadas.
+SENTENCE_ENDINGS = set("!;:\n，。！？：；")
 MIN_CHUNK_LEN = 12  # caracteres mínimos antes de enviar un fragmento
 
 
