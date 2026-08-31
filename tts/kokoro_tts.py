@@ -62,6 +62,14 @@ class KokoroTTS(BaseTTS):
             from kokoro import KPipeline
             # lang_code='e' = español; se especifica device ('cuda' o 'cpu') para máxima velocidad
             self.pipeline = KPipeline(lang_code='e', device=self.device)
+            # Warmup inicial en GPU/CPU para que la primera consulta sea instantánea
+            try:
+                logger.info("[Kokoro TTS] Ejecutando warmup inicial...")
+                _ = list(self.pipeline("Hola", voice=self.voice))
+                logger.info("[Kokoro TTS] Warmup completado con éxito.")
+            except Exception as e:
+                logger.warning(f"[Kokoro TTS] Error en warmup inicial: {e}")
+
             logger.info(
                 f"[Kokoro TTS] Listo en {time.time() - t:.2f}s | "
                 f"Voz: {self.voice} | Device: {self.device} | Sample rate out: {self.sample_rate}Hz"
