@@ -1126,12 +1126,17 @@
         }
 
         function scheduleFollowUp() {
+            // Si ya preguntamos "¿Necesitas algo más?" y esperamos respuesta,
+            // NO reprogramar — eso causaría el bucle infinito de preguntas.
+            if (_waitingFollowUpAck) {
+                LOG('scheduleFollowUp: ya esperando ACK del follow-up, no reprogramar.');
+                return;
+            }
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
-            _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
             _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                LOG("15 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
                 _waitingFollowUpAck = true;
                 
@@ -1148,16 +1153,16 @@
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 30000);
+            }, 15000);
         }
 
         function scheduleFollowUpAckTimeout() {
             clearTimeout(_followUpAckTimeoutId);
             if (!_waitingFollowUpAck || !_conversationAwake) return;
-            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            LOG('scheduleFollowUpAckTimeout: esperando 15s respuesta al follow-up…');
             _followUpAckTimeoutId = setTimeout(() => {
                 if (!_waitingFollowUpAck) return;
-                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                LOG('15s sin respuesta al follow-up → enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
@@ -1180,7 +1185,7 @@
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('listening', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 30000);
+            }, 15000);
         }
 
         // ─── Lector de Código de Barras (Módulo 1) ──────────────────────────────────
@@ -1221,6 +1226,13 @@
                     llmContextMsg += `Pasillo: ${prod.pasillo}.`;
 
                     const sessionid = document.getElementById('sessionid').value;
+
+                    // Cancelar cualquier follow-up pendiente ANTES de procesar el escaneo.
+                    // Sin esto, si el timer de "¿Necesitas algo más?" dispara justo durante
+                    // el escaneo, el avatar lee ambos mensajes seguidos.
+                    clearTimeout(_followUpTimeoutId);
+                    clearTimeout(_followUpAckTimeoutId);
+                    _waitingFollowUpAck = false;
 
                     // Limpiar historial previo para que el nuevo producto sea el contexto principal
                     clearServerHistory();
@@ -1891,9 +1903,9 @@
                     });
                 } catch (err) {
                     ERR('sendToLLM farewell error:', err);
-                } finally {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                 }
+                // NOTA: NO agregar burbuja "Conversación finalizada" aquí.
+                // sleepModel(true) en el caller ya se encarga de mostrarla.
                 return;
             }
 
