@@ -1207,38 +1207,71 @@
                     LOG('Producto encontrado:', prod.nombre);
                     showProductCard(prod);
 
-                    const art = prod.articulo || 'El';
-                    const artLower = art.toLowerCase();
-                    const esPlural = artLower === 'los' || artLower === 'las';
-                    const verbCuesta = esPlural ? 'cuestan' : 'cuesta';
-                    const verbEncuentra = esPlural ? 'se encuentran' : 'se encuentra';
-
-                    let speechText = '';
+                    // ── Construir mensaje de contexto para el LLM ──────────────────────────
+                    // Incluye TODO (nombre, precio, oferta, pasillo) para que el LLM lo recuerde
+                    // en el historial, pero el SYSTEM_PROMPT le indica que NO mencione el pasillo
+                    // hasta que el cliente lo pida.
+                    let llmContextMsg = `Producto escaneado: ${prod.nombre}. `;
+                    llmContextMsg += `Precio regular: ${prod.precio.toLocaleString('es-CL')} pesos. `;
                     if (prod.oferta === 'SI' && prod.precio_oferta) {
-                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos, ¡y hoy está en oferta a ${prod.precio_oferta.toLocaleString('es-CL')} pesos! ${art} ${prod.nombre} ${verbEncuentra} en el ${prod.pasillo}.`;
+                        llmContextMsg += `En oferta a ${prod.precio_oferta.toLocaleString('es-CL')} pesos. `;
                     } else {
-                        speechText = `${art} ${prod.nombre} ${verbCuesta} ${prod.precio.toLocaleString('es-CL')} pesos y ${verbEncuentra} en el ${prod.pasillo}.`;
+                        llmContextMsg += `Sin oferta. `;
                     }
+                    llmContextMsg += `Pasillo: ${prod.pasillo}.`;
 
                     const sessionid = document.getElementById('sessionid').value;
-                    queueAvatarBubble(speechText);
+
+                    // Limpiar historial previo para que el nuevo producto sea el contexto principal
+                    clearServerHistory();
+
+                    // Despertar la conversación si no estaba activa
+                    wakeUpModel();
+
                     stopAlwaysOnListening();
 
-                    await fetch('/human', {
+                    // Enviar al LLM como 'chat' — el LLM dirá precio/oferta y preguntará por ubicación
+                    const llmRes = await fetch('/human', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            text: speechText,
-                            type: 'echo',
+                            text: llmContextMsg,
+                            type: 'chat',
                             interrupt: true,
+                            stream: true,
                             sessionid: String(sessionid)
                         })
                     });
+
+                    // Leer el stream para mostrar la burbuja del avatar en tiempo real
+                    if (llmRes.body) {
+                        const reader = llmRes.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        let fullText = '';
+                        let avatarBubble = null;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value, { stream: true });
+                            fullText += chunk;
+                            if (!avatarBubble && fullText.trim()) {
+                                avatarBubble = addChatBubble('avatar', '');
+                            }
+                            if (avatarBubble) {
+                                avatarBubble.textContent = fullText;
+                                const container = document.getElementById('chat-container');
+                                if (container) container.scrollTop = container.scrollHeight;
+                            }
+                        }
+                        LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
+                    }
+
                 } else {
                     WARN(`Producto no encontrado para el código: ${code}`);
                     showProductNotFound(code);
 
-                    const notFoundText = `Lo siento, no encontré ningún producto registrado con el código de barras ${code}.`;
+                    const notFoundText = `Lo siento, no encontré ningún producto registrado con ese código de barras.`;
                     const sessionid = document.getElementById('sessionid').value;
                     queueAvatarBubble(notFoundText);
                     stopAlwaysOnListening();
