@@ -44,7 +44,7 @@ def parse_args():
 
     # ─── TTS ───────────────────────────────────────────────────────────
     parser.add_argument('--tts', type=str, default='edgetts',
-                        help="tts plugin: edgetts/gpt-sovits/cosyvoice/fishtts/tencent/doubao/indextts2/azuretts/qwentts")
+                        help="tts plugin: edgetts/gpt-sovits/cosyvoice/fishtts/tencent/doubao/indextts2/azuretts/qwentts/kokoro")
     parser.add_argument('--REF_FILE', type=str, default="es-CL-CatalinaNeural",
                         help="参考文件名或语音模型ID (edgetts: nombre de voz, ej: es-CL-CatalinaNeural)")
     parser.add_argument('--REF_TEXT', type=str, default=None)
