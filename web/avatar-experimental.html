@@ -1465,10 +1465,28 @@
                 _vChecks++;
                 if (_v.srcObject) {
                     if (_v.paused) {
-                        _v.muted = true;
-                        _v.play()
-                            .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
-                            .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                        // Si el usuario ya desbloqueó el audio con el tap, intentar
+                        // reproducir directamente con audio. Si el navegador lo rechaza,
+                        // caer en modo muted como fallback.
+                        if (_audioUnlocked) {
+                            _v.muted = false;
+                            _v.play()
+                                .then(function () { LOG('video.play() OK con audio'); clearInterval(_vTimer); })
+                                .catch(function () {
+                                    // Navegador rechazó play con audio → fallback a muted
+                                    WARN('video.play() rechazó audio, fallback a muted');
+                                    _v.muted = true;
+                                    _audioUnlocked = false;
+                                    _v.play()
+                                        .then(function () { LOG('video.play() OK muted (fallback)'); clearInterval(_vTimer); })
+                                        .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                                });
+                        } else {
+                            _v.muted = true;
+                            _v.play()
+                                .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
+                                .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                        }
                     } else {
                         LOG('Video reproduciendo');
                         clearInterval(_vTimer);
