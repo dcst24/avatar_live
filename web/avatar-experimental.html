@@ -1691,8 +1691,21 @@
                         clearTimeout(_wakeBufferTimeout);
                         _wakeBufferTimeout = setTimeout(() => {
                             if (_conversationAwake && !_extractQuestion(rawText)) {
-                                LOG('Buffer expirado sin pregunta → enviando saludo al LLM');
-                                sendToLLM(_randomGreeting());
+                                LOG('Buffer expirado sin pregunta → enviando saludo directo (echo)');
+                                const greeting = _randomGreeting();
+                                queueAvatarBubble(greeting);
+                                const sessionid = document.getElementById('sessionid').value;
+                                fetch('/human', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        text: greeting,
+                                        type: 'echo',
+                                        interrupt: false,
+                                        sessionid: String(sessionid)
+                                    })
+                                }).catch(e => ERR('echo saludo (buffer) error:', e));
+                                resetInactivityTimer();
                             }
                         }, BUFFER_MS);
                     } else {
@@ -1710,9 +1723,30 @@
 
                 if (final) {
                     let question = _extractQuestion(final);
+
                     if (!question && _containsWakeWord(final)) {
-                        question = _randomGreeting();
-                    } else if (!question) {
+                        // Usuario dijo SOLO la wake-word sin pregunta ("Hola", "Oye", etc.)
+                        // → respuesta prefabricada directa, SIN pasar por el LLM.
+                        // El LLM no debe recibir el saludo como si el usuario lo hubiera dicho.
+                        clearTimeout(_wakeBufferTimeout);
+                        const greeting = _randomGreeting();
+                        queueAvatarBubble(greeting);
+                        const sessionid = document.getElementById('sessionid').value;
+                        fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: greeting,
+                                type: 'echo',
+                                interrupt: false,
+                                sessionid: String(sessionid)
+                            })
+                        }).catch(e => ERR('echo saludo error:', e));
+                        resetInactivityTimer();
+                        return;
+                    }
+
+                    if (!question) {
                         question = final.trim();
                     }
 
