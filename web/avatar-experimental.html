@@ -1814,7 +1814,11 @@
             isListening = false;
             clearTimeout(_stopTimeout);
 
-            if (!isSpeaking && !_alwaysOnActive) {
+            // Solo mostrar "Procesando…" si hay una conversación activa esperando
+            // respuesta del LLM. Si la conversación está dormida (_conversationAwake=false),
+            // NO poner 'processing' — eso era el bug que dejaba el avatar en
+            // "Procesando…" después de que la interacción terminaba.
+            if (!isSpeaking && !_alwaysOnActive && _conversationAwake) {
                 setState('processing', 'Procesando…');
             }
         }
