@@ -151,15 +151,6 @@ class KokoroTTS(BaseTTS):
             first_chunk_sent = False
             segment_idx = 0
 
-            # Fix jitter buffer: pre-llenar con silencio para que el navegador
-            # tenga el buffer listo cuando llegue el primer audio real.
-            # Sin esto, el video empieza a animar labios ~200-400ms antes
-            # de que el jitter buffer de audio tenga suficientes paquetes
-            # para empezar a reproducir.
-            JITTER_PREFILL_CHUNKS = 10  # 10 × 20ms = 200ms de silencio
-            for _ in range(JITTER_PREFILL_CHUNKS):
-                self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), {})
-
             for _gs, _ps, audio_segment in generator:
                 if self.state != State.RUNNING:
                     break
@@ -191,6 +182,15 @@ class KokoroTTS(BaseTTS):
 
                 # Concatenar con el sobrante del segmento anterior
                 stream = np.concatenate((leftover, audio_16k))
+
+                if not first_chunk_sent:
+                    # Fix jitter buffer: inyectar silencio preparatorio INMEDIATAMENTE
+                    # antes del primer audio real ya computado. Al ser parte del mismo stream,
+                    # el navegador recibe paquetes continuos y el buffer de audio arranca sin
+                    # que se pierdan las primeras palabras mientras la GPU calculaba el audio.
+                    JITTER_PREFILL_CHUNKS = 12  # 12 × 20ms = 240ms de prefill continuo
+                    silence = np.zeros(self.chunk * JITTER_PREFILL_CHUNKS, dtype=np.float32)
+                    stream = np.concatenate((silence, stream))
 
                 idx = 0
                 streamlen = stream.shape[0]

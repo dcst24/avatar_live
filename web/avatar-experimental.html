@@ -1352,6 +1352,17 @@
                     LOG('Producto encontrado:', prod.nombre);
                     showProductCard(prod);
 
+                    // Desbloquear audio del video explícitamente ante el escaneo
+                    const videoEl = document.getElementById('video');
+                    if (videoEl && videoEl.muted) {
+                        videoEl.muted = false;
+                        _audioUnlocked = true;
+                        if (videoEl.paused && videoEl.srcObject) {
+                            videoEl.play().catch(e => WARN('play() barcode unlock:', e.name));
+                        }
+                        LOG('Audio desbloqueado por escaneo de producto');
+                    }
+
                     // Mensaje de contexto comercial para el LLM
                     const precioReg = Number(prod.precio).toLocaleString('es-CL');
                     let llmContextMsg = `Producto escaneado: ${prod.nombre}. Marca: ${prod.marca || ''}. `;
@@ -1609,10 +1620,20 @@
                                         .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
                                 });
                         } else {
-                            _v.muted = true;
+                            // Intentar reproducir directamente con audio si la política de autoplay lo permite
+                            _v.muted = false;
                             _v.play()
-                                .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
-                                .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                                .then(function () {
+                                    _audioUnlocked = true;
+                                    LOG('video.play() OK con audio directo (autoplay habilitado)');
+                                    clearInterval(_vTimer);
+                                })
+                                .catch(function () {
+                                    _v.muted = true;
+                                    _v.play()
+                                        .then(function () { LOG('video.play() OK muted (esperando interacción)'); clearInterval(_vTimer); })
+                                        .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                                });
                         }
                     } else {
                         LOG('Video reproduciendo');
@@ -2243,6 +2264,22 @@
                 if (overlay) overlay.style.display = 'none';
                 setTimeout(connectRTC, 800);
             }
+
+            // Desbloqueo global de audio con cualquier interacción del usuario (click, tecla o touch)
+            const _globalUnlockAudio = () => {
+                const videoEl = document.getElementById('video');
+                if (videoEl && videoEl.muted) {
+                    videoEl.muted = false;
+                    _audioUnlocked = true;
+                    if (videoEl.paused && videoEl.srcObject) {
+                        videoEl.play().catch(e => WARN('video.play() en unlock global:', e.name));
+                    }
+                    LOG('Audio del avatar desbloqueado por interacción del usuario');
+                }
+            };
+            document.addEventListener('click', _globalUnlockAudio);
+            document.addEventListener('keydown', _globalUnlockAudio);
+            document.addEventListener('touchstart', _globalUnlockAudio);
 
             // Inicializar foco y escucha del lector de código de barras
             const barcodeInp = document.getElementById('barcode-input');
