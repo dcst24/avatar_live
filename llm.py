@@ -7,6 +7,7 @@ import os
 import re
 import time
 import json
+import threading
 import requests
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -95,32 +96,29 @@ def _build_catalog_summary(bdd: dict) -> str:
 
     banner = bdd.get("banner_publicitario", {})
     if banner.get("activo"):
-        lines.append(f"Campaña activa: {banner.get('titulo','')}, {banner.get('subtitulo','')}, vigente hasta {banner.get('vigencia','')}.")
+        lines.append(f"Campaña: {banner.get('titulo','')}, {banner.get('subtitulo','')}.")
 
     for cat in bdd.get("categorias", []):
         loc = cat.get("ubicacion_tienda", {})
         piso = loc.get("piso", "?")
         sector = loc.get("sector", "")
         pasillo = loc.get("pasillo", "")
-        ref = loc.get("referencia", "")
-        lines.append(f"\nSección {cat['nombre']}: ubicada en Piso {piso}, sector {sector}, pasillo {pasillo} ({ref}).")
+        lines.append(f"\nCategoría {cat['nombre']} (Piso {piso}, sector {sector}, pasillo {pasillo}):")
 
         for p in cat.get("productos", []):
             precio_str = f"${p['precio']:,}".replace(",", ".")
             if p.get("en_oferta") and p.get("precio_oferta"):
                 oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-                precio_detalle = f"precio regular {precio_str} pesos, hoy en oferta a {oferta_str} pesos con {p.get('descuento_pct',0)} por ciento de descuento"
+                precio_detalle = f"regular {precio_str} pesos, en oferta a {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
             else:
-                precio_detalle = f"precio regular {precio_str} pesos"
+                precio_detalle = f"precio {precio_str} pesos"
 
-            stock_str = "disponible" if p.get("stock", 0) > 0 else "sin stock disponible"
-            tags = ", ".join(p.get("tags_recomendacion", []))
             code = p.get('codigo_barra') or p.get('sku')
             piso_num = p.get('piso', piso)
             pasillo_txt = p.get('pasillo', pasillo)
 
             lines.append(
-                f"Producto: {p['nombre']}. Marca: {p['marca']}. Código: {code}. {precio_detalle}. Estado: {stock_str}. Ubicación: Piso {piso_num}, sector {sector}, pasillo {pasillo_txt}. Características: {tags}."
+                f"- {p['nombre']} (Marca {p['marca']}, Código {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}."
             )
 
     ofertas = bdd.get("ofertas_destacadas", [])
@@ -131,7 +129,7 @@ def _build_catalog_summary(bdd: dict) -> str:
             prod = all_products.get(o['sku'], {})
             if prod:
                 oferta_precio = f"${prod.get('precio_oferta',0):,}".replace(",", ".")
-                lines.append(f"{prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos. Motivo: {o.get('motivo','')}.")
+                lines.append(f"- {prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos.")
 
     return "\n".join(lines)
 
@@ -217,16 +215,60 @@ SYSTEM_PROMPT = _make_system_prompt(_CATALOG_TEXT)
 
 
 
-SYSTEM_PROMPT_EASY =  '''
-    Eres un asistente virtual amigable especializado en ayudar clientes dentro de una ferretería o tienda de mejoramiento del hogar.
-'''
+# ─── Detección inteligente de oraciones para streaming de voz ultra-rápido ───
+MIN_CHUNK_LEN = 10  # caracteres mínimos antes de enviar un fragmento
 
-# Caracteres de puntuación donde se cortará el texto para enviar al avatar
-# (el avatar empieza a hablar por fragmentos, sin esperar la respuesta completa)
-# NOTA: se excluyen '.' y ',' deliberadamente para evitar cortes en precios
-# del tipo "599.990" o "1.069.990" y pausas no deseadas.
-SENTENCE_ENDINGS = set("!;:\n，。！？：；")
-MIN_CHUNK_LEN = 12  # caracteres mínimos antes de enviar un fragmento
+def _is_sentence_boundary(chunk_buf: str) -> bool:
+    """
+    Determina si el buffer actual ha alcanzado un límite de oración natural para enviar al avatar.
+    Soporta '.', '?', '!' y signos orientales, pero evita cortar en medio de precios
+    chilenos como '599.990' o '1.069.990'.
+    """
+    if len(chunk_buf) < MIN_CHUNK_LEN:
+        return False
+
+    trimmed = chunk_buf.rstrip()
+    if not trimmed:
+        return False
+
+    last_char = trimmed[-1]
+
+    # Signos inequívocos de fin de frase
+    if last_char in ('?', '!', ';', ':', '\n', '？', '！', '；', '：'):
+        return True
+
+    # Punto: verificar que no sea separador de miles en un número/precio (ej: '599.')
+    if last_char in ('.', '。'):
+        if re.search(r'\d\.$', trimmed):
+            return False
+        return True
+
+    return False
+
+
+# ─── Warmup en segundo plano de Ollama para respuestas instantáneas ─────────
+def _warmup_ollama():
+    """Ejecuta una consulta liviana a Ollama en segundo plano al arrancar el servidor."""
+    try:
+        logger.info("[LLM] Iniciando warmup en segundo plano para precargar modelo Ollama en GPU...")
+        payload = {
+            "model": OLLAMA_MODEL,
+            "messages": [
+                {"role": "system", "content": "OK"},
+                {"role": "user", "content": "1"}
+            ],
+            "stream": False,
+            "keep_alive": "7200m"
+        }
+        res = requests.post(OLLAMA_URL, json=payload, timeout=25)
+        if res.status_code == 200:
+            logger.info("[LLM] Warmup de Ollama completado exitosamente. Modelo listo en VRAM.")
+        else:
+            logger.warning(f"[LLM] Warmup Ollama retorno status: {res.status_code}")
+    except Exception as e:
+        logger.warning(f"[LLM] Warmup de Ollama omitido: {e}")
+
+threading.Thread(target=_warmup_ollama, daemon=True).start()
 
 
 def clear_conversation(sessionid: str) -> None:
@@ -297,7 +339,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         chunk = ""
         for char in full_text:
             chunk += char
-            if char in SENTENCE_ENDINGS and len(chunk) >= MIN_CHUNK_LEN:
+            if _is_sentence_boundary(chunk):
                 fragment = normalizar(chunk.strip())
                 if fragment:
                     logger.info(f"[LLM] -> avatar: {fragment}")
@@ -367,7 +409,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 chunk_buf += content
 
                 # Dividir en fragmentos por puntuación para alimentar al avatar
-                if content[-1] in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
+                if _is_sentence_boundary(chunk_buf):
                     fragment = normalizar(chunk_buf.strip())
                     if fragment:
                         logger.info(f"[LLM Stream] -> avatar: {fragment}")
