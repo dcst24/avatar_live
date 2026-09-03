@@ -4,6 +4,7 @@
 ###############################################################################
 
 import os
+import re
 import time
 import json
 import requests
@@ -11,6 +12,60 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from avatars.base_avatar import BaseAvatar
 from utils.logger import logger
+
+
+def normalizar(text: str) -> str:
+    """
+    Limpia y normaliza el texto antes de enviarlo al TTS:
+    - Remueve formato Markdown (asteriscos **, *, almohadillas #, backticks `, etc.)
+    - Remueve flechas (→, ->, =>, etc.)
+    - Remueve viñetas y guiones de lista (•, -, —, –, etc.)
+    - Remueve corchetes, llaves, barras y caracteres especiales (| / \\ [ ] { } ~ ^)
+    - Convierte el símbolo '%' a la palabra 'por ciento'
+    - Elimina emojis y caracteres no pronunciables
+    - Colapsa espacios redundantes
+    """
+    if not text:
+        return ""
+
+    # 1. Reemplazar porcentajes por texto pronunciable
+    text = re.sub(r'(\d+)\s*%', r'\1 por ciento', text)
+
+    # 2. Convertir precios con signo $ a pesos (ej: $599.990 -> 599.990 pesos)
+    text = re.sub(r'\$(\d[\d\.]*)\s*(?:pesos)?', r'\1 pesos', text)
+
+    # 3. Reemplazar flechas de cualquier tipo por un espacio
+    text = re.sub(r'[→⇒➜➞➝➔]|->|=>|<-|<=|↔', ' ', text)
+
+    # 4. Eliminar markdown de negrita, cursiva, tachado y encabezados
+    text = re.sub(r'\*{1,3}([^*]+)\*{1,3}', r'\1', text)
+    text = re.sub(r'_{1,3}([^_]+)_{1,3}', r'\1', text)
+    text = re.sub(r'~~([^~]+)~~', r'\1', text)
+    text = re.sub(r'`+([^`]+)`+', r'\1', text)
+    text = re.sub(r'^\s*#{1,6}\s*', '', text, flags=re.MULTILINE)
+
+    # 5. Eliminar viñetas, bullets y guiones en cualquier posición
+    text = re.sub(r'[-—–]+', ' ', text)
+    text = re.sub(r'[*#|_\\/\[\]{}~^<>•·●○■◆▪\(\)]', ' ', text)
+
+    # 6. Eliminar emojis (rangos unicode de emoticones y símbolos visuales)
+    text = re.sub(
+        r'[\U00010000-\U0010ffff]|[\u2600-\u27bf]|[\u2300-\u23ff]|[\u2b50-\u2b55]',
+        '',
+        text
+    )
+
+    # 7. Limpiar signos de puntuación duplicados o mal espaciados
+    text = re.sub(r'\s+([,.:;?!])', r'\1', text)
+    text = re.sub(r'[,]{2,}', ',', text)
+    text = re.sub(r'[.]{2,}', '.', text)
+    text = re.sub(r'\s{2,}', ' ', text)
+
+    return text.strip()
+
+
+# Alias para compatibilidad
+normalizar_texto_para_tts = normalizar
 
 # ─── Historial de conversación (memoria por sesión) ──────────────────────────
 # Clave: sessionid (str)  →  Valor: lista de mensajes [{role, content}, ...]
@@ -30,44 +85,53 @@ except Exception as _e:
     logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
 
 def _build_catalog_summary(bdd: dict) -> str:
-    """Construye un resumen compacto del catálogo para inyectar en el system prompt."""
+    """Construye un resumen compacto en texto limpio y natural para inyectar en el system prompt."""
     if not bdd:
         return "(catálogo no disponible)"
 
     lines = []
     tienda = bdd.get("tienda", {})
-    lines.append(f"Tienda: {tienda.get('nombre','')} — {tienda.get('sucursal_demo','')}")
+    lines.append(f"Tienda: {tienda.get('nombre','')} en {tienda.get('sucursal_demo','')}.")
 
     banner = bdd.get("banner_publicitario", {})
     if banner.get("activo"):
-        lines.append(f"\nCAMPAÑA ACTIVA: {banner.get('titulo','')} — {banner.get('subtitulo','')} (vigencia: {banner.get('vigencia','')})")
+        lines.append(f"Campaña activa: {banner.get('titulo','')}, {banner.get('subtitulo','')}, vigente hasta {banner.get('vigencia','')}.")
 
     for cat in bdd.get("categorias", []):
         loc = cat.get("ubicacion_tienda", {})
-        lines.append(f"\n--- Sección: {cat['nombre']} | Piso {loc.get('piso','?')}, sector {loc.get('sector','')}, pasillo {loc.get('pasillo','')} — {loc.get('referencia','')}")
+        piso = loc.get("piso", "?")
+        sector = loc.get("sector", "")
+        pasillo = loc.get("pasillo", "")
+        ref = loc.get("referencia", "")
+        lines.append(f"\nSección {cat['nombre']}: ubicada en Piso {piso}, sector {sector}, pasillo {pasillo} ({ref}).")
+
         for p in cat.get("productos", []):
             precio_str = f"${p['precio']:,}".replace(",", ".")
             if p.get("en_oferta") and p.get("precio_oferta"):
                 oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-                precio_str = f"{precio_str} → OFERTA {oferta_str} ({p.get('descuento_pct',0)}% dcto)"
-            stock_str = "disponible" if p.get("stock", 0) > 0 else "SIN STOCK"
+                precio_detalle = f"precio regular {precio_str} pesos, hoy en oferta a {oferta_str} pesos con {p.get('descuento_pct',0)} por ciento de descuento"
+            else:
+                precio_detalle = f"precio regular {precio_str} pesos"
+
+            stock_str = "disponible" if p.get("stock", 0) > 0 else "sin stock disponible"
             tags = ", ".join(p.get("tags_recomendacion", []))
-            barcode_str = f"Código: {p.get('codigo_barra','')}" if p.get('codigo_barra') else f"SKU: {p['sku']}"
-            piso_num = p.get('piso', loc.get('piso', '?'))
-            pasillo_txt = p.get('pasillo', loc.get('pasillo', ''))
+            code = p.get('codigo_barra') or p.get('sku')
+            piso_num = p.get('piso', piso)
+            pasillo_txt = p.get('pasillo', pasillo)
+
             lines.append(
-                f"  [{barcode_str}] {p['nombre']} | Marca: {p['marca']} | {precio_str} | Stock: {p.get('stock',0)} ({stock_str}) | Ubicación: Piso {piso_num}, {loc.get('sector','')}, {pasillo_txt} | Tags: {tags}"
+                f"Producto: {p['nombre']}. Marca: {p['marca']}. Código: {code}. {precio_detalle}. Estado: {stock_str}. Ubicación: Piso {piso_num}, sector {sector}, pasillo {pasillo_txt}. Características: {tags}."
             )
 
     ofertas = bdd.get("ofertas_destacadas", [])
     if ofertas:
-        lines.append("\nOFERTAS DESTACADAS DEL MOMENTO:")
+        lines.append("\nOfertas destacadas:")
         all_products = {p['sku']: p for cat in bdd.get('categorias', []) for p in cat.get('productos', [])}
         for o in ofertas:
             prod = all_products.get(o['sku'], {})
             if prod:
                 oferta_precio = f"${prod.get('precio_oferta',0):,}".replace(",", ".")
-                lines.append(f"  {prod.get('nombre','')} — {o['descuento_pct']}% dcto → {oferta_precio} | {o.get('motivo','')}")
+                lines.append(f"{prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos. Motivo: {o.get('motivo','')}.")
 
     return "\n".join(lines)
 
@@ -78,13 +142,15 @@ def _make_system_prompt(catalog_text: str) -> str:
 Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
 Estás ubicado junto al tótem interactivo de la tienda y tu función principal es impulsar las ventas, orientar a los clientes, informar precios y ofertas con entusiasmo, recomendar alternativas y resolver dudas sobre la tienda.
 
+REGLA ESTRICTA DE TEXTO LIMPIO PARA SÍNTESIS DE VOZ (CERO CARACTERES ESPECIALES):
+- NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→ o ->), barras (/ o |), viñetas (•), numerales (#), corchetes ([ ]), llaves ({{ }}) ni ningún signo tipográfico especial.
+- NUNCA respondas con listas ni bullets. Escribe oraciones fluidas, limpias y directas como las diría una persona real hablando por micrófono.
+- Si mencionas un descuento, di "por ciento" con palabras, nunca uses el símbolo %.
+- Tu respuesta va directo a un lector de voz por lo que cualquier carácter especial causará errores graves en la pronunciación.
+
 REGLA ABSOLUTA DE TEMÁTICA (SOLO TIENDA PARIS):
 - SOLO puedes responder consultas relacionadas directamente con esta tienda Paris, sus productos, precios, ofertas, pisos, pasillos y servicios.
-- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre cualquier tema ajeno a la tienda, incluyendo:
-  * Lenguajes de programación, código o soporte informático.
-  * Conocimientos técnicos, científicos, historia, geografía o matemáticas.
-  * Significado u origen de nombres, personas famosas, cultura general o trivia.
-  * Opiniones personales, política, noticias o consejos de vida.
+- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre cualquier tema ajeno a la tienda, como programación, tecnología, conocimientos técnicos, ciencia, historia, geografía, matemáticas, significado de nombres, personas famosas o política.
 - Si el cliente te pregunta sobre CUALQUIER tema que no pertenezca a la tienda, niégate amablemente en una sola frase breve y redirige a las compras:
   "Disculpa, solo puedo ayudarte con productos, ofertas y ubicaciones de Paris. ¿Buscas algún producto hoy?"
 
@@ -101,7 +167,6 @@ Cuando el sistema te informe los datos de un producto escaneado, debes:
 ROL Y COMPORTAMIENTO COMERCIAL:
 - Habla siempre en español, de forma cercana, proactiva, enérgica y orientada a la venta.
 - Responde con máximo 2 oraciones breves (menos de 35 palabras).
-- No uses listas, bullets, asteriscos, guiones ni emojis.
 - Nunca digas que eres una inteligencia artificial o un bot.
 - Responde como un auténtico asesor comercial de Paris.
 - No inventes productos, marcas ni precios que no estén en el catálogo.
@@ -112,7 +177,7 @@ ROL Y COMPORTAMIENTO COMERCIAL:
 INFORMACIÓN DE LA TIENDA Y SERVICIOS:
 - Tienda: Paris Costanera Center (3 Pisos)
 - Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería (Pasillo B-02), Deportes y Zapatillas (Pasillo D-07), Caja Principal, Módulo de Información y Punto de Retiro.
-- Piso 2: Tecnología - Celulares (Pasillo T-04), Vestuario y Calzado Mujer, Caja Express, Baños / Servicios Higiénicos.
+- Piso 2: Tecnología - Celulares (Pasillo T-04), Vestuario y Calzado Mujer, Caja Express, Baños y Servicios Higiénicos.
 - Piso 3: Línea Blanca y Electrodomésticos (Pasillo H-11), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
 - Escaleras mecánicas y ascensores: en el centro de la tienda en todos los pisos (1, 2 y 3).
 
@@ -121,8 +186,8 @@ CATÁLOGO COMPLETO DE PRODUCTOS Y UBICACIONES:
 
 EJEMPLOS DE FLUJO CORRECTO:
 
-Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. Precio regular: 1.069.990 pesos. En oferta a 599.990 pesos (44% dcto). Ubicación: Piso 2, Tecno, Pasillo T-04."
-Respuesta del avatar: "¡Excelente elección! El Samsung Galaxy S25 está con un 44% de descuento a solo 599.990 pesos. ¿Te gustaría saber en qué piso y pasillo encontrarlo?"
+Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. Precio regular: 1.069.990 pesos. En oferta a 599.990 pesos con 44 por ciento de descuento. Ubicación: Piso 2, sector Tecno, pasillo T-04."
+Respuesta del avatar: "¡Excelente elección! El Samsung Galaxy S25 está con un 44 por ciento de descuento a solo 599.990 pesos. ¿Te gustaría saber en qué piso y pasillo encontrarlo?"
 
 Cliente: "Sí"
 Respuesta del avatar: "Lo encuentras en el Piso 2, sector Tecno, pasillo T-04."
@@ -232,7 +297,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         for char in full_text:
             chunk += char
             if char in SENTENCE_ENDINGS and len(chunk) >= MIN_CHUNK_LEN:
-                fragment = chunk.strip()
+                fragment = normalizar(chunk.strip())
                 if fragment:
                     logger.info(f"[LLM] -> avatar: {fragment}")
                     avatar_session.put_msg_txt(fragment, datainfo)
@@ -240,8 +305,10 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 
         # Enviar cualquier texto restante al final
         if chunk.strip():
-            logger.info(f"[LLM] -> avatar (ultimo): {chunk.strip()}")
-            avatar_session.put_msg_txt(chunk.strip(), datainfo)
+            last_frag = normalizar(chunk.strip())
+            if last_frag:
+                logger.info(f"[LLM] -> avatar (ultimo): {last_frag}")
+                avatar_session.put_msg_txt(last_frag, datainfo)
 
         return full_text
 
@@ -300,7 +367,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
 
                 # Dividir en fragmentos por puntuación para alimentar al avatar
                 if content[-1] in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
-                    fragment = chunk_buf.strip()
+                    fragment = normalizar(chunk_buf.strip())
                     if fragment:
                         logger.info(f"[LLM Stream] -> avatar: {fragment}")
                         avatar_session.put_msg_txt(fragment, datainfo)
@@ -311,8 +378,10 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
 
         # Enviar cualquier texto restante al avatar
         if chunk_buf.strip():
-            logger.info(f"[LLM Stream] -> avatar (ultimo): {chunk_buf.strip()}")
-            avatar_session.put_msg_txt(chunk_buf.strip(), datainfo)
+            last_frag = normalizar(chunk_buf.strip())
+            if last_frag:
+                logger.info(f"[LLM Stream] -> avatar (ultimo): {last_frag}")
+                avatar_session.put_msg_txt(last_frag, datainfo)
 
         # Guardar turno completo en historial
         _append_to_history(sessionid, message, full_text)
