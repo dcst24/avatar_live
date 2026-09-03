@@ -1224,6 +1224,11 @@
             const container = document.getElementById('chat-container');
             if (!container) return;
 
+            // Evitar duplicar burbujas de sistema consecutivas idénticas
+            if (role === 'system' && container.lastElementChild && container.lastElementChild.textContent.trim() === text.trim()) {
+                return container.lastElementChild;
+            }
+
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${role}`;
             bubble.textContent = text;
@@ -1626,10 +1631,44 @@
         }
 
         // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
+        // Watchdog: si el avatar lleva más de MAX_SPEAKING_MS en estado "hablando"
+        // sin que el backend reporte speaking=false (latencia / corte de red), lo resetea forzosamente.
+        const MAX_SPEAKING_MS = 35000;
+        let _speakingWatchdog = null;
+
+        function _clearSpeakingWatchdog() {
+            clearTimeout(_speakingWatchdog);
+            _speakingWatchdog = null;
+        }
+
+        function _armSpeakingWatchdog() {
+            _clearSpeakingWatchdog();
+            _speakingWatchdog = setTimeout(() => {
+                if (isSpeaking) {
+                    WARN('[Speaking Watchdog] Avatar en estado "hablando" por más de ' + (MAX_SPEAKING_MS / 1000) + 's sin fin reportado. Forzando reset.');
+                    isSpeaking = false;
+                    const wrap = document.getElementById('avatar-wrap');
+                    if (wrap) wrap.classList.remove('avatar-speaking');
+                    if (_conversationAwake) {
+                        setState('listening', 'Escuchando pregunta…');
+                        scheduleFollowUp();
+                    } else {
+                        setState('listening', 'Esperando activación…');
+                    }
+                    setTimeout(() => {
+                        if (!isListening) {
+                            _alwaysOnActive = false;
+                            startAlwaysOnListening();
+                        }
+                    }, 500);
+                }
+            }, MAX_SPEAKING_MS);
+        }
+
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
             speakCheckInterval = setInterval(async () => {
-                if (!isConnected || isListening) return;
+                if (!isConnected) return;
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1644,33 +1683,41 @@
                         LOG('isSpeaking cambió →', speaking);
                         const wrap = document.getElementById('avatar-wrap');
                         if (speaking) {
-                            wrap.classList.add('avatar-speaking');
+                            if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
+                            _armSpeakingWatchdog();
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
                                 _pendingAvatarBubbleText = null;
                             }
                         } else {
-                            wrap.classList.remove('avatar-speaking');
+                            if (wrap) wrap.classList.remove('avatar-speaking');
+                            _clearSpeakingWatchdog();
                             LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
                             
                             if (_conversationAwake) {
+                                setState('listening', 'Escuchando pregunta…');
                                 scheduleFollowUp();
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
                                 }
+                            } else {
+                                setState('listening', 'Esperando activación…');
                             }
 
                             setTimeout(() => {
-                                if (!isListening && !_alwaysOnActive) {
+                                if (!isListening) {
+                                    _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 800);
+                            }, 500);
                         }
                     }
-                } catch (e) { /* silencio en prod */ }
-            }, 800);
+                } catch (e) {
+                    WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
+                }
+            }, 400);
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
@@ -1808,7 +1855,7 @@
                         if (_isSleepWord(question)) {
                             LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
                             sendToLLM(question, true);
-                            sleepModel(true);
+                            sleepModel(false);
                             return;
                         }
 

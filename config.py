@@ -49,6 +49,8 @@ def parse_args():
                         help="参考文件名或语音模型ID (edgetts: nombre de voz, ej: es-CL-CatalinaNeural)")
     parser.add_argument('--REF_TEXT', type=str, default=None)
     parser.add_argument('--TTS_SERVER', type=str, default='http://127.0.0.1:9880')
+    parser.add_argument('--tts_speed', type=float, default=1.10,
+                        help="velocidad del TTS (por defecto 1.10 para mayor fluidez)")
 
     # ─── 传输 ─────────────────────────────────────────────────────────
     parser.add_argument('--transport', type=str, default='webrtc',
