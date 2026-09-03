@@ -1,0 +1,657 @@
+{
+  "supermercado": {
+    "nombre": "Supermercado Avatar",
+    "ubicacion_kiosco": {
+      "id": "entrada_principal",
+      "nombre": "Entrada Principal - Punto de Consulta",
+      "x": 50,
+      "y": 90
+    },
+    "salida": {
+      "id": "salida_principal",
+      "nombre": "Salida y Cajas",
+      "x": 50,
+      "y": 95
+    },
+    "pasillos": [
+      {
+        "id": 1,
+        "nombre": "Pasillo 1 - Arroz, Legumbres y Pastas",
+        "zona": "Abarrotes",
+        "x": 15,
+        "y": 20
+      },
+      {
+        "id": 2,
+        "nombre": "Pasillo 2 - Aceites, Vinagres y Aderezos",
+        "zona": "Abarrotes",
+        "x": 30,
+        "y": 20
+      },
+      {
+        "id": 3,
+        "nombre": "Pasillo 3 - Enlatados y Conservas",
+        "zona": "Abarrotes",
+        "x": 45,
+        "y": 20
+      },
+      {
+        "id": 4,
+        "nombre": "Pasillo 4 - Lácteos, Quesos y Refrigerados",
+        "zona": "Lácteos",
+        "x": 60,
+        "y": 20
+      },
+      {
+        "id": 5,
+        "nombre": "Pasillo 5 - Yogur y Postres",
+        "zona": "Lácteos",
+        "x": 75,
+        "y": 20
+      },
+      {
+        "id": 6,
+        "nombre": "Pasillo 6 - Panadería y Pastelería",
+        "zona": "Panadería",
+        "x": 15,
+        "y": 50
+      },
+      {
+        "id": 7,
+        "nombre": "Pasillo 7 - Bebidas y Jugos",
+        "zona": "Bebidas",
+        "x": 30,
+        "y": 50
+      },
+      {
+        "id": 8,
+        "nombre": "Pasillo 8 - Vinos, Cervezas y Licores",
+        "zona": "Licores",
+        "x": 45,
+        "y": 50
+      },
+      {
+        "id": 9,
+        "nombre": "Pasillo 9 - Carnes y Pollo",
+        "zona": "Carnicería",
+        "x": 60,
+        "y": 50
+      },
+      {
+        "id": 10,
+        "nombre": "Pasillo 10 - Frutas y Verduras",
+        "zona": "Verdulería",
+        "x": 75,
+        "y": 50
+      },
+      {
+        "id": 15,
+        "nombre": "Pasillo 15 - Galletas, Chocolates y Snacks",
+        "zona": "Snacks",
+        "x": 75,
+        "y": 75
+      },
+      {
+        "id": 20,
+        "nombre": "Pasillo 20 - Electrodomésticos",
+        "zona": "Electrodomésticos",
+        "x": 30,
+        "y": 75
+      }
+    ]
+  },
+  "productos": [
+    {
+      "codigo_barra": "7801234567890",
+      "nombre": "Chocolates Trencito 150g",
+      "articulo": "Los",
+      "precio": 3490,
+      "oferta": "SI",
+      "precio_oferta": 2990,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Dulces y Chocolates",
+      "etiquetas": [
+        "AZUCAR",
+        "CONTIENE GLUTEN",
+        "ALTO EN CALORIAS"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7801234567891",
+      "nombre": "Chocolates Sahne-Nuss 150g",
+      "articulo": "Los",
+      "precio": 3990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Dulces y Chocolates",
+      "etiquetas": [
+        "AZUCAR",
+        "CONTIENE GLUTEN",
+        "CONTIENE FRUTOS SECOS"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7801234567892",
+      "nombre": "Chocolate Barra Cadbury Dairy Milk 200g",
+      "articulo": "El",
+      "precio": 4990,
+      "oferta": "SI",
+      "precio_oferta": 3490,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Dulces y Chocolates",
+      "etiquetas": [
+        "AZUCAR",
+        "CONTIENE GLUTEN",
+        "CONTIENE LACTOSA"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7801234567893",
+      "nombre": "Chocolate Bitter Lindt 85% 100g",
+      "articulo": "El",
+      "precio": 6990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Dulces y Chocolates",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "ALTO EN CACAO",
+        "SIN AZUCAR AÑADIDA"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7801234567894",
+      "nombre": "Chocolates Costa Lengua de Gato 100g",
+      "articulo": "Los",
+      "precio": 2490,
+      "oferta": "SI",
+      "precio_oferta": 1990,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Dulces y Chocolates",
+      "etiquetas": [
+        "AZUCAR",
+        "CONTIENE GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7801111222333",
+      "nombre": "Vino Casillero del Diablo Cabernet Sauvignon 750ml",
+      "articulo": "El",
+      "precio": 4990,
+      "oferta": "SI",
+      "precio_oferta": 3990,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222334",
+      "nombre": "Vino Gato Negro Merlot 750ml",
+      "articulo": "El",
+      "precio": 2990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222335",
+      "nombre": "Vino Santa Rita 120 Sauvignon Blanc 750ml",
+      "articulo": "El",
+      "precio": 3490,
+      "oferta": "SI",
+      "precio_oferta": 2790,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222336",
+      "nombre": "Vino Concha y Toro Gran Reserva Carmenere 750ml",
+      "articulo": "El",
+      "precio": 8990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222337",
+      "nombre": "Vino Don Melchor Cabernet Sauvignon 750ml",
+      "articulo": "El",
+      "precio": 34990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN",
+        "PREMIUM"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222338",
+      "nombre": "Vino Clos de Pirque Cabernet Sauvignon 750ml",
+      "articulo": "El",
+      "precio": 1990,
+      "oferta": "SI",
+      "precio_oferta": 1490,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7801111222339",
+      "nombre": "Vino Undurraga Rosé 750ml",
+      "articulo": "El",
+      "precio": 4290,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 8 - Vinos, Cervezas y Licores",
+      "pasillo_numero": 8,
+      "categoria": "Vinos y Licores",
+      "etiquetas": [
+        "CONTIENE SULFITOS",
+        "SIN GLUTEN"
+      ],
+      "posicion_mapa": {
+        "x": 45,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7809876543210",
+      "nombre": "Leche Soprole Semidescremada 1L",
+      "articulo": "La",
+      "precio": 1190,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 4 - Lácteos, Quesos y Refrigerados",
+      "pasillo_numero": 4,
+      "categoria": "Lácteos",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "CONTIENE LACTOSA"
+      ],
+      "posicion_mapa": {
+        "x": 60,
+        "y": 20
+      }
+    },
+    {
+      "codigo_barra": "7809876543211",
+      "nombre": "Leche Colún Entera 1L",
+      "articulo": "La",
+      "precio": 990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 4 - Lácteos, Quesos y Refrigerados",
+      "pasillo_numero": 4,
+      "categoria": "Lácteos",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "CONTIENE LACTOSA"
+      ],
+      "posicion_mapa": {
+        "x": 60,
+        "y": 20
+      }
+    },
+    {
+      "codigo_barra": "7809876543212",
+      "nombre": "Queso Gauda Laminado Soprole 150g",
+      "articulo": "El",
+      "precio": 2490,
+      "oferta": "SI",
+      "precio_oferta": 1990,
+      "pasillo": "Pasillo 4 - Lácteos, Quesos y Refrigerados",
+      "pasillo_numero": 4,
+      "categoria": "Lácteos",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "CONTIENE LACTOSA",
+        "ALTO EN CALCIO"
+      ],
+      "posicion_mapa": {
+        "x": 60,
+        "y": 20
+      }
+    },
+    {
+      "codigo_barra": "7805555666777",
+      "nombre": "Yogur Protein Frutilla 150g",
+      "articulo": "El",
+      "precio": 890,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 5 - Yogur y Postres",
+      "pasillo_numero": 5,
+      "categoria": "Lácteos",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "SIN AZUCAR",
+        "ALTO EN PROTEINAS"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 20
+      }
+    },
+    {
+      "codigo_barra": "7804444555666",
+      "nombre": "Galletas Crackelet 100g Sin Gluten",
+      "articulo": "Las",
+      "precio": 1890,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Snacks y Galletas",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "BAJO EN SODIO"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7804444555667",
+      "nombre": "Galletas Oreo 137g",
+      "articulo": "Las",
+      "precio": 1490,
+      "oferta": "SI",
+      "precio_oferta": 1190,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Snacks y Galletas",
+      "etiquetas": [
+        "CONTIENE GLUTEN",
+        "CONTIENE AZUCAR"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7804444555668",
+      "nombre": "Papas Fritas Lays Clásicas 140g",
+      "articulo": "Las",
+      "precio": 1890,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 15 - Galletas, Chocolates y Snacks",
+      "pasillo_numero": 15,
+      "categoria": "Snacks y Galletas",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "ALTO EN SODIO"
+      ],
+      "posicion_mapa": {
+        "x": 75,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7807777888999",
+      "nombre": "Aceite de Oliva Extra Virgen 500ml",
+      "articulo": "El",
+      "precio": 6290,
+      "oferta": "SI",
+      "precio_oferta": 5490,
+      "pasillo": "Pasillo 2 - Aceites, Vinagres y Aderezos",
+      "pasillo_numero": 2,
+      "categoria": "Abarrotes",
+      "etiquetas": [
+        "SIN GLUTEN",
+        "ORGANICO",
+        "SIN AZUCAR"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 20
+      }
+    },
+    {
+      "codigo_barra": "7808888999000",
+      "nombre": "Pan de Molde Integral 500g",
+      "articulo": "El",
+      "precio": 2490,
+      "oferta": "SI",
+      "precio_oferta": 1990,
+      "pasillo": "Pasillo 6 - Panadería y Pastelería",
+      "pasillo_numero": 6,
+      "categoria": "Panadería",
+      "etiquetas": [
+        "CONTIENE GLUTEN",
+        "ALTO EN FIBRA"
+      ],
+      "posicion_mapa": {
+        "x": 15,
+        "y": 50
+      }
+    },
+    {
+      "codigo_barra": "7802020202001",
+      "nombre": "Microondas Mademsa 20L Negro",
+      "articulo": "El",
+      "precio": 49990,
+      "oferta": "SI",
+      "precio_oferta": 39990,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202002",
+      "nombre": "Licuadora Oster 500W 2L",
+      "articulo": "La",
+      "precio": 29990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202003",
+      "nombre": "Tostadora Philips 2 Ranuras Blanca",
+      "articulo": "La",
+      "precio": 24990,
+      "oferta": "SI",
+      "precio_oferta": 19990,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202004",
+      "nombre": "Hervidor Electrico Tefal 1.7L Inox",
+      "articulo": "El",
+      "precio": 34990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO",
+        "INOX"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202005",
+      "nombre": "Plancha de Ropa Kalley Vapor 2200W",
+      "articulo": "La",
+      "precio": 19990,
+      "oferta": "SI",
+      "precio_oferta": 14990,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 6 MESES"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202006",
+      "nombre": "Aspiradora Oster Bolsa 1400W",
+      "articulo": "La",
+      "precio": 59990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202007",
+      "nombre": "Sandwichera Imaco 750W Antiadherente",
+      "articulo": "La",
+      "precio": 14990,
+      "oferta": "SI",
+      "precio_oferta": 9990,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 6 MESES"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    },
+    {
+      "codigo_barra": "7802020202008",
+      "nombre": "Cafetera de Goteo Oster 12 Tazas",
+      "articulo": "La",
+      "precio": 39990,
+      "oferta": "NO",
+      "precio_oferta": null,
+      "pasillo": "Pasillo 20 - Electrodomésticos",
+      "pasillo_numero": 20,
+      "categoria": "Electrodomésticos",
+      "etiquetas": [
+        "GARANTIA 1 AÑO"
+      ],
+      "posicion_mapa": {
+        "x": 30,
+        "y": 75
+      }
+    }
+  ]
+}

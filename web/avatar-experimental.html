@@ -1358,7 +1358,7 @@
                     llmContextMsg += `Precio regular: ${precioReg} pesos. `;
                     if (prod.oferta === 'SI' && prod.precio_oferta) {
                         const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
-                        const dcto = prod.descuento_pct ? ` (${prod.descuento_pct}% dcto)` : '';
+                        const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
                         llmContextMsg += `En oferta a ${precioOf} pesos${dcto}. `;
                     } else {
                         llmContextMsg += `Sin oferta. `;
