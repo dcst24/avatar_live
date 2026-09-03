@@ -731,6 +731,144 @@
             background: rgba(255,255,255,0.95);
             transform: scale(1.4);
         }
+
+        /* ─── Tarjeta de Producto (Escáner de Código de Barras) ────────── */
+        #product-card-container {
+            position: absolute;
+            right: 30px;
+            bottom: 120px;
+            z-index: 40;
+            width: min(380px, 90vw);
+            pointer-events: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .product-card {
+            background: rgba(18, 18, 22, 0.88);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 18px 20px;
+            color: #f4f4f5;
+            animation: card-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .product-card-badge {
+            align-self: flex-start;
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(67, 56, 202, 0.4));
+            border: 1px solid rgba(129, 140, 248, 0.4);
+            color: #c7d2fe;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            padding: 4px 10px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .product-card-title {
+            font-size: 18px;
+            font-weight: 700;
+            line-height: 1.25;
+            color: #ffffff;
+        }
+
+        .product-card-category {
+            font-size: 12px;
+            color: #a1a1aa;
+            margin-top: -4px;
+        }
+
+        .product-card-prices {
+            display: flex;
+            align-items: baseline;
+            gap: 12px;
+            margin-top: 4px;
+        }
+
+        .product-card-price-main {
+            font-size: 24px;
+            font-weight: 800;
+            color: #34d399;
+            text-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
+        }
+
+        .product-card-price-regular {
+            font-size: 15px;
+            color: #a1a1aa;
+            text-decoration: line-through;
+        }
+
+        .product-card-offer-tag {
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 800;
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            animation: offer-pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes offer-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.06); }
+        }
+
+        .product-card-aisle {
+            background: rgba(39, 39, 42, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #e4e4e7;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .product-card-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 2px;
+        }
+
+        .product-tag-pill {
+            font-size: 10px;
+            font-weight: 600;
+            padding: 3px 8px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #d4d4d8;
+        }
+
+        @keyframes card-appear {
+            from { opacity: 0; transform: translateY(20px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .product-card.fade-out {
+            animation: card-fadeout 0.5s ease forwards;
+        }
+
+        @keyframes card-fadeout {
+            from { opacity: 1; transform: scale(1); }
+            to { opacity: 0; transform: scale(0.95); }
+        }
     </style>
 </head>
 
@@ -743,6 +881,9 @@
     <button id="start" style="display:none"></button>
     <button id="stop" style="display:none"></button>
 
+    <!-- Input Oculto para Lector de Código de Barras (Escáner USB/Bluetooth) -->
+    <input type="text" id="barcode-input" autocomplete="off" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; top: -100px; left: -100px;" aria-hidden="true" />
+
     <div id="app">
 
         <!-- Avatar fullscreen -->
@@ -751,6 +892,9 @@
             <!-- Burbujas de chat sobrepuestas -->
             <div id="chat-container"></div>
             <div id="speaking-ring"></div>
+
+            <!-- Contenedor para Tarjetas de Producto por Escaneo -->
+            <div id="product-card-container"></div>
 
             <!-- Carrusel de ofertas (parte superior) -->
             <div id="offers-carousel">
@@ -1179,6 +1323,200 @@
             }, 30000);
         }
 
+        // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
+        let _cardDismissTimeout = null;
+
+        function keepBarcodeFocus() {
+            const inp = document.getElementById('barcode-input');
+            if (!inp) return;
+            const dbgPanel = document.getElementById('dbg-panel');
+            if (dbgPanel && dbgPanel.classList.contains('open')) return;
+            if (document.activeElement !== inp) {
+                inp.focus();
+            }
+        }
+
+        async function handleBarcodeScan(code) {
+            LOG(`Escáner de código de barras detectado: "${code}"`);
+            try {
+                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(code)}`);
+                const result = await res.json();
+
+                if (result.code === 0 && result.data) {
+                    const prod = result.data;
+                    LOG('Producto encontrado:', prod.nombre);
+                    showProductCard(prod);
+
+                    // Mensaje de contexto comercial para el LLM
+                    const precioReg = Number(prod.precio).toLocaleString('es-CL');
+                    let llmContextMsg = `Producto escaneado: ${prod.nombre}. Marca: ${prod.marca || ''}. `;
+                    llmContextMsg += `Precio regular: ${precioReg} pesos. `;
+                    if (prod.oferta === 'SI' && prod.precio_oferta) {
+                        const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
+                        const dcto = prod.descuento_pct ? ` (${prod.descuento_pct}% dcto)` : '';
+                        llmContextMsg += `En oferta a ${precioOf} pesos${dcto}. `;
+                    } else {
+                        llmContextMsg += `Sin oferta. `;
+                    }
+                    const pisoStr = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
+                    const pasilloStr = prod.pasillo || '';
+                    const sectorStr = prod.sector || '';
+                    llmContextMsg += `Ubicación: ${pisoStr}, ${sectorStr}, ${pasilloStr}.`;
+
+                    const sessionid = document.getElementById('sessionid').value;
+
+                    clearTimeout(_followUpTimeoutId);
+                    clearTimeout(_followUpAckTimeoutId);
+                    _waitingFollowUpAck = false;
+
+                    clearServerHistory();
+                    wakeUpModel();
+                    stopAlwaysOnListening();
+
+                    const llmRes = await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: llmContextMsg,
+                            type: 'chat',
+                            interrupt: true,
+                            stream: true,
+                            sessionid: String(sessionid)
+                        })
+                    });
+
+                    if (llmRes.body) {
+                        const reader = llmRes.body.getReader();
+                        const decoder = new TextDecoder('utf-8');
+                        let fullText = '';
+                        let avatarBubble = null;
+
+                        while (true) {
+                            const { done, value } = await reader.read();
+                            if (done) break;
+                            const chunk = decoder.decode(value, { stream: true });
+                            fullText += chunk;
+                            if (!avatarBubble && fullText.trim()) {
+                                avatarBubble = addChatBubble('avatar', '');
+                            }
+                            if (avatarBubble) {
+                                avatarBubble.textContent = fullText;
+                                const container = document.getElementById('chat-container');
+                                if (container) container.scrollTop = container.scrollHeight;
+                            }
+                        }
+                        LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
+                    }
+
+                } else {
+                    WARN(`Producto no encontrado para el código: ${code}`);
+                    showProductNotFound(code);
+
+                    const notFoundText = `Lo siento, no encontré ningún producto registrado con ese código de barras en el catálogo de Paris.`;
+                    const sessionid = document.getElementById('sessionid').value;
+                    queueAvatarBubble(notFoundText);
+                    stopAlwaysOnListening();
+
+                    await fetch('/human', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            text: notFoundText,
+                            type: 'echo',
+                            interrupt: true,
+                            sessionid: String(sessionid)
+                        })
+                    });
+                }
+            } catch (e) {
+                ERR('Error al procesar código de barras:', e);
+            } finally {
+                const inp = document.getElementById('barcode-input');
+                if (inp) inp.focus();
+            }
+        }
+
+        function showProductCard(prod) {
+            const container = document.getElementById('product-card-container');
+            if (!container) return;
+
+            clearTimeout(_cardDismissTimeout);
+            container.innerHTML = '';
+
+            const isOffer = prod.oferta === 'SI' && prod.precio_oferta;
+            const mainPrice = isOffer ? prod.precio_oferta : prod.precio;
+
+            const tagsHtml = (prod.etiquetas || []).map(t => {
+                return `<span class="product-tag-pill">${t}</span>`;
+            }).join('');
+
+            const pisoTxt = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
+            const pasilloTxt = prod.pasillo ? ` · ${prod.pasillo}` : '';
+
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.innerHTML = `
+                <div class="product-card-badge">
+                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
+                        <path d="M2 4h2v16H2V4zm4 0h1v16H6V4zm3 0h2v16H9V4zm4 0h1v16h-1V4zm3 0h2v16h-2V4zm4 0h1v16h-1V4z"/>
+                    </svg>
+                    <span>CÓDIGO: ${prod.codigo_barra || prod.sku}</span>
+                </div>
+                <div class="product-card-title">${prod.nombre}</div>
+                <div class="product-card-category">${prod.marca ? prod.marca + ' · ' : ''}${prod.categoria_nombre || prod.categoria}</div>
+                <div class="product-card-prices">
+                    <span class="product-card-price-main">$${Number(mainPrice).toLocaleString('es-CL')}</span>
+                    ${isOffer ? `<span class="product-card-price-regular">$${Number(prod.precio).toLocaleString('es-CL')}</span>` : ''}
+                    ${isOffer ? `<span class="product-card-offer-tag">${prod.descuento_pct ? prod.descuento_pct + '% DCTO' : 'OFERTA'}</span>` : ''}
+                </div>
+                <div class="product-card-aisle">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                        <circle cx="12" cy="9" r="2.5"/>
+                    </svg>
+                    <span>${pisoTxt}${pasilloTxt}</span>
+                </div>
+                ${tagsHtml ? `<div class="product-card-tags">${tagsHtml}</div>` : ''}
+            `;
+
+            container.appendChild(card);
+
+            _cardDismissTimeout = setTimeout(() => {
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    if (card.parentNode) card.parentNode.removeChild(card);
+                }, 500);
+            }, 15000);
+        }
+
+        function showProductNotFound(code) {
+            const container = document.getElementById('product-card-container');
+            if (!container) return;
+
+            clearTimeout(_cardDismissTimeout);
+            container.innerHTML = '';
+
+            const card = document.createElement('div');
+            card.className = 'product-card';
+            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+            card.innerHTML = `
+                <div class="product-card-badge" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
+                    <span>NO ENCONTRADO</span>
+                </div>
+                <div class="product-card-title" style="font-size: 15px;">Código ${code} no registrado</div>
+                <div style="font-size: 12px; color: #a1a1aa;">Verifique que el código pertenezca al catálogo de la tienda.</div>
+            `;
+
+            container.appendChild(card);
+
+            _cardDismissTimeout = setTimeout(() => {
+                card.classList.add('fade-out');
+                setTimeout(() => {
+                    if (card.parentNode) card.parentNode.removeChild(card);
+                }, 8000);
+            }, 8000);
+        }
+
         LOG('Modo ASR: SpeechRecognition');
 
         // ─── Estado UI ─────────────────────────────────────────────────────────────
@@ -1253,10 +1591,24 @@
                 _vChecks++;
                 if (_v.srcObject) {
                     if (_v.paused) {
-                        _v.muted = true;
-                        _v.play()
-                            .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
-                            .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                        if (_audioUnlocked) {
+                            _v.muted = false;
+                            _v.play()
+                                .then(function () { LOG('video.play() OK con audio'); clearInterval(_vTimer); })
+                                .catch(function () {
+                                    WARN('video.play() rechazó audio, fallback a muted');
+                                    _v.muted = true;
+                                    _audioUnlocked = false;
+                                    _v.play()
+                                        .then(function () { LOG('video.play() OK muted (fallback)'); clearInterval(_vTimer); })
+                                        .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                                });
+                        } else {
+                            _v.muted = true;
+                            _v.play()
+                                .then(function () { LOG('video.play() OK muted'); clearInterval(_vTimer); })
+                                .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
+                        }
                     } else {
                         LOG('Video reproduciendo');
                         clearInterval(_vTimer);
@@ -1546,7 +1898,7 @@
             isListening = false;
             clearTimeout(_stopTimeout);
 
-            if (!isSpeaking && !_alwaysOnActive) {
+            if (!isSpeaking && !_alwaysOnActive && _conversationAwake) {
                 setState('thinking', 'Pensando…');
             }
         }
@@ -1844,10 +2196,23 @@
                 if (overlay) overlay.style.display = 'none';
                 setTimeout(connectRTC, 800);
             }
+
+            // Inicializar foco y escucha del lector de código de barras
+            const barcodeInp = document.getElementById('barcode-input');
+            if (barcodeInp) {
+                barcodeInp.focus();
+                barcodeInp.addEventListener('keydown', async (e) => {
+                    if (e.key === 'Enter') {
+                        const code = barcodeInp.value.trim();
+                        barcodeInp.value = '';
+                        if (code) {
+                            await handleBarcodeScan(code);
+                        }
+                    }
+                });
+            }
+            setInterval(keepBarcodeFocus, 400);
         });
     </script>
 </body>
-</html>
-</body>
-
 </html>
