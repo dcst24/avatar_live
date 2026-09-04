@@ -1386,16 +1386,15 @@
                         LOG('Audio desbloqueado por escaneo de producto');
                     }
 
-                    // Mensaje de contexto comercial para el LLM
+                    // Mensaje de contexto comercial para el LLM (ultra conciso)
                     const precioReg = Number(prod.precio).toLocaleString('es-CL');
                     let llmContextMsg = `Producto escaneado: ${prod.nombre}. Marca: ${prod.marca || ''}. `;
-                    llmContextMsg += `Precio regular: ${precioReg} pesos. `;
                     if (prod.oferta === 'SI' && prod.precio_oferta) {
                         const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
                         const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
-                        llmContextMsg += `En oferta a ${precioOf} pesos${dcto}. `;
+                        llmContextMsg += `En oferta a ${precioOf} pesos${dcto} (antes ${precioReg} pesos). `;
                     } else {
-                        llmContextMsg += `Sin oferta. `;
+                        llmContextMsg += `Precio: ${precioReg} pesos. `;
                     }
                     const pisoStr = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
                     const pasilloStr = prod.pasillo || '';
