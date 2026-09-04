@@ -17,12 +17,13 @@ from utils.logger import logger
 
 def normalizar(text: str) -> str:
     """
-    Limpia y normaliza el texto antes de enviarlo al TTS:
+    Limpia y normaliza el texto tanto para el TTS como para el chat de texto:
     - Remueve formato Markdown (asteriscos **, *, almohadillas #, backticks `, etc.)
     - Remueve flechas (→, ->, =>, etc.)
     - Remueve viñetas y guiones de lista (•, -, —, –, etc.)
     - Remueve corchetes, llaves, barras y caracteres especiales (| / \\ [ ] { } ~ ^)
     - Convierte el símbolo '%' a la palabra 'por ciento'
+    - Convierte precios con '$' a formato pronunciable (ej: '$599.990' -> '599.990 pesos')
     - Elimina emojis y caracteres no pronunciables
     - Colapsa espacios redundantes
     """
@@ -243,6 +244,10 @@ def _is_sentence_boundary(chunk_buf: str) -> bool:
             return False
         return True
 
+    # Si el buffer es largo (> 80 chars) y termina en coma, también cortar para fluidez
+    if len(trimmed) > 80 and last_char == ',':
+        return True
+
     return False
 
 
@@ -332,8 +337,9 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         full_text: str = data["message"]["content"]
         logger.info(f"[LLM] Respuesta en {elapsed:.2f}s: {full_text[:120]}...")
 
-        # Guardar en historial
-        _append_to_history(sessionid, message, full_text)
+        # Texto completamente normalizado para el chat e historial
+        clean_text = normalizar(full_text)
+        _append_to_history(sessionid, message, clean_text)
 
         # Dividir en fragmentos por puntuación para alimentar al avatar progresivamente
         chunk = ""
@@ -353,7 +359,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
                 logger.info(f"[LLM] -> avatar (ultimo): {last_frag}")
                 avatar_session.put_msg_txt(last_frag, datainfo)
 
-        return full_text
+        return clean_text
 
     except requests.exceptions.Timeout:
         logger.error("[LLM] Timeout al conectar con Ollama (>120s)")
@@ -404,30 +410,31 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 if not content:
                     continue
 
-                yield content
                 full_text += content
                 chunk_buf += content
 
-                # Dividir en fragmentos por puntuación para alimentar al avatar
+                # Dividir en fragmentos por puntuación para alimentar al avatar y al chat
                 if _is_sentence_boundary(chunk_buf):
                     fragment = normalizar(chunk_buf.strip())
                     if fragment:
-                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
+                        logger.info(f"[LLM Stream] -> avatar & chat: {fragment}")
                         avatar_session.put_msg_txt(fragment, datainfo)
+                        yield fragment + " "
                     chunk_buf = ""
 
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar cualquier texto restante al avatar
+        # Enviar cualquier texto restante al avatar y al chat
         if chunk_buf.strip():
             last_frag = normalizar(chunk_buf.strip())
             if last_frag:
-                logger.info(f"[LLM Stream] -> avatar (ultimo): {last_frag}")
+                logger.info(f"[LLM Stream] -> avatar & chat (ultimo): {last_frag}")
                 avatar_session.put_msg_txt(last_frag, datainfo)
+                yield last_frag
 
-        # Guardar turno completo en historial
-        _append_to_history(sessionid, message, full_text)
+        # Guardar turno completo en historial (normalizado)
+        _append_to_history(sessionid, message, normalizar(full_text))
 
         elapsed = time.perf_counter() - start
         logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s, total chars={len(full_text)}")
