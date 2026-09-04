@@ -57,19 +57,26 @@ function start() {
     // IMPORTANTE: ambos tracks (audio + video) van al mismo elemento <video>.
     // El video empieza con muted=true en el HTML (permite autoplay en Android sin gesto).
     // handleTapToStart() en avatar.html desmutea tras el primer tap del usuario.
+    let _remoteStream = null;
     pc.addEventListener('track', (evt) => {
         const videoEl = document.getElementById('video');
         if (evt.streams && evt.streams[0]) {
-            if (videoEl.srcObject !== evt.streams[0]) {
-                videoEl.srcObject = evt.streams[0];
-                // play() funciona porque el video está muted al llegar los tracks.
-                // En desktop se desmutea inmediatamente en DOMContentLoaded.
-                // En Android se desmutea en el tap del overlay (handleTapToStart).
-                videoEl.play().catch(err => {
-                    console.warn('[WebRTC] play() rechazado:', err.name, '-', err.message);
-                });
+            if (!_remoteStream) {
+                _remoteStream = evt.streams[0];
+                videoEl.srcObject = _remoteStream;
+            } else if (videoEl.srcObject !== evt.streams[0]) {
+                _remoteStream.addTrack(evt.track);
             }
+        } else {
+            if (!_remoteStream) {
+                _remoteStream = new MediaStream();
+                videoEl.srcObject = _remoteStream;
+            }
+            _remoteStream.addTrack(evt.track);
         }
+        videoEl.play().catch(err => {
+            console.warn('[WebRTC] play() rechazado:', err.name, '-', err.message);
+        });
     });
 
     document.getElementById('start').style.display = 'none';

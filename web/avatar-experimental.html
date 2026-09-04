@@ -1166,9 +1166,29 @@
         }
 
         function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
-            const sleepWords = ['no', 'gracias', 'chao', 'adios', 'nada mas', 'ninguna', 'ninguno', 'hasta luego', 'eso es todo', 'no gracias', 'nos vemos', 'que estes bien', 'chao chao', 'bye'];
-            return sleepWords.some(w => clean === w || clean === w + ' ' || clean.startsWith(w + ' '));
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            // Frases exactas de despedida o cierre negativo
+            const exactSleepPhrases = [
+                'no', 'no gracias', 'no muchas gracias', 'no por ahora', 'no nada mas',
+                'no ya no', 'no seria todo', 'no eso seria todo', 'no eso es todo',
+                'no por el momento', 'no de momento', 'no gracias chao',
+                'gracias', 'muchas gracias', 'chao', 'adios', 'hasta luego',
+                'nada mas', 'ninguna', 'ninguno', 'eso es todo', 'nos vemos',
+                'que estes bien', 'chao chao', 'bye', 'seria todo', 'listo gracias'
+            ];
+            if (exactSleepPhrases.includes(clean)) {
+                return true;
+            }
+
+            // Prefijos de despedida explícita (NUNCA incluir 'no' aquí para no cortar frases como 'no hay este producto')
+            const farewellPrefixes = [
+                'chao ', 'adios ', 'hasta luego ', 'nos vemos ', 'bye ', 'muchas gracias ', 'gracias por '
+            ];
+            if (farewellPrefixes.some(pre => clean.startsWith(pre))) {
+                return true;
+            }
+
+            return false;
         }
 
         function clearServerHistory() {
@@ -1828,9 +1848,50 @@
             rec.continuous = false;
             rec.maxAlternatives = 1;
 
+            let _pendingCommitTimeout = null;
+            let _lastInterimText = '';
+            let _questionDispatched = false;
+
+            const _dispatchQuestion = (rawText) => {
+                if (_questionDispatched) return;
+                _questionDispatched = true;
+                clearTimeout(_pendingCommitTimeout);
+                _lastInterimText = '';
+
+                let question = _extractQuestion(rawText);
+                if (!question && _containsWakeWord(rawText)) {
+                    clearTimeout(_wakeBufferTimeout);
+                    _alwaysOnActive = false;
+                    sendGreetingAsAvatar();
+                    return;
+                } else if (!question) {
+                    question = rawText.trim();
+                }
+
+                LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
+
+                if (question) {
+                    clearTimeout(_wakeBufferTimeout);
+
+                    if (_isSleepWord(question)) {
+                        LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                        sendToLLM(question, true);
+                        sleepModel(false);
+                        return;
+                    }
+
+                    LOG(`Enviando al LLM: "${question}"`);
+                    _alwaysOnActive = false;
+                    sendToLLM(question);
+                }
+            };
+
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
+                _lastInterimText = '';
+                _questionDispatched = false;
+                clearTimeout(_pendingCommitTimeout);
                 LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
@@ -1882,33 +1943,21 @@
                 setUserText(final || interim, !final);
 
                 if (final) {
-                    let question = _extractQuestion(final);
-                    if (!question && _containsWakeWord(final)) {
-                        // Solo wake-word sin pregunta → el avatar saluda, no el usuario
-                        clearTimeout(_wakeBufferTimeout);
-                        _alwaysOnActive = false;
-                        sendGreetingAsAvatar();
-                        return;
-                    } else if (!question) {
-                        question = final.trim();
-                    }
-
-                    LOG(`Texto procesado: "${question}" | awake: ${_conversationAwake}`);
-
-                    if (question) {
-                        clearTimeout(_wakeBufferTimeout);
-
-                        if (_isSleepWord(question)) {
-                            LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
-                            sendToLLM(question, true);
-                            sleepModel(false);
-                            return;
+                    clearTimeout(_pendingCommitTimeout);
+                    _dispatchQuestion(final);
+                } else if (_conversationAwake && interim && !_questionDispatched) {
+                    _lastInterimText = interim.trim();
+                    clearTimeout(_pendingCommitTimeout);
+                    const words = _lastInterimText.split(/\s+/).length;
+                    const delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+                    _pendingCommitTimeout = setTimeout(() => {
+                        if (_conversationAwake && _lastInterimText && !_questionDispatched) {
+                            LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
+                            const txt = _lastInterimText;
+                            try { rec.stop(); } catch (e) {}
+                            _dispatchQuestion(txt);
                         }
-
-                        LOG(`Enviando al LLM: "${question}"`);
-                        _alwaysOnActive = false;
-                        sendToLLM(question);
-                    }
+                    }, delayMs);
                 }
             };
 
@@ -1938,6 +1987,15 @@
             rec.onend = () => {
                 const elapsed = Date.now() - _recStartMs;
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
+                clearTimeout(_pendingCommitTimeout);
+
+                if (_conversationAwake && _lastInterimText && !_questionDispatched) {
+                    LOG(`[onend Auto-Commit] Texto pendiente en buffer: "${_lastInterimText}" → enviando`);
+                    const txt = _lastInterimText;
+                    _dispatchQuestion(txt);
+                    stopListening();
+                    return;
+                }
 
                 if (!_gotAnyResult && elapsed < 1500) {
                     WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);

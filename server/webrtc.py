@@ -83,7 +83,12 @@ class PlayerStreamTrack(MediaStreamTrack):
                 #     self.timelist.pop(0)
                 # self.timelist.append(time.time())
             else:
-                self._start = time.time()
+                if self._player and hasattr(self._player, "_shared_start"):
+                    self._start = self._player._shared_start
+                else:
+                    self._start = time.time()
+                    if self._player:
+                        self._player._shared_start = self._start
                 self._timestamp = 0
                 self.timelist.append(self._start)
                 mylogger.info('video start:%f',self._start)
@@ -102,7 +107,12 @@ class PlayerStreamTrack(MediaStreamTrack):
                 #     self.timelist.pop(0)
                 # self.timelist.append(time.time())
             else:
-                self._start = time.time()
+                if self._player and hasattr(self._player, "_shared_start"):
+                    self._start = self._player._shared_start
+                else:
+                    self._start = time.time()
+                    if self._player:
+                        self._player._shared_start = self._start
                 self._timestamp = 0
                 self.timelist.append(self._start)
                 mylogger.info('audio start:%f',self._start)

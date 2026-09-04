@@ -147,7 +147,8 @@ Cuando el sistema te informe los datos de un producto escaneado, debes responder
 - Termina la frase preguntando exactamente: "¿Te gustaría saber en qué pasillo encontrarlo?"
 - NO menciones el piso ni la ubicación al escanear, a menos que el cliente responda afirmativamente.
 - Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde solo el piso y pasillo en una sola frase breve (ej: "Lo encuentras en el Piso 2, pasillo T-04.").
-- Si el cliente responde negativamente (no, gracias): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
+- Si el cliente rechaza saber la ubicación diciendo ÚNICAMENTE que no ("no", "no gracias", "no es necesario"): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
+- Si el cliente indica que no hay el producto o que no lo encuentra en el pasillo o góndola ("no hay este producto", "no lo encuentro", "no queda stock"): aclara amablemente que según el sistema sí figura con stock en tienda, y sugiérele consultar a un vendedor o asesor del piso para revisar bodega (ej: "Según mi sistema sí tenemos stock disponible. Puedes consultar a un vendedor en este piso para que revise en bodega.").
 
 REGLA ABSOLUTA DE TEMÁTICA (SOLO TIENDA PARIS):
 - SOLO puedes responder consultas relacionadas directamente con esta tienda Paris, sus productos, precios, ofertas, pisos, pasillos y servicios.
@@ -159,6 +160,7 @@ RAZONAMIENTO Y CONSULTAS DE PRODUCTOS:
 - Cuando pregunten por el producto "más barato", "más económico", "en oferta" o de mejor precio de cualquier tipo o categoría, responde de inmediato el nombre y precio del producto más económico de esa sección.
 - Cuando pregunten por disponibilidad de tallas en calzado o ropa, indica directamente si la talla solicitada tiene stock o está agotada, y menciona brevemente las tallas disponibles.
 - Si un producto fue escaneado antes en la conversación, mantén ese producto como referencia si el cliente pide compararlo o buscar alternativas.
+- Si el cliente dice que no ve o no encuentra el producto escaneado, recuérdale que en sistema figura stock y que consulte al vendedor del piso.
 
 ROL Y COMPORTAMIENTO COMERCIAL:
 - Habla siempre en español chileno natural, proactivo, profesional y directo.
@@ -183,6 +185,12 @@ Respuesta del avatar: "Lo encuentras en el Piso 2, pasillo T-04."
 
 Cliente: "No, gracias"
 Respuesta del avatar: "Perfecto, aquí estaré si necesitas algo más."
+
+Cliente: "No hay este producto en la góndola"
+Respuesta del avatar: "Según el sistema sí tenemos stock disponible. Te sugiero consultar a un vendedor del piso para revisar bodega."
+
+Cliente: "No encuentro el parlante"
+Respuesta del avatar: "En el sistema figura stock en tienda. Puedes pedirle a un vendedor del piso 2 que revise en bodega."
 
 Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. En oferta a 599.990 pesos con 44 por ciento de descuento (antes 1.069.990 pesos). Ubicación: Piso 2, Tecno, Pasillo T-04."
 Respuesta del avatar: "El Galaxy S25 está en oferta a 599.990 pesos con un 44 por ciento de descuento. ¿Te gustaría saber en qué pasillo encontrarlo?"
@@ -316,7 +324,7 @@ reload_catalog()
 
 
 # ─── Detección inteligente de oraciones para streaming de voz ultra-rápido ───
-MIN_CHUNK_LEN = 10  # caracteres mínimos antes de enviar un fragmento
+MIN_CHUNK_LEN = 120  # caracteres mínimos antes de enviar un fragmento (evita cortes y desincronización en respuestas cortas)
 
 def _is_sentence_boundary(chunk_buf: str) -> bool:
     """
@@ -443,23 +451,10 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         clean_text = normalizar(full_text)
         _append_to_history(sessionid, message, clean_text)
 
-        # Dividir en fragmentos por puntuación para alimentar al avatar progresivamente
-        chunk = ""
-        for char in full_text:
-            chunk += char
-            if _is_sentence_boundary(chunk):
-                fragment = normalizar(chunk.strip())
-                if fragment:
-                    logger.info(f"[LLM] -> avatar: {fragment}")
-                    avatar_session.put_msg_txt(fragment, datainfo)
-                chunk = ""
-
-        # Enviar cualquier texto restante al final
-        if chunk.strip():
-            last_frag = normalizar(chunk.strip())
-            if last_frag:
-                logger.info(f"[LLM] -> avatar (ultimo): {last_frag}")
-                avatar_session.put_msg_txt(last_frag, datainfo)
+        # Enviar respuesta completa al avatar en un solo bloque para máxima fluidez y perfecta sincronización
+        if clean_text:
+            logger.info(f"[LLM] -> avatar: {clean_text}")
+            avatar_session.put_msg_txt(clean_text, datainfo)
 
         return clean_text
 
@@ -516,25 +511,27 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 full_text += content
                 chunk_buf += content
 
-                # Dividir en fragmentos por puntuación para alimentar al avatar y al chat
-                if _is_sentence_boundary(chunk_buf):
+                # Rinde el token de inmediato para la interfaz de chat en tiempo real
+                yield content
+
+                # Dividir para el TTS del avatar solo si el buffer es suficientemente largo (>= 120 chars)
+                # y alcanza un límite de oración natural, evitando micro-cortes a mitad de respuestas cortas
+                if len(chunk_buf) >= MIN_CHUNK_LEN and _is_sentence_boundary(chunk_buf):
                     fragment = normalizar(chunk_buf.strip())
                     if fragment:
-                        logger.info(f"[LLM Stream] -> avatar & chat: {fragment}")
+                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
                         avatar_session.put_msg_txt(fragment, datainfo)
-                        yield fragment + " "
                     chunk_buf = ""
 
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar cualquier texto restante al avatar y al chat
+        # Enviar cualquier texto restante al avatar
         if chunk_buf.strip():
             last_frag = normalizar(chunk_buf.strip())
             if last_frag:
-                logger.info(f"[LLM Stream] -> avatar & chat (ultimo): {last_frag}")
+                logger.info(f"[LLM Stream] -> avatar (final): {last_frag}")
                 avatar_session.put_msg_txt(last_frag, datainfo)
-                yield last_frag
 
         # Guardar turno completo en historial (normalizado)
         _append_to_history(sessionid, message, normalizar(full_text))
