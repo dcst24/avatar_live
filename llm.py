@@ -75,86 +75,66 @@ _histories: dict = {}
 MAX_HISTORY_TURNS = 10  # máximo de turnos (user+assistant) a conservar en memoria
 OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
 OLLAMA_MODEL = "qwen3-vl:32b-instruct"
-OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
+OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "4096"))
 
 # ─── Carga dinámica del catálogo de productos (BDD) ──────────────────────────
 _BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
 _BDD: dict = {}
-_CATALOG_TEXT: str = ""
-SYSTEM_PROMPT: str = ""
+_CATEGORIES_BY_ID: dict = {}
+_BARCODE_TO_CAT: dict = {}
+_SKU_TO_CAT: dict = {}
+_BRAND_TO_CATS: dict = {}
+_KEYWORD_TO_CATS: dict = {}
 
-def _build_catalog_summary(bdd: dict) -> str:
-    """Construye un catálogo estructurado y detallado para inyectar en el system prompt."""
-    if not bdd:
-        return "(catálogo no disponible)"
+CATEGORY_KEYWORDS = {
+    "audio_gaming": ["parlante", "parlantes", "audio", "altavoz", "jbl", "marshall", "audifono", "audifonos", "audífono", "audífonos", "sony", "buds", "consola", "consolas", "playstation", "ps5", "xbox", "gamer", "gaming", "smartwatch", "reloj"],
+    "smartphones": ["celular", "celulares", "telefono", "telefonos", "smartphone", "smartphones", "iphone", "apple", "galaxy", "samsung", "xiaomi", "redmi", "motorola", "pixel"],
+    "television": ["tele", "teles", "televisor", "televisores", "tv", "tvs", "smart tv", "qled", "oled", "uled", "pantalla", "hisense", "roku"],
+    "computacion": ["notebook", "notebooks", "laptop", "laptops", "computador", "computadores", "tablet", "tablets", "macbook", "ipad", "asus", "lenovo"],
+    "zapatillas": ["zapatilla", "zapatillas", "running", "nike", "adidas", "puma", "new balance", "pegasus", "ultraboost", "calzado deportivo", "talla", "tallas"],
+    "perfumes_hombre": ["perfume hombre", "perfumes hombre", "perfume de hombre", "armani", "acqua di gio", "sauvage", "dior", "one million", "bleu"],
+    "perfumes_mujer": ["perfume mujer", "perfumes mujer", "perfume de mujer", "carolina herrera", "good girl", "lancome", "coco mademoiselle", "devotion"],
+    "electrohogar": ["refrigerador", "refrigeradores", "lavadora", "lavadoras", "secadora", "aspiradora", "aspiradoras", "cafetera", "cafeteras", "freidora", "airfryer", "microondas", "linea blanca", "electrohogar", "electrodomestico"],
+    "ropa_mujer": ["vestido", "vestidos", "blusa", "falda", "pantalon mujer", "ropa mujer"],
+    "ropa_hombre": ["camisa", "poleron", "pantalon hombre", "chino", "ropa hombre"],
+    "calzado_mujer": ["sandalia", "sandalias", "bota", "botas", "tacon", "calzado mujer"],
+    "decohogar": ["plumon", "sabana", "sabanas", "cobertor", "almohada", "cama", "deco", "decohogar", "toalla"]
+}
 
-    lines = []
-    tienda = bdd.get("tienda", {})
-    lines.append(f"Tienda: {tienda.get('nombre','')} en {tienda.get('sucursal_demo','')}.")
+def _format_category(cat: dict) -> str:
+    loc = cat.get("ubicacion_tienda", {})
+    piso = loc.get("piso", "?")
+    pasillo = loc.get("pasillo", "")
+    lines = [f"\nCategoría: {cat['nombre']} (Piso {piso}, {pasillo}):"]
+    for p in cat.get("productos", []):
+        precio_str = f"${p['precio']:,}".replace(",", ".")
+        if p.get("en_oferta") and p.get("precio_oferta"):
+            oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
+            precio_detalle = f"antes {precio_str} pesos, oferta {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
+        else:
+            precio_detalle = f"precio {precio_str} pesos"
 
-    banner = bdd.get("banner_publicitario", {})
-    if banner.get("activo"):
-        lines.append(f"Campaña actual: {banner.get('titulo','')}, {banner.get('subtitulo','')}.")
+        code = p.get("codigo_barra") or p.get("sku")
+        piso_num = p.get("piso", piso)
+        pasillo_txt = p.get("pasillo", pasillo)
+        cat_tipo = p.get("categoria", "")
 
-    for cat in bdd.get("categorias", []):
-        loc = cat.get("ubicacion_tienda", {})
-        piso = loc.get("piso", "?")
-        sector = loc.get("sector", "")
-        pasillo = loc.get("pasillo", "")
-        lines.append(f"\nCategoría {cat['nombre']} (Piso {piso}, sector {sector}, pasillo {pasillo}):")
+        disp_txt = ""
+        if p.get("stock_por_talla"):
+            tallas_info = [f"talla {t} ({stk} un)" if stk > 0 else f"talla {t} AGOTADA" for t, stk in p["stock_por_talla"].items()]
+            disp_txt = f" Tallas: {', '.join(tallas_info)}."
+        elif p.get("stock") is not None:
+            stk = p.get("stock")
+            disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
 
-        for p in cat.get("productos", []):
-            precio_str = f"${p['precio']:,}".replace(",", ".")
-            if p.get("en_oferta") and p.get("precio_oferta"):
-                oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-                precio_detalle = f"antes {precio_str} pesos, oferta a {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
-            else:
-                precio_detalle = f"precio {precio_str} pesos"
-
-            code = p.get('codigo_barra') or p.get('sku')
-            piso_num = p.get('piso', piso)
-            pasillo_txt = p.get('pasillo', pasillo)
-            cat_tipo = p.get('categoria', '')
-
-            disp_txt = ""
-            if p.get('stock_por_talla'):
-                tallas_info = []
-                for t, stk in p['stock_por_talla'].items():
-                    if stk > 0:
-                        tallas_info.append(f"talla {t} ({stk} un)")
-                    else:
-                        tallas_info.append(f"talla {t} AGOTADA")
-                disp_txt = f" Tallas: {', '.join(tallas_info)}."
-            elif p.get('stock') is not None:
-                stk = p.get('stock')
-                disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
-
-            tags = p.get('tags_recomendacion', [])
-            tags_txt = f" Usos/Tags: {', '.join(tags)}." if tags else ""
-
-            lines.append(
-                f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Código {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}{tags_txt}"
-            )
-
-    ofertas = bdd.get("ofertas_destacadas", [])
-    if ofertas:
-        lines.append("\nOfertas destacadas:")
-        all_products = {p['sku']: p for cat in bdd.get('categorias', []) for p in cat.get('productos', [])}
-        for o in ofertas:
-            prod = all_products.get(o['sku'], {})
-            if prod:
-                oferta_precio = f"${prod.get('precio_oferta',0):,}".replace(",", ".")
-                lines.append(f"- [{prod.get('categoria','')}] {prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos.")
-
+        lines.append(f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}")
     return "\n".join(lines)
 
 
-def _make_system_prompt(catalog_text: str) -> str:
-    return f'''
-Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
+BASE_SYSTEM_PROMPT = '''Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
 Estás ubicado junto al tótem interactivo de la tienda y tu función principal es orientar a los clientes, informar precios y ofertas, comparar productos y resolver dudas de la tienda.
 
-REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS CORTAS Y DIRECTAS):
+REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras en total).
 - El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
@@ -193,9 +173,6 @@ INFORMACIÓN DE LA TIENDA Y SERVICIOS:
 - Piso 3: Electrohogar y Línea Blanca (Refrigeradores, Lavadoras, Cafeteras, Aspiradoras, Freidoras de Aire en Pasillos H-11 y H-12), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
 - Escaleras mecánicas y ascensores: en el centro de la tienda en todos los pisos (1, 2 y 3).
 
-CATÁLOGO COMPLETO DE PRODUCTOS Y UBICACIONES:
-{catalog_text}
-
 EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
 
 Sistema informa: "Producto escaneado: Parlante Portatil JBL Charge 5 Azul. Marca: JBL. Precio: 179.990 pesos. Ubicación: Piso 2, Tecno, Pasillo T-04."
@@ -223,18 +200,116 @@ Cliente: "¿Cómo hago una función en Python?"
 Respuesta del avatar: "Disculpa, solo respondo sobre productos y compras en tienda Paris. ¿Te ayudo a buscar algo hoy?"
 '''
 
+SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
+
+
+def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
+    """
+    Selecciona e inyecta de forma ultraligera ÚNICAMENTE las categorías y productos
+    relevantes para la consulta del usuario, acelerando drásticamente el tiempo de respuesta.
+    """
+    search_text = user_msg.lower()
+    for h in history[-2:]:
+        search_text += " " + h.get("content", "").lower()
+
+    matched_cats = set()
+
+    # 1. Búsqueda por sinónimos y palabras clave de categoría
+    for cid, kws in CATEGORY_KEYWORDS.items():
+        if any(kw in search_text for kw in kws):
+            matched_cats.add(cid)
+
+    # 2. Búsqueda por código de barras o SKU
+    for cb, cid in _BARCODE_TO_CAT.items():
+        if cb in search_text:
+            matched_cats.add(cid)
+    for sku, cid in _SKU_TO_CAT.items():
+        if sku in search_text:
+            matched_cats.add(cid)
+
+    # 3. Búsqueda por marca registrada en catálogo
+    for brand, cids in _BRAND_TO_CATS.items():
+        if f" {brand} " in f" {search_text} ":
+            matched_cats.update(cids)
+
+    # 4. Búsqueda por palabra distintiva del nombre del producto
+    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', search_text)
+    for w in words:
+        if w in _KEYWORD_TO_CATS:
+            matched_cats.update(_KEYWORD_TO_CATS[w])
+
+    # Casos especiales de género / categoría amplia
+    if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
+        matched_cats.add("perfumes_mujer")
+        matched_cats.add("perfumes_hombre")
+
+    if "ropa" in search_text and not matched_cats.intersection({"ropa_mujer", "ropa_hombre"}):
+        matched_cats.add("ropa_mujer")
+        matched_cats.add("ropa_hombre")
+
+    if ("zapatilla" in search_text or "zapato" in search_text or "calzado" in search_text) and not matched_cats.intersection({"zapatillas", "calzado_mujer"}):
+        matched_cats.add("zapatillas")
+        matched_cats.add("calzado_mujer")
+
+    extra_context = ""
+    if matched_cats:
+        cat_lines = []
+        for cid in matched_cats:
+            if cid in _CATEGORIES_BY_ID:
+                cat_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
+        extra_context = "\n".join(cat_lines)
+    elif any(w in search_text for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
+        ofertas = _BDD.get("ofertas_destacadas", [])
+        all_prods = {p["sku"]: p for c in _BDD.get("categorias", []) for p in c.get("productos", [])}
+        lines = ["\nOfertas destacadas de la semana:"]
+        for o in ofertas:
+            prod = all_prods.get(o["sku"])
+            if prod:
+                lines.append(f"- [{prod.get('categoria','')}] {prod['nombre']}: oferta a ${prod.get('precio_oferta',0):,} pesos ({o['descuento_pct']} por ciento dcto).".replace(",", "."))
+        extra_context = "\n".join(lines)
+
+    if extra_context:
+        return f"{BASE_SYSTEM_PROMPT}\nCATÁLOGO RELEVANTE PARA ESTA CONSULTA:\n{extra_context}"
+    return BASE_SYSTEM_PROMPT
+
+
 def reload_catalog() -> None:
-    global _BDD, _CATALOG_TEXT, SYSTEM_PROMPT
+    global _BDD, _CATEGORIES_BY_ID, _BARCODE_TO_CAT, _SKU_TO_CAT, _BRAND_TO_CATS, _KEYWORD_TO_CATS
     try:
         with open(_BDD_PATH, encoding="utf-8") as _f:
             _BDD = json.load(_f)
-        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH}")
+        _CATEGORIES_BY_ID = {c["id"]: c for c in _BDD.get("categorias", [])}
+        _BARCODE_TO_CAT = {}
+        _SKU_TO_CAT = {}
+        _BRAND_TO_CATS = {}
+        _KEYWORD_TO_CATS = {}
+
+        for cat in _BDD.get("categorias", []):
+            cid = cat["id"]
+            for prod in cat.get("productos", []):
+                cb = str(prod.get("codigo_barra", "")).strip().lower()
+                if cb:
+                    _BARCODE_TO_CAT[cb] = cid
+                sku = str(prod.get("sku", "")).strip().lower()
+                if sku:
+                    _SKU_TO_CAT[sku] = cid
+                marca = str(prod.get("marca", "")).strip().lower()
+                if marca:
+                    _BRAND_TO_CATS.setdefault(marca, set()).add(cid)
+                nombre_words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', prod.get("nombre", "").lower())
+                for w in nombre_words:
+                    if len(w) >= 4 and w not in {"para", "negro", "blanco", "azul", "rojo", "gris", "verde", "inch", "pulgadas"}:
+                        _KEYWORD_TO_CATS.setdefault(w, set()).add(cid)
+
+        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_BARCODE_TO_CAT)} barcodes, {len(_BRAND_TO_CATS)} marcas)")
     except Exception as _e:
         _BDD = {}
+        _CATEGORIES_BY_ID = {}
+        _BARCODE_TO_CAT = {}
+        _SKU_TO_CAT = {}
+        _BRAND_TO_CATS = {}
+        _KEYWORD_TO_CATS = {}
         logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
-
-    _CATALOG_TEXT = _build_catalog_summary(_BDD)
-    SYSTEM_PROMPT = _make_system_prompt(_CATALOG_TEXT)
 
 reload_catalog()
 
@@ -313,7 +388,8 @@ def clear_conversation(sessionid: str) -> None:
 def _get_messages_with_history(sessionid: str, user_message: str) -> list:
     """Construye la lista completa de mensajes para el LLM incluyendo el historial."""
     history = _histories.get(sessionid, [])
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    dynamic_prompt = _get_dynamic_system_prompt(user_message, history)
+    messages = [{"role": "system", "content": dynamic_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
     return messages
