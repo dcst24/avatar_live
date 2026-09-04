@@ -2,33 +2,33 @@
     "tienda": {
         "nombre": "Paris",
         "sucursal_demo": "Paris Costanera Center",
-        "descripcion": "Base de datos ficticia para demo de avatar conversacional. Marcas, rangos de precio y formato de ofertas están inspirados en categorías reales de paris.cl; los SKU, stock y ubicaciones de tienda son inventados para efectos de la demo.",
-        "fecha_actualizacion": "2026-08-26",
+        "descripcion": "Base de datos ficticia para demo de avatar conversacional. Marcas, rangos de precio y formato de ofertas estan inspirados en categorias reales de paris.cl; los SKU, stock y ubicaciones de tienda son inventados para efectos de la demo.",
+        "fecha_actualizacion": "2026-09-04",
         "moneda": "CLP"
     },
     "banner_publicitario": {
         "activo": true,
         "titulo": "Cyber Ofertas Paris",
-        "subtitulo": "Hasta 60% de descuento en Tecnología, Belleza, Deportes y Electrohogar",
-        "vigencia": "26 de agosto al 08 de septiembre de 2026",
+        "subtitulo": "Hasta 60% de descuento en Tecnologia, Belleza, Moda y Electrohogar",
+        "vigencia": "01 al 15 de septiembre de 2026",
         "cta": "Ver ofertas",
         "categorias_destacadas": [
             "tecnologia",
             "belleza",
-            "deportes",
+            "moda",
             "electrohogar"
         ],
-        "mensaje_avatar": "Aprovecha el Cyber Paris: tenemos descuentos de hasta 60% en varias categorías. ¿Te muestro las ofertas de tecnología, belleza, deporte o el hogar?"
+        "mensaje_avatar": "Aprovecha el Cyber Paris: tenemos descuentos de hasta 60% en varias categorias. Te muestro las ofertas de tecnologia, belleza, moda o el hogar?"
     },
     "categorias": [
         {
-            "id": "tecnologia",
-            "nombre": "Tecnología - Celulares",
+            "id": "smartphones",
+            "nombre": "Tecnologia - Smartphones",
             "ubicacion_tienda": {
                 "piso": 2,
                 "sector": "Tecno",
-                "pasillo": "T-04",
-                "referencia": "Al fondo del piso 2, junto a la sección de audio y TV"
+                "pasillo": "T-01",
+                "referencia": "Piso 2, sector Tecnologia, pasillo T-01 al fondo a la izquierda"
             },
             "productos": [
                 {
@@ -36,7 +36,7 @@
                     "nombre": "Samsung Galaxy S25 256GB Navy Liberado",
                     "marca": "Samsung",
                     "categoria": "Smartphones",
-                    "descripcion": "Smartphone gama alta con gran capacidad de almacenamiento, cámara avanzada y batería de larga duración, liberado para cualquier compañía.",
+                    "descripcion": "Smartphone gama alta con procesador Snapdragon 8 Elite, camara triple con IA, pantalla Dynamic AMOLED 2X de 6.2 pulgadas y bateria de 4000mAh. Liberado para cualquier compania.",
                     "precio": 1069990,
                     "en_oferta": true,
                     "precio_oferta": 599990,
@@ -45,271 +45,806 @@
                     "rating": 4.7,
                     "tags_recomendacion": [
                         "gama alta",
-                        "regalo tecnológico",
-                        "buena cámara"
+                        "regalo tecnologico",
+                        "buena camara",
+                        "samsung"
                     ],
                     "codigo_barra": "780100100001",
                     "articulo": "El",
-                    "pasillo": "Pasillo T-04 - Tecno",
+                    "pasillo": "Pasillo T-01 - Smartphones",
                     "piso": 2,
                     "posicion_mapa": {
                         "piso": 2,
                         "sector": "Tecno",
-                        "pasillo": "T-04",
-                        "x": 28,
-                        "y": 24
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
                     }
                 },
                 {
                     "sku": "PA-TEC-00002",
+                    "nombre": "Samsung Galaxy S25+ 512GB Negro Liberado",
+                    "marca": "Samsung",
+                    "categoria": "Smartphones",
+                    "descripcion": "Version Plus del Galaxy S25 con pantalla de 6.7 pulgadas, bateria de 4900mAh y 512GB de almacenamiento. Ideal para quienes necesitan mas espacio y pantalla.",
+                    "precio": 1299990,
+                    "en_oferta": true,
+                    "precio_oferta": 849990,
+                    "descuento_pct": 35,
+                    "stock": 8,
+                    "rating": 4.8,
+                    "tags_recomendacion": [
+                        "gama alta",
+                        "pantalla grande",
+                        "mucho almacenamiento"
+                    ],
+                    "codigo_barra": "780100100002",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-01 - Smartphones",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TEC-00003",
+                    "nombre": "iPhone 16 128GB Negro Liberado",
+                    "marca": "Apple",
+                    "categoria": "Smartphones",
+                    "descripcion": "iPhone con chip A18, camara de 48MP con modo Fusion y hasta 22 horas de reproduccion de video.",
+                    "precio": 999990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 15,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "apple",
+                        "gama alta",
+                        "regalo tecnologico"
+                    ],
+                    "codigo_barra": "780100100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-01 - Smartphones",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TEC-00004",
+                    "nombre": "iPhone 17 Pro Max 256GB Azul Titanio Liberado",
+                    "marca": "Apple",
+                    "categoria": "Smartphones",
+                    "descripcion": "El modelo mas avanzado de iPhone con chip A19 Pro, camara de 48MP con zoom optico 5x, pantalla Super Retina XDR de 6.9 pulgadas y acabados en titanio de grado aeroespacial.",
+                    "precio": 1549990,
+                    "en_oferta": true,
+                    "precio_oferta": 1449990,
+                    "descuento_pct": 6,
+                    "stock": 5,
+                    "rating": 5.0,
+                    "tags_recomendacion": [
+                        "premium",
+                        "regalo tecnologico",
+                        "gama alta",
+                        "apple",
+                        "mejor camara"
+                    ],
+                    "codigo_barra": "780100100004",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-01 - Smartphones",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TEC-00005",
                     "nombre": "Honor 400 5G 512GB Negro Liberado",
                     "marca": "Honor",
                     "categoria": "Smartphones",
-                    "descripcion": "Celular 5G con gran capacidad de almacenamiento, ideal para quienes buscan rendimiento a un precio más accesible.",
+                    "descripcion": "Celular 5G con camara HONOR Image Engine de 200MP y procesador Snapdragon 7s Gen 3. Relacion calidad-precio muy competitiva.",
                     "precio": 549990,
                     "en_oferta": true,
                     "precio_oferta": 399990,
                     "descuento_pct": 27,
                     "stock": 20,
-                    "rating": 0,
+                    "rating": 4.4,
                     "tags_recomendacion": [
                         "gama media",
                         "buen precio",
-                        "5G"
+                        "5G",
+                        "buena camara"
                     ],
-                    "codigo_barra": "780100100002",
+                    "codigo_barra": "780100100005",
                     "articulo": "El",
-                    "pasillo": "Pasillo T-04 - Tecno",
+                    "pasillo": "Pasillo T-01 - Smartphones",
                     "piso": 2,
                     "posicion_mapa": {
                         "piso": 2,
                         "sector": "Tecno",
-                        "pasillo": "T-04",
-                        "x": 30,
-                        "y": 24
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
                     }
                 },
                 {
-                    "sku": "PA-TEC-00003",
-                    "nombre": "Motorola Moto G86 Power 5G 256GB Cereza Liberado",
-                    "marca": "Motorola",
-                    "categoria": "Smartphones",
-                    "descripcion": "Smartphone con batería de larga duración y conectividad 5G, pensado para uso intensivo diario.",
-                    "precio": 349990,
-                    "en_oferta": true,
-                    "precio_oferta": 249990,
-                    "descuento_pct": 29,
-                    "stock": 18,
-                    "rating": 0,
-                    "tags_recomendacion": [
-                        "batería duradera",
-                        "económico",
-                        "5G"
-                    ],
-                    "codigo_barra": "780100100003",
-                    "articulo": "El",
-                    "pasillo": "Pasillo T-04 - Tecno",
-                    "piso": 2,
-                    "posicion_mapa": {
-                        "piso": 2,
-                        "sector": "Tecno",
-                        "pasillo": "T-04",
-                        "x": 32,
-                        "y": 24
-                    }
-                },
-                {
-                    "sku": "PA-TEC-00004",
+                    "sku": "PA-TEC-00006",
                     "nombre": "Xiaomi Poco X8 Pro 512GB 12GB RAM 5G Negro",
                     "marca": "Xiaomi",
                     "categoria": "Smartphones",
-                    "descripcion": "Celular de alto rendimiento con gran cantidad de memoria RAM y almacenamiento, orientado a gamers y multitarea.",
+                    "descripcion": "Celular gaming con pantalla AMOLED 120Hz, procesador MediaTek Dimensity 9300+ con 12GB de RAM y bateria de 5000mAh. Ideal para juegos y multitarea exigente.",
                     "precio": 529990,
                     "en_oferta": true,
                     "precio_oferta": 419990,
                     "descuento_pct": 21,
                     "stock": 15,
-                    "rating": 0,
+                    "rating": 4.5,
                     "tags_recomendacion": [
                         "gaming",
                         "alto rendimiento",
-                        "multitarea"
+                        "multitarea",
+                        "pantalla amoled"
                     ],
-                    "codigo_barra": "780100100004",
+                    "codigo_barra": "780100100006",
                     "articulo": "El",
-                    "pasillo": "Pasillo T-04 - Tecno",
+                    "pasillo": "Pasillo T-01 - Smartphones",
                     "piso": 2,
                     "posicion_mapa": {
                         "piso": 2,
                         "sector": "Tecno",
-                        "pasillo": "T-04",
-                        "x": 28,
-                        "y": 26
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
                     }
                 },
                 {
-                    "sku": "PA-TEC-00005",
-                    "nombre": "iPhone 17 Pro Max 256GB Azul Liberado",
-                    "marca": "Apple",
+                    "sku": "PA-TEC-00007",
+                    "nombre": "Motorola Moto G86 Power 5G 256GB Cereza Liberado",
+                    "marca": "Motorola",
                     "categoria": "Smartphones",
-                    "descripcion": "El modelo más avanzado de iPhone, con gran capacidad, cámara profesional y acabados premium.",
-                    "precio": 1549990,
+                    "descripcion": "Smartphone con bateria de 5500mAh de larga duracion, pantalla de 6.7 pulgadas y conectividad 5G. Pensado para uso intensivo diario sin preocuparse de la carga.",
+                    "precio": 349990,
                     "en_oferta": true,
-                    "precio_oferta": 1449990,
-                    "descuento_pct": 6,
-                    "stock": 8,
-                    "rating": 5.0,
+                    "precio_oferta": 249990,
+                    "descuento_pct": 29,
+                    "stock": 18,
+                    "rating": 4.2,
                     "tags_recomendacion": [
-                        "premium",
-                        "regalo tecnológico",
-                        "gama alta"
+                        "bateria duradera",
+                        "economico",
+                        "5G"
                     ],
-                    "codigo_barra": "780100100005",
+                    "codigo_barra": "780100100007",
                     "articulo": "El",
-                    "pasillo": "Pasillo T-04 - Tecno",
+                    "pasillo": "Pasillo T-01 - Smartphones",
                     "piso": 2,
                     "posicion_mapa": {
                         "piso": 2,
                         "sector": "Tecno",
-                        "pasillo": "T-04",
-                        "x": 32,
-                        "y": 26
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TEC-00008",
+                    "nombre": "Google Pixel 9 128GB Obsidiana Liberado",
+                    "marca": "Google",
+                    "categoria": "Smartphones",
+                    "descripcion": "El telefono de Google con inteligencia artificial Gemini integrada, mejor experiencia Android pura, chip Tensor G4 y camara de 50MP con magic eraser.",
+                    "precio": 879990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 10,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "android puro",
+                        "inteligencia artificial",
+                        "buena camara",
+                        "google"
+                    ],
+                    "codigo_barra": "780100100008",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-01 - Smartphones",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-01",
+                        "x": 15,
+                        "y": 20
                     }
                 }
             ]
         },
         {
-            "id": "belleza",
-            "nombre": "Belleza - Perfumes",
+            "id": "television",
+            "nombre": "Tecnologia - Televisores",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Tecno",
+                "pasillo": "T-02",
+                "referencia": "Piso 2, sector Tecnologia, pasillo T-02 al centro. Las pantallas estan exhibidas en la pared lateral"
+            },
+            "productos": [
+                {
+                    "sku": "PA-TV-00001",
+                    "nombre": "Smart TV Samsung QLED 55 pulgadas 4K Q70D",
+                    "marca": "Samsung",
+                    "categoria": "Televisores",
+                    "descripcion": "TV QLED de 55 pulgadas con resolucion 4K, tecnologia Quantum Dot para colores brillantes, Tizen OS con apps de streaming y modo Gaming a 120Hz.",
+                    "precio": 699990,
+                    "en_oferta": true,
+                    "precio_oferta": 499990,
+                    "descuento_pct": 29,
+                    "stock": 8,
+                    "rating": 4.7,
+                    "tags_recomendacion": [
+                        "qled",
+                        "55 pulgadas",
+                        "4K",
+                        "gaming",
+                        "samsung"
+                    ],
+                    "codigo_barra": "780150100001",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TV-00002",
+                    "nombre": "Smart TV Samsung QLED 65 pulgadas 4K Q80D",
+                    "marca": "Samsung",
+                    "categoria": "Televisores",
+                    "descripcion": "TV QLED de 65 pulgadas con panel Direct Full Array para mejor contraste, Tizen OS, HDR10+ y modo ambient mode. Ideal para living amplio.",
+                    "precio": 999990,
+                    "en_oferta": true,
+                    "precio_oferta": 699990,
+                    "descuento_pct": 30,
+                    "stock": 4,
+                    "rating": 4.8,
+                    "tags_recomendacion": [
+                        "qled",
+                        "65 pulgadas",
+                        "4K",
+                        "living",
+                        "premium"
+                    ],
+                    "codigo_barra": "780150100002",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TV-00003",
+                    "nombre": "Smart TV LG OLED 55 pulgadas 4K C4",
+                    "marca": "LG",
+                    "categoria": "Televisores",
+                    "descripcion": "TV OLED evo de 55 pulgadas con negros perfectos, procesador Alpha 9 Gen7 AI, webOS 24, compatible con Dolby Vision y Atmos. Referente en calidad de imagen.",
+                    "precio": 899990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 6,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "oled",
+                        "55 pulgadas",
+                        "mejor calidad imagen",
+                        "cine en casa",
+                        "dolby vision"
+                    ],
+                    "codigo_barra": "780150100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TV-00004",
+                    "nombre": "Smart TV Hisense 50 pulgadas 4K U6K ULED",
+                    "marca": "Hisense",
+                    "categoria": "Televisores",
+                    "descripcion": "TV ULED de 50 pulgadas con Full Array Local Dimming, HDR10+ y Dolby Vision. Excelente relacion calidad-precio para quienes buscan buena imagen sin gastar de mas.",
+                    "precio": 399990,
+                    "en_oferta": true,
+                    "precio_oferta": 279990,
+                    "descuento_pct": 30,
+                    "stock": 12,
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "calidad precio",
+                        "50 pulgadas",
+                        "4K",
+                        "economico"
+                    ],
+                    "codigo_barra": "780150100004",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TV-00005",
+                    "nombre": "Smart TV Sony Bravia 65 pulgadas 4K X85L",
+                    "marca": "Sony",
+                    "categoria": "Televisores",
+                    "descripcion": "TV Sony con procesador X1 4K HDR, Google TV integrado, Triluminos Pro y soporte para PS5 con modos gaming de baja latencia.",
+                    "precio": 849990,
+                    "en_oferta": true,
+                    "precio_oferta": 649990,
+                    "descuento_pct": 24,
+                    "stock": 5,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "sony",
+                        "65 pulgadas",
+                        "google tv",
+                        "gaming ps5"
+                    ],
+                    "codigo_barra": "780150100005",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-TV-00006",
+                    "nombre": "Smart TV TCL 43 pulgadas 4K S5400A",
+                    "marca": "TCL",
+                    "categoria": "Televisores",
+                    "descripcion": "TV 4K economica de 43 pulgadas con Google TV y soporte HDR. Ideal para habitacion o departamento pequeno.",
+                    "precio": 249990,
+                    "en_oferta": true,
+                    "precio_oferta": 189990,
+                    "descuento_pct": 24,
+                    "stock": 20,
+                    "rating": 4.1,
+                    "tags_recomendacion": [
+                        "economico",
+                        "43 pulgadas",
+                        "habitacion",
+                        "4K",
+                        "google tv"
+                    ],
+                    "codigo_barra": "780150100006",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-02 - Televisores",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-02",
+                        "x": 25,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "computacion",
+            "nombre": "Tecnologia - Computacion y Tablets",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Tecno",
+                "pasillo": "T-03",
+                "referencia": "Piso 2, sector Tecnologia, pasillo T-03. Laptops exhibidas sobre mesones en el centro"
+            },
+            "productos": [
+                {
+                    "sku": "PA-COM-00001",
+                    "nombre": "Notebook Asus Vivobook 15 Core i5 16GB RAM 512GB SSD",
+                    "marca": "Asus",
+                    "categoria": "Notebooks",
+                    "descripcion": "Notebook de 15.6 pulgadas Full HD, procesador Intel Core i5-1335U, 16GB de RAM y SSD de 512GB. Versatil para trabajo, estudio y entretenimiento.",
+                    "precio": 499990,
+                    "en_oferta": true,
+                    "precio_oferta": 379990,
+                    "descuento_pct": 24,
+                    "stock": 10,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "trabajo",
+                        "estudio",
+                        "buena relacion calidad precio",
+                        "i5"
+                    ],
+                    "codigo_barra": "780160100001",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-03 - Computacion",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-03",
+                        "x": 35,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-COM-00002",
+                    "nombre": "MacBook Air 13 pulgadas M3 8GB 256GB Medianoche",
+                    "marca": "Apple",
+                    "categoria": "Notebooks",
+                    "descripcion": "El MacBook Air mas liviano con chip M3, hasta 18 horas de autonomia, pantalla Liquid Retina de 13.6 pulgadas y diseno fanless ultra silencioso.",
+                    "precio": 1299990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 7,
+                    "rating": 4.8,
+                    "tags_recomendacion": [
+                        "apple",
+                        "macbook",
+                        "liviano",
+                        "larga bateria",
+                        "premium"
+                    ],
+                    "codigo_barra": "780160100002",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-03 - Computacion",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-03",
+                        "x": 35,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-COM-00003",
+                    "nombre": "Notebook HP Pavilion 15 Ryzen 5 16GB RAM 1TB SSD",
+                    "marca": "HP",
+                    "categoria": "Notebooks",
+                    "descripcion": "Notebook de 15.6 pulgadas con AMD Ryzen 5 7530U, 16GB RAM y 1TB SSD. Buen rendimiento para productividad y tareas cotidianas.",
+                    "precio": 569990,
+                    "en_oferta": true,
+                    "precio_oferta": 449990,
+                    "descuento_pct": 21,
+                    "stock": 9,
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "ryzen",
+                        "1TB",
+                        "trabajo",
+                        "hp"
+                    ],
+                    "codigo_barra": "780160100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-03 - Computacion",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-03",
+                        "x": 35,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-COM-00004",
+                    "nombre": "Tablet Samsung Galaxy Tab S9 FE 10.9 pulgadas 6GB 128GB WiFi Grafito",
+                    "marca": "Samsung",
+                    "categoria": "Tablets",
+                    "descripcion": "Tablet Android de 10.9 pulgadas con procesador Exynos 1380, S Pen incluido y bateria de 8000mAh. Perfecta para dibujo, lectura y entretenimiento.",
+                    "precio": 449990,
+                    "en_oferta": true,
+                    "precio_oferta": 329990,
+                    "descuento_pct": 27,
+                    "stock": 14,
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "tablet",
+                        "samsung",
+                        "s pen",
+                        "dibujo digital",
+                        "estudio"
+                    ],
+                    "codigo_barra": "780160100004",
+                    "articulo": "La",
+                    "pasillo": "Pasillo T-03 - Computacion",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-03",
+                        "x": 35,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-COM-00005",
+                    "nombre": "iPad 10a Generacion 10.9 pulgadas 64GB WiFi Azul",
+                    "marca": "Apple",
+                    "categoria": "Tablets",
+                    "descripcion": "iPad con chip A14 Bionic, pantalla Liquid Retina de 10.9 pulgadas, camara frontal de 12MP y hasta 10 horas de bateria. Compatible con Apple Pencil de primera generacion.",
+                    "precio": 599990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 11,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "apple",
+                        "ipad",
+                        "tablet premium",
+                        "apple pencil"
+                    ],
+                    "codigo_barra": "780160100005",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-03 - Computacion",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-03",
+                        "x": 35,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "audio_gaming",
+            "nombre": "Tecnologia - Audio y Gaming",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Tecno",
+                "pasillo": "T-04",
+                "referencia": "Piso 2, sector Tecnologia, pasillo T-04. Audifonos exhibidos en display interactivo"
+            },
+            "productos": [
+                {
+                    "sku": "PA-AUD-00001",
+                    "nombre": "Audifonos Inalambricos Sony WH-1000XM5 Negros",
+                    "marca": "Sony",
+                    "categoria": "Audifonos",
+                    "descripcion": "Audifonos over-ear con cancelacion de ruido lider en la industria, 30 horas de bateria, microfono para llamadas y audio Hi-Res. Ideales para viajes y oficina.",
+                    "precio": 349990,
+                    "en_oferta": true,
+                    "precio_oferta": 249990,
+                    "descuento_pct": 29,
+                    "stock": 16,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "cancelacion ruido",
+                        "premium audio",
+                        "viajes",
+                        "oficina",
+                        "sony"
+                    ],
+                    "codigo_barra": "780170100001",
+                    "articulo": "Los",
+                    "pasillo": "Pasillo T-04 - Audio",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-AUD-00002",
+                    "nombre": "Audifonos In-Ear Samsung Galaxy Buds3 Pro Blancos",
+                    "marca": "Samsung",
+                    "categoria": "Audifonos",
+                    "descripcion": "Earbuds inalambricos con ANC inteligente, audio 360 con Dolby Atmos, hasta 30 horas con estuche y resistencia al agua IPX7.",
+                    "precio": 249990,
+                    "en_oferta": true,
+                    "precio_oferta": 179990,
+                    "descuento_pct": 28,
+                    "stock": 22,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "inalambrico",
+                        "anc",
+                        "deporte",
+                        "samsung",
+                        "ipx7"
+                    ],
+                    "codigo_barra": "780170100002",
+                    "articulo": "Los",
+                    "pasillo": "Pasillo T-04 - Audio",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-AUD-00003",
+                    "nombre": "Parlante Portatil JBL Charge 5 Azul",
+                    "marca": "JBL",
+                    "categoria": "Parlantes",
+                    "descripcion": "Parlante Bluetooth portatil con hasta 20 horas de reproduccion, resistente al agua IP67 y carga USB-C. Compatible con JBL PartyBoost.",
+                    "precio": 179990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 18,
+                    "rating": 4.7,
+                    "tags_recomendacion": [
+                        "playa",
+                        "outdoor",
+                        "resistente agua",
+                        "portatil",
+                        "jbl"
+                    ],
+                    "codigo_barra": "780170100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-04 - Audio",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-AUD-00004",
+                    "nombre": "Consola Sony PlayStation 5 Slim 1TB Digital Edition",
+                    "marca": "Sony",
+                    "categoria": "Consolas de Videojuegos",
+                    "descripcion": "PS5 Slim mas compacta y liviana, 1TB de SSD ultra rapido, ray tracing, 4K a 120fps y compatible con todos los juegos de PS4.",
+                    "precio": 649990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 3,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "ps5",
+                        "consola",
+                        "gaming",
+                        "4K",
+                        "ray tracing"
+                    ],
+                    "codigo_barra": "780170100004",
+                    "articulo": "La",
+                    "pasillo": "Pasillo T-04 - Audio y Gaming",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-AUD-00005",
+                    "nombre": "Consola Microsoft Xbox Series S 512GB Blanca",
+                    "marca": "Microsoft",
+                    "categoria": "Consolas de Videojuegos",
+                    "descripcion": "La consola Xbox mas compacta y asequible, 512GB SSD, gaming en 1440p y hasta 120fps, acceso a Xbox Game Pass.",
+                    "precio": 399990,
+                    "en_oferta": true,
+                    "precio_oferta": 299990,
+                    "descuento_pct": 25,
+                    "stock": 7,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "xbox",
+                        "consola",
+                        "gaming",
+                        "game pass",
+                        "precio accesible"
+                    ],
+                    "codigo_barra": "780170100005",
+                    "articulo": "La",
+                    "pasillo": "Pasillo T-04 - Audio y Gaming",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-AUD-00006",
+                    "nombre": "Smartwatch Samsung Galaxy Watch7 44mm Negro",
+                    "marca": "Samsung",
+                    "categoria": "Smartwatches",
+                    "descripcion": "Reloj inteligente con monitoreo avanzado de salud, GPS integrado, hasta 40 horas de bateria con modo ahorro y carcasa de aluminio de 44mm.",
+                    "precio": 279990,
+                    "en_oferta": true,
+                    "precio_oferta": 199990,
+                    "descuento_pct": 29,
+                    "stock": 13,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "smartwatch",
+                        "samsung",
+                        "salud",
+                        "deporte",
+                        "gps"
+                    ],
+                    "codigo_barra": "780170100006",
+                    "articulo": "El",
+                    "pasillo": "Pasillo T-04 - Audio y Gaming",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Tecno",
+                        "pasillo": "T-04",
+                        "x": 42,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "perfumes_mujer",
+            "nombre": "Belleza - Perfumes Mujer",
             "ubicacion_tienda": {
                 "piso": 1,
                 "sector": "Belleza",
-                "pasillo": "B-02",
-                "referencia": "Entrando por acceso principal, a mano derecha"
+                "pasillo": "B-01",
+                "referencia": "Piso 1, entrando por acceso principal, sector Belleza a mano derecha. Perfumes Mujer en el pasillo B-01"
             },
             "productos": [
                 {
                     "sku": "PA-BEL-00001",
-                    "nombre": "Set Perfume Dolce & Gabbana Devotion Pour Homme EDP 100ml + Mini 10ml",
-                    "marca": "Dolce&Gabbana",
-                    "categoria": "Perfumes Hombre",
-                    "descripcion": "Set de fragancia masculina con notas amaderadas y especiadas, incluye versión de bolsillo para llevar a todas partes.",
-                    "precio": 76990,
-                    "en_oferta": true,
-                    "precio_oferta": 45990,
-                    "descuento_pct": 40,
-                    "stock": 10,
-                    "rating": 0,
-                    "tags_recomendacion": [
-                        "regalo hombre",
-                        "set de perfume",
-                        "notas amaderadas"
-                    ],
-                    "codigo_barra": "780200100001",
-                    "articulo": "El",
-                    "pasillo": "Pasillo B-02 - Belleza",
-                    "piso": 1,
-                    "posicion_mapa": {
-                        "piso": 1,
-                        "sector": "Belleza",
-                        "pasillo": "B-02",
-                        "x": 73,
-                        "y": 33
-                    }
-                },
-                {
-                    "sku": "PA-BEL-00002",
-                    "nombre": "Perfume Prada Luna Rossa EDT Hombre 100ml",
-                    "marca": "Prada",
-                    "categoria": "Perfumes Hombre",
-                    "descripcion": "Fragancia masculina fresca con toques cítricos y amaderados, ideal para uso diario.",
-                    "precio": 82790,
-                    "en_oferta": true,
-                    "precio_oferta": 52990,
-                    "descuento_pct": 36,
-                    "stock": 14,
-                    "rating": 0,
-                    "tags_recomendacion": [
-                        "marca premium",
-                        "fresco",
-                        "uso diario"
-                    ],
-                    "codigo_barra": "780200100002",
-                    "articulo": "El",
-                    "pasillo": "Pasillo B-02 - Belleza",
-                    "piso": 1,
-                    "posicion_mapa": {
-                        "piso": 1,
-                        "sector": "Belleza",
-                        "pasillo": "B-02",
-                        "x": 76,
-                        "y": 33
-                    }
-                },
-                {
-                    "sku": "PA-BEL-00003",
-                    "nombre": "Perfume Carolina Herrera 212 Sexy Mujer EDP 100ml",
-                    "marca": "Carolina Herrera",
+                    "nombre": "Perfume Lancome La Vie Est Belle EDP Mujer 100ml",
+                    "marca": "Lancome",
                     "categoria": "Perfumes Mujer",
-                    "descripcion": "Fragancia femenina sensual e intensa, con una estela duradera pensada para ocasiones especiales.",
-                    "precio": 108758,
-                    "en_oferta": true,
-                    "precio_oferta": 83660,
-                    "descuento_pct": 23,
-                    "stock": 9,
-                    "rating": 0,
-                    "tags_recomendacion": [
-                        "marca premium",
-                        "regalo mujer",
-                        "ocasión especial"
-                    ],
-                    "codigo_barra": "780200100003",
-                    "articulo": "El",
-                    "pasillo": "Pasillo B-02 - Belleza",
-                    "piso": 1,
-                    "posicion_mapa": {
-                        "piso": 1,
-                        "sector": "Belleza",
-                        "pasillo": "B-02",
-                        "x": 73,
-                        "y": 36
-                    }
-                },
-                {
-                    "sku": "PA-BEL-00004",
-                    "nombre": "Perfume Giorgio Armani Acqua Di Giò Parfum Hombre 100ml Edición Limitada",
-                    "marca": "Giorgio Armani",
-                    "categoria": "Perfumes Hombre",
-                    "descripcion": "Versión concentrada de un clásico masculino, con notas marinas y amaderadas de gran fijación.",
-                    "precio": 170990,
-                    "en_oferta": true,
-                    "precio_oferta": 89990,
-                    "descuento_pct": 47,
-                    "stock": 6,
-                    "rating": 0,
-                    "tags_recomendacion": [
-                        "edición limitada",
-                        "marca premium",
-                        "gran fijación"
-                    ],
-                    "codigo_barra": "780200100004",
-                    "articulo": "El",
-                    "pasillo": "Pasillo B-02 - Belleza",
-                    "piso": 1,
-                    "posicion_mapa": {
-                        "piso": 1,
-                        "sector": "Belleza",
-                        "pasillo": "B-02",
-                        "x": 76,
-                        "y": 36
-                    }
-                },
-                {
-                    "sku": "PA-BEL-00005",
-                    "nombre": "Perfume Lancôme La Vie Est Belle EDP Mujer 100ml",
-                    "marca": "Lancôme",
-                    "categoria": "Perfumes Mujer",
-                    "descripcion": "Icónica fragancia femenina floral y golosa, uno de los perfumes más buscados en la categoría.",
+                    "descripcion": "Iconica fragancia femenina con notas de iris, praline y pachuli. Floral y golosa, una de las mas vendidas del mundo. Proyeccion media-alta y duracion de 8 a 10 horas.",
                     "precio": 156990,
                     "en_oferta": true,
                     "precio_oferta": 89990,
@@ -319,329 +854,1708 @@
                     "tags_recomendacion": [
                         "best seller",
                         "floral",
-                        "regalo mujer"
+                        "regalo mujer",
+                        "goloso",
+                        "duradero"
                     ],
-                    "codigo_barra": "780200100005",
+                    "codigo_barra": "780200100001",
                     "articulo": "El",
-                    "pasillo": "Pasillo B-02 - Belleza",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Belleza",
-                        "pasillo": "B-02",
-                        "x": 75,
-                        "y": 38
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00002",
+                    "nombre": "Perfume Carolina Herrera Good Girl EDP Mujer 80ml",
+                    "marca": "Carolina Herrera",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Fragancia dual: jazmin y rosa por arriba, notas de cacao y cafe en el fondo. Botella iconica en forma de stiletto. Intensidad media-alta, deja una estela memorable.",
+                    "precio": 129990,
+                    "en_oferta": true,
+                    "precio_oferta": 94990,
+                    "descuento_pct": 27,
+                    "stock": 15,
+                    "rating": 4.7,
+                    "tags_recomendacion": [
+                        "good girl",
+                        "florales orientales",
+                        "noche",
+                        "regalo mujer",
+                        "carolina herrera"
+                    ],
+                    "codigo_barra": "780200100002",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00003",
+                    "nombre": "Perfume Carolina Herrera 212 Sexy Mujer EDP 100ml",
+                    "marca": "Carolina Herrera",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Fragancia sensual e intensa con notas de orquidea, vainilla y almizcle. Pensada para ocasiones especiales donde se quiere dejar huella.",
+                    "precio": 108758,
+                    "en_oferta": true,
+                    "precio_oferta": 83660,
+                    "descuento_pct": 23,
+                    "stock": 9,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "sensual",
+                        "ocasion especial",
+                        "regalo mujer",
+                        "carolina herrera"
+                    ],
+                    "codigo_barra": "780200100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00004",
+                    "nombre": "Perfume Dior Miss Dior Blooming Bouquet EDT Mujer 100ml",
+                    "marca": "Dior",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Fragancia floral y fresca de Dior con notas de peonia, mandarina y almizcle blanco. Delicada y femenina, perfecta para uso diario y primavera.",
+                    "precio": 139990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 7,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "dior",
+                        "floral fresco",
+                        "uso diario",
+                        "delicado",
+                        "primavera"
+                    ],
+                    "codigo_barra": "780200100004",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00005",
+                    "nombre": "Perfume Chanel Chance EDP Mujer 100ml",
+                    "marca": "Chanel",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Fragancia floral fresca de Chanel con notas de jazmin, jacintos y vetiver. Elegante y atemporal, apta para cualquier momento del dia y estacion.",
+                    "precio": 179990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 6,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "chanel",
+                        "lujo",
+                        "clasico",
+                        "elegante",
+                        "regalo premium"
+                    ],
+                    "codigo_barra": "780200100005",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00006",
+                    "nombre": "Perfume Viktor Rolf Flowerbomb EDP Mujer 100ml",
+                    "marca": "Viktor Rolf",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Explosion de flores y especias dulces: freesia, rosa, patchouli y jazmin. Uno de los perfumes femeninos mas aclamados para invierno por su calidez y duracion.",
+                    "precio": 149990,
+                    "en_oferta": true,
+                    "precio_oferta": 109990,
+                    "descuento_pct": 27,
+                    "stock": 8,
+                    "rating": 4.8,
+                    "tags_recomendacion": [
+                        "floral oriental",
+                        "invierno",
+                        "calido",
+                        "duradero",
+                        "regalo"
+                    ],
+                    "codigo_barra": "780200100006",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00007",
+                    "nombre": "Perfume YSL Black Opium EDP Mujer 90ml",
+                    "marca": "YSL",
+                    "categoria": "Perfumes Mujer",
+                    "descripcion": "Fragancia adictiva con notas de cafe negro, vainilla y flor de naranjo. Intensa y seductora, pensada para la noche y momentos de fiesta.",
+                    "precio": 139990,
+                    "en_oferta": true,
+                    "precio_oferta": 99990,
+                    "descuento_pct": 29,
+                    "stock": 12,
+                    "rating": 4.7,
+                    "tags_recomendacion": [
+                        "ysl",
+                        "noche",
+                        "cafe",
+                        "seductor",
+                        "intenso",
+                        "fiesta"
+                    ],
+                    "codigo_barra": "780200100007",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-01 - Perfumes Mujer",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-01",
+                        "x": 72,
+                        "y": 30
                     }
                 }
             ]
         },
         {
-            "id": "deportes",
-            "nombre": "Deportes - Zapatillas Running",
+            "id": "perfumes_hombre",
+            "nombre": "Belleza - Perfumes Hombre",
+            "ubicacion_tienda": {
+                "piso": 1,
+                "sector": "Belleza",
+                "pasillo": "B-02",
+                "referencia": "Piso 1, sector Belleza, pasillo B-02. Al lado de la seccion de perfumes mujer"
+            },
+            "productos": [
+                {
+                    "sku": "PA-BEL-00010",
+                    "nombre": "Set Perfume Dolce Gabbana Devotion Pour Homme EDP 100ml mas Mini 10ml",
+                    "marca": "Dolce Gabbana",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "Set de fragancia masculina con notas amaderadas y especiadas de cedro, tabaco y cacao. Incluye version de bolsillo de 10ml. Duracion de 8 horas.",
+                    "precio": 76990,
+                    "en_oferta": true,
+                    "precio_oferta": 45990,
+                    "descuento_pct": 40,
+                    "stock": 10,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "regalo hombre",
+                        "set",
+                        "amaderado",
+                        "especiado",
+                        "dolce gabbana"
+                    ],
+                    "codigo_barra": "780200100010",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00011",
+                    "nombre": "Perfume Giorgio Armani Acqua Di Gio Parfum Hombre 100ml",
+                    "marca": "Giorgio Armani",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "Version concentrada del clasico Acqua di Gio con notas marinas, vetiver y pachuli de gran fijacion. Aromatico y fresco marino que se adapta al calor.",
+                    "precio": 170990,
+                    "en_oferta": true,
+                    "precio_oferta": 89990,
+                    "descuento_pct": 47,
+                    "stock": 6,
+                    "rating": 4.8,
+                    "tags_recomendacion": [
+                        "marino",
+                        "clasico masculino",
+                        "gran fijacion",
+                        "armani",
+                        "verano"
+                    ],
+                    "codigo_barra": "780200100011",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00012",
+                    "nombre": "Perfume Prada Luna Rossa EDT Hombre 100ml",
+                    "marca": "Prada",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "Fragancia masculina fresca con notas citricas de pomelo, especias de lavanda y amaderado de cedro. Ideal para uso diario, proyeccion moderada.",
+                    "precio": 82790,
+                    "en_oferta": true,
+                    "precio_oferta": 52990,
+                    "descuento_pct": 36,
+                    "stock": 14,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "prada",
+                        "fresco",
+                        "uso diario",
+                        "verano",
+                        "deportivo"
+                    ],
+                    "codigo_barra": "780200100012",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00013",
+                    "nombre": "Perfume Chanel Bleu de Chanel EDP Hombre 100ml",
+                    "marca": "Chanel",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "El perfume masculino de lujo mas iconico de la ultima decada. Notas de cedro, sandalo, jengibre y limon. Versatil y elegante para cualquier ocasion.",
+                    "precio": 179990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 5,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "chanel",
+                        "lujo",
+                        "clasico",
+                        "versatil",
+                        "regalo premium hombre"
+                    ],
+                    "codigo_barra": "780200100013",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00014",
+                    "nombre": "Perfume Dior Sauvage EDP Hombre 100ml",
+                    "marca": "Dior",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "Best seller masculino de Dior con notas de bergamota, pimienta rosa y ambroxan. Fresco, arido y magnetico. Proyeccion y duracion excepcionales.",
+                    "precio": 159990,
+                    "en_oferta": true,
+                    "precio_oferta": 119990,
+                    "descuento_pct": 25,
+                    "stock": 18,
+                    "rating": 4.9,
+                    "tags_recomendacion": [
+                        "dior sauvage",
+                        "best seller hombre",
+                        "larga duracion",
+                        "fresco especiado"
+                    ],
+                    "codigo_barra": "780200100014",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-BEL-00015",
+                    "nombre": "Perfume Calvin Klein Eternity EDT Hombre 100ml",
+                    "marca": "Calvin Klein",
+                    "categoria": "Perfumes Hombre",
+                    "descripcion": "Clasico atemporal con notas de mandarina, lavanda, musgo de roble y sandalo. Fresco y limpio, perfecto para uso cotidiano y oficina.",
+                    "precio": 62990,
+                    "en_oferta": true,
+                    "precio_oferta": 44990,
+                    "descuento_pct": 29,
+                    "stock": 22,
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "clasico",
+                        "uso diario",
+                        "oficina",
+                        "calvin klein",
+                        "precio accesible"
+                    ],
+                    "codigo_barra": "780200100015",
+                    "articulo": "El",
+                    "pasillo": "Pasillo B-02 - Perfumes Hombre",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Belleza",
+                        "pasillo": "B-02",
+                        "x": 78,
+                        "y": 30
+                    }
+                }
+            ]
+        },
+        {
+            "id": "zapatillas",
+            "nombre": "Deportes - Zapatillas",
             "ubicacion_tienda": {
                 "piso": 1,
                 "sector": "Deportes",
-                "pasillo": "D-07",
-                "referencia": "Junto a la sección de ropa deportiva, cerca de probadores"
+                "pasillo": "D-06",
+                "referencia": "Piso 1, sector Deportes, pasillo D-06. Zapatillas exhibidas en estanterias laterales con tallas disponibles en bodega"
             },
             "productos": [
                 {
                     "sku": "PA-DEP-00001",
-                    "nombre": "Zapatilla Running Adidas Ultimashow 2.0 Hombre",
-                    "marca": "Adidas",
-                    "categoria": "Zapatillas Running",
-                    "descripcion": "Zapatilla de running con amortiguación media, pensada para entrenamientos diarios en asfalto.",
-                    "precio": 54990,
+                    "nombre": "Zapatilla Running Nike Air Zoom Pegasus 41 Hombre",
+                    "marca": "Nike",
+                    "categoria": "Zapatillas Running Hombre",
+                    "descripcion": "La zapatilla de running mas popular de Nike para entrenamientos diarios. Amortiguacion Air Zoom y ajuste comodo. Ideal para rodajes de entre 5 y 15km. Sin stock en talla 45.",
+                    "precio": 99990,
                     "en_oferta": true,
-                    "precio_oferta": 44990,
-                    "descuento_pct": 18,
-                    "stock": 25,
-                    "rating": 4.6,
+                    "precio_oferta": 74990,
+                    "descuento_pct": 25,
+                    "stock_por_talla": {
+                        "40": 3,
+                        "41": 5,
+                        "42": 8,
+                        "43": 4,
+                        "44": 2,
+                        "45": 0
+                    },
+                    "rating": 4.7,
                     "tags_recomendacion": [
                         "running diario",
-                        "buen precio",
-                        "amortiguación media"
+                        "nike",
+                        "amortiguacion",
+                        "hombre"
                     ],
                     "codigo_barra": "780300100001",
                     "articulo": "La",
-                    "pasillo": "Pasillo D-07 - Deportes",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Deportes",
-                        "pasillo": "D-07",
-                        "x": 23,
-                        "y": 33
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
                     }
                 },
                 {
                     "sku": "PA-DEP-00002",
-                    "nombre": "Zapatilla Running New Balance M411LB3 Hombre",
-                    "marca": "New Balance",
-                    "categoria": "Zapatillas Running",
-                    "descripcion": "Modelo cómodo y liviano, con buen soporte para principiantes en el running.",
-                    "precio": 54990,
+                    "nombre": "Zapatilla Running Nike React Infinity Run 4 Mujer",
+                    "marca": "Nike",
+                    "categoria": "Zapatillas Running Mujer",
+                    "descripcion": "Zapatilla de alta amortiguacion para running femenino. React foam para mayor rebote y diseno ligero. Reduce el riesgo de lesiones. Sin stock en talla 40.",
+                    "precio": 109990,
                     "en_oferta": true,
-                    "precio_oferta": 47990,
-                    "descuento_pct": 13,
-                    "stock": 17,
-                    "rating": 5.0,
+                    "precio_oferta": 79990,
+                    "descuento_pct": 27,
+                    "stock_por_talla": {
+                        "35.5": 2,
+                        "36": 4,
+                        "37": 6,
+                        "38": 7,
+                        "39": 3,
+                        "40": 0
+                    },
+                    "rating": 4.6,
                     "tags_recomendacion": [
-                        "principiantes",
-                        "liviano",
-                        "cómodo"
+                        "running",
+                        "nike",
+                        "mujer",
+                        "amortiguacion alta"
                     ],
                     "codigo_barra": "780300100002",
                     "articulo": "La",
-                    "pasillo": "Pasillo D-07 - Deportes",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Deportes",
-                        "pasillo": "D-07",
-                        "x": 26,
-                        "y": 33
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
                     }
                 },
                 {
                     "sku": "PA-DEP-00003",
-                    "nombre": "Zapatilla Running Puma Meza Hombre",
-                    "marca": "Puma",
-                    "categoria": "Zapatillas Running",
-                    "descripcion": "Zapatilla urbana-deportiva versátil, apta tanto para entrenar como para uso casual.",
-                    "precio": 74990,
-                    "en_oferta": true,
-                    "precio_oferta": 59990,
-                    "descuento_pct": 20,
-                    "stock": 13,
-                    "rating": 0,
+                    "nombre": "Zapatilla Running Adidas Ultraboost 22 Hombre",
+                    "marca": "Adidas",
+                    "categoria": "Zapatillas Running Hombre",
+                    "descripcion": "La zapatilla de running premium de Adidas con entresuela Boost para maxima energia de retorno. Parte superior Primeknit adaptable. Sin stock en tallas 40 y 45.",
+                    "precio": 139990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "40": 0,
+                        "41": 2,
+                        "42": 4,
+                        "43": 3,
+                        "44": 1,
+                        "45": 0
+                    },
+                    "rating": 4.8,
                     "tags_recomendacion": [
-                        "uso casual",
-                        "versátil"
+                        "adidas",
+                        "boost",
+                        "premium running",
+                        "comodidad extrema"
                     ],
                     "codigo_barra": "780300100003",
                     "articulo": "La",
-                    "pasillo": "Pasillo D-07 - Deportes",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Deportes",
-                        "pasillo": "D-07",
-                        "x": 23,
-                        "y": 36
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
                     }
                 },
                 {
                     "sku": "PA-DEP-00004",
-                    "nombre": "Zapatilla Running Nike Downshifter 14 Mujer",
-                    "marca": "Nike",
-                    "categoria": "Zapatillas Running",
-                    "descripcion": "Zapatilla femenina de running con horma adaptada y buena transpirabilidad.",
-                    "precio": 64990,
-                    "en_oferta": false,
-                    "precio_oferta": null,
-                    "descuento_pct": 0,
-                    "stock": 19,
-                    "rating": 0,
+                    "nombre": "Zapatilla Running Adidas Ultimashow 2.0 Hombre",
+                    "marca": "Adidas",
+                    "categoria": "Zapatillas Running Hombre",
+                    "descripcion": "Zapatilla de running de entrada con amortiguacion media y peso ligero. Pensada para entrenamientos diarios sin exigir mucho al presupuesto.",
+                    "precio": 54990,
+                    "en_oferta": true,
+                    "precio_oferta": 39990,
+                    "descuento_pct": 27,
+                    "stock_por_talla": {
+                        "39": 5,
+                        "40": 8,
+                        "41": 10,
+                        "42": 7,
+                        "43": 4,
+                        "44": 3,
+                        "45": 1
+                    },
+                    "rating": 4.4,
                     "tags_recomendacion": [
-                        "mujer",
-                        "transpirable",
-                        "running"
+                        "economico",
+                        "adidas",
+                        "running basico",
+                        "hombre"
                     ],
                     "codigo_barra": "780300100004",
                     "articulo": "La",
-                    "pasillo": "Pasillo D-07 - Deportes",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Deportes",
-                        "pasillo": "D-07",
-                        "x": 26,
-                        "y": 36
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
                     }
                 },
                 {
                     "sku": "PA-DEP-00005",
-                    "nombre": "Zapatilla Running Under Armour Graphic Phade RN3 Hombre",
-                    "marca": "Under Armour",
-                    "categoria": "Zapatillas Running",
-                    "descripcion": "Zapatilla ligera con diseño gráfico, ideal para entrenamientos de intensidad media.",
-                    "precio": 42990,
-                    "en_oferta": true,
-                    "precio_oferta": 24990,
-                    "descuento_pct": 42,
-                    "stock": 22,
-                    "rating": 4.7,
+                    "nombre": "Zapatilla New Balance Fresh Foam X 1080v13 Mujer",
+                    "marca": "New Balance",
+                    "categoria": "Zapatillas Running Mujer",
+                    "descripcion": "La zapatilla de long run mas plush de New Balance para distancias largas y maraton. Sin stock en talla 35.",
+                    "precio": 129990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "35": 0,
+                        "36": 1,
+                        "37": 3,
+                        "38": 5,
+                        "39": 4,
+                        "40": 2
+                    },
+                    "rating": 4.8,
                     "tags_recomendacion": [
-                        "oferta destacada",
-                        "ligera",
-                        "buen precio"
+                        "new balance",
+                        "maraton",
+                        "larga distancia",
+                        "premium",
+                        "mujer"
                     ],
                     "codigo_barra": "780300100005",
                     "articulo": "La",
-                    "pasillo": "Pasillo D-07 - Deportes",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
                     "piso": 1,
                     "posicion_mapa": {
                         "piso": 1,
                         "sector": "Deportes",
-                        "pasillo": "D-07",
-                        "x": 25,
-                        "y": 38
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
+                    }
+                },
+                {
+                    "sku": "PA-DEP-00006",
+                    "nombre": "Zapatilla Urbana Puma Suede Classic Unisex",
+                    "marca": "Puma",
+                    "categoria": "Zapatillas Urbanas",
+                    "descripcion": "Clasico del streetwear con parte superior de gamuza sintetica y suela de goma vulcanizada. Silueta retro para uso casual. Sin stock en talla 44.",
+                    "precio": 64990,
+                    "en_oferta": true,
+                    "precio_oferta": 44990,
+                    "descuento_pct": 31,
+                    "stock_por_talla": {
+                        "38": 4,
+                        "39": 6,
+                        "40": 8,
+                        "41": 5,
+                        "42": 3,
+                        "43": 2,
+                        "44": 0
+                    },
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "puma",
+                        "urbana",
+                        "casual",
+                        "streetwear",
+                        "unisex"
+                    ],
+                    "codigo_barra": "780300100006",
+                    "articulo": "La",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Deportes",
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
+                    }
+                },
+                {
+                    "sku": "PA-DEP-00007",
+                    "nombre": "Zapatilla Running Under Armour Charged Pursuit 3 Hombre",
+                    "marca": "Under Armour",
+                    "categoria": "Zapatillas Running Hombre",
+                    "descripcion": "Zapatilla de entrenamiento con entresuela Charged Cushioning y malla transpirable. Buena opcion de entrada para runners.",
+                    "precio": 42990,
+                    "en_oferta": true,
+                    "precio_oferta": 29990,
+                    "descuento_pct": 30,
+                    "stock_por_talla": {
+                        "40": 6,
+                        "41": 9,
+                        "42": 11,
+                        "43": 7,
+                        "44": 3,
+                        "45": 1
+                    },
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "under armour",
+                        "economico",
+                        "entrenamiento",
+                        "transpirable"
+                    ],
+                    "codigo_barra": "780300100007",
+                    "articulo": "La",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Deportes",
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
+                    }
+                },
+                {
+                    "sku": "PA-DEP-00008",
+                    "nombre": "Zapatilla Training Reebok Nano X4 Hombre",
+                    "marca": "Reebok",
+                    "categoria": "Zapatillas Training",
+                    "descripcion": "Zapatilla de entrenamiento funcional para crossfit y gym. Base ancha y estable y upper reforzado. Sin stock en tallas 44 y 45.",
+                    "precio": 79990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "40": 3,
+                        "41": 5,
+                        "42": 4,
+                        "43": 2,
+                        "44": 0,
+                        "45": 0
+                    },
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "reebok",
+                        "crossfit",
+                        "gym",
+                        "training",
+                        "estabilidad"
+                    ],
+                    "codigo_barra": "780300100008",
+                    "articulo": "La",
+                    "pasillo": "Pasillo D-06 - Zapatillas",
+                    "piso": 1,
+                    "posicion_mapa": {
+                        "piso": 1,
+                        "sector": "Deportes",
+                        "pasillo": "D-06",
+                        "x": 18,
+                        "y": 28
+                    }
+                }
+            ]
+        },
+        {
+            "id": "ropa_mujer",
+            "nombre": "Moda - Ropa Mujer",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Moda Mujer",
+                "pasillo": "M-01",
+                "referencia": "Piso 2, sector Moda Mujer, pasillo M-01. Vestidos y blusas en la seccion central, pantalones al fondo"
+            },
+            "productos": [
+                {
+                    "sku": "PA-MOD-00001",
+                    "nombre": "Vestido Midi Flores Manga Larga Mujer",
+                    "marca": "Paris Collection",
+                    "categoria": "Vestidos",
+                    "descripcion": "Vestido midi con estampado floral, manga larga y escote redondo. Tela liviana tipo georgette, ideal para primavera-verano.",
+                    "precio": 39990,
+                    "en_oferta": true,
+                    "precio_oferta": 25990,
+                    "descuento_pct": 35,
+                    "stock_por_talla": {
+                        "XS": 2,
+                        "S": 5,
+                        "M": 8,
+                        "L": 6,
+                        "XL": 3,
+                        "XXL": 0
+                    },
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "vestido",
+                        "floral",
+                        "primavera",
+                        "midi",
+                        "casual"
+                    ],
+                    "codigo_barra": "780500100001",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00002",
+                    "nombre": "Blusa Satinada Escote V Mujer",
+                    "marca": "Paris Collection",
+                    "categoria": "Blusas y Camisas",
+                    "descripcion": "Blusa de tela satinada con escote en V, manga larga y cierre de botones. Elegante para la oficina o una cena. Disponible en negro, marfil y vino.",
+                    "precio": 24990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "XS": 3,
+                        "S": 7,
+                        "M": 10,
+                        "L": 8,
+                        "XL": 4,
+                        "XXL": 1
+                    },
+                    "rating": 4.2,
+                    "tags_recomendacion": [
+                        "blusa",
+                        "oficina",
+                        "elegante",
+                        "satinada"
+                    ],
+                    "codigo_barra": "780500100002",
+                    "articulo": "La",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00003",
+                    "nombre": "Pantalon Recto Tiro Alto Mujer",
+                    "marca": "Paris Collection",
+                    "categoria": "Pantalones Mujer",
+                    "descripcion": "Pantalon de pierna recta, tiro alto y tela tipo crepe. Versatil para armar looks de dia o noche. Disponible en negro, camel y gris.",
+                    "precio": 29990,
+                    "en_oferta": true,
+                    "precio_oferta": 19990,
+                    "descuento_pct": 33,
+                    "stock_por_talla": {
+                        "XS": 4,
+                        "S": 8,
+                        "M": 12,
+                        "L": 9,
+                        "XL": 5,
+                        "XXL": 2
+                    },
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "pantalon",
+                        "tiro alto",
+                        "versatil",
+                        "elegante",
+                        "trabajo"
+                    ],
+                    "codigo_barra": "780500100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00004",
+                    "nombre": "Chaqueta Blazer Structured Mujer",
+                    "marca": "Paris Collection",
+                    "categoria": "Chaquetas y Abrigos Mujer",
+                    "descripcion": "Blazer estructurado de corte recto con solapas y dos botones en tejido de punto grueso. Ideal para el trabajo y look business casual.",
+                    "precio": 59990,
+                    "en_oferta": true,
+                    "precio_oferta": 39990,
+                    "descuento_pct": 33,
+                    "stock_por_talla": {
+                        "XS": 2,
+                        "S": 4,
+                        "M": 7,
+                        "L": 5,
+                        "XL": 3,
+                        "XXL": 0
+                    },
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "blazer",
+                        "trabajo",
+                        "business",
+                        "chaqueta",
+                        "estructurado"
+                    ],
+                    "codigo_barra": "780500100004",
+                    "articulo": "La",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00005",
+                    "nombre": "Falda Plisada Midi Mujer",
+                    "marca": "Paris Collection",
+                    "categoria": "Faldas",
+                    "descripcion": "Falda midi plisada con elastico en la cintura. Tela satinada que cae con elegancia. Disponible en durazno, azul y negro.",
+                    "precio": 27990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "XS": 3,
+                        "S": 6,
+                        "M": 9,
+                        "L": 7,
+                        "XL": 2,
+                        "XXL": 0
+                    },
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "falda",
+                        "midi",
+                        "plisada",
+                        "femenino",
+                        "elegante"
+                    ],
+                    "codigo_barra": "780500100005",
+                    "articulo": "La",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00006",
+                    "nombre": "Jeans Skinny Tiro Alto Mujer",
+                    "marca": "Paris Denim",
+                    "categoria": "Jeans Mujer",
+                    "descripcion": "Jean skinny de tiro alto con tela denim stretch para mayor comodidad. Lavado claro y oscuro disponibles.",
+                    "precio": 34990,
+                    "en_oferta": true,
+                    "precio_oferta": 22990,
+                    "descuento_pct": 34,
+                    "stock_por_talla": {
+                        "34": 3,
+                        "36": 5,
+                        "38": 9,
+                        "40": 8,
+                        "42": 4,
+                        "44": 2
+                    },
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "jean",
+                        "skinny",
+                        "tiro alto",
+                        "stretch",
+                        "casual"
+                    ],
+                    "codigo_barra": "780500100006",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-01 - Moda Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Mujer",
+                        "pasillo": "M-01",
+                        "x": 65,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "ropa_hombre",
+            "nombre": "Moda - Ropa Hombre",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Moda Hombre",
+                "pasillo": "M-02",
+                "referencia": "Piso 2, sector Moda Hombre, pasillo M-02. Al fondo derecha del piso, frente a los probadores"
+            },
+            "productos": [
+                {
+                    "sku": "PA-MOD-00010",
+                    "nombre": "Camisa Oxford Regular Fit Hombre",
+                    "marca": "Paris Collection",
+                    "categoria": "Camisas Hombre",
+                    "descripcion": "Camisa de tela oxford 100 por ciento algodon, corte regular y manga larga. Disponible en celeste, blanco y grafito.",
+                    "precio": 29990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "S": 5,
+                        "M": 10,
+                        "L": 12,
+                        "XL": 8,
+                        "XXL": 4
+                    },
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "camisa",
+                        "oficina",
+                        "algodon",
+                        "formal",
+                        "hombre"
+                    ],
+                    "codigo_barra": "780500100010",
+                    "articulo": "La",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00011",
+                    "nombre": "Pantalon Chino Slim Hombre",
+                    "marca": "Paris Collection",
+                    "categoria": "Pantalones Hombre",
+                    "descripcion": "Pantalon chino de corte slim con tela gabardina comoda. Versatil para vestir casual o semi formal. Disponible en beige, gris y verde militar.",
+                    "precio": 34990,
+                    "en_oferta": true,
+                    "precio_oferta": 24990,
+                    "descuento_pct": 29,
+                    "stock_por_talla": {
+                        "28": 3,
+                        "30": 6,
+                        "32": 10,
+                        "34": 8,
+                        "36": 5,
+                        "38": 2
+                    },
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "pantalon chino",
+                        "slim",
+                        "versatil",
+                        "hombre",
+                        "casual"
+                    ],
+                    "codigo_barra": "780500100011",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00012",
+                    "nombre": "Poleron Buzo Fleece con Capucha Hombre",
+                    "marca": "Paris Active",
+                    "categoria": "Polerones y Hoodies",
+                    "descripcion": "Poleron con capucha y canguro frontal en tela fleece suave y abrigadora. Para deporte o uso casual de invierno.",
+                    "precio": 27990,
+                    "en_oferta": true,
+                    "precio_oferta": 18990,
+                    "descuento_pct": 32,
+                    "stock_por_talla": {
+                        "S": 6,
+                        "M": 12,
+                        "L": 15,
+                        "XL": 10,
+                        "XXL": 5
+                    },
+                    "rating": 4.2,
+                    "tags_recomendacion": [
+                        "poleron",
+                        "hoodie",
+                        "invierno",
+                        "fleece",
+                        "casual"
+                    ],
+                    "codigo_barra": "780500100012",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00013",
+                    "nombre": "Jeans Straight Fit Hombre Lavado Medio",
+                    "marca": "Paris Denim",
+                    "categoria": "Jeans Hombre",
+                    "descripcion": "Jean de corte recto clasico con lavado medio. Denim de alta calidad, durable y versatil.",
+                    "precio": 39990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "28": 2,
+                        "30": 5,
+                        "32": 9,
+                        "34": 8,
+                        "36": 4,
+                        "38": 1
+                    },
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "jeans",
+                        "hombre",
+                        "clasico",
+                        "straight",
+                        "denim"
+                    ],
+                    "codigo_barra": "780500100013",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00014",
+                    "nombre": "Chaqueta Bomber Acolchada Hombre",
+                    "marca": "Paris Collection",
+                    "categoria": "Chaquetas y Abrigos Hombre",
+                    "descripcion": "Chaqueta bomber con acolchado liviano de pluma sintetica y elasticos en punos y cintura. Calida sin ser voluminosa.",
+                    "precio": 69990,
+                    "en_oferta": true,
+                    "precio_oferta": 49990,
+                    "descuento_pct": 29,
+                    "stock_por_talla": {
+                        "S": 3,
+                        "M": 6,
+                        "L": 8,
+                        "XL": 5,
+                        "XXL": 2
+                    },
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "chaqueta",
+                        "bomber",
+                        "invierno",
+                        "acolchada",
+                        "hombre"
+                    ],
+                    "codigo_barra": "780500100014",
+                    "articulo": "La",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-MOD-00015",
+                    "nombre": "Polo Pique Slim Fit Hombre",
+                    "marca": "Paris Collection",
+                    "categoria": "Polos y Camisetas",
+                    "descripcion": "Polo de tela pique 100 por ciento algodon, corte slim y manga corta. Clasico casual para el verano.",
+                    "precio": 19990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "S": 8,
+                        "M": 15,
+                        "L": 12,
+                        "XL": 7,
+                        "XXL": 3
+                    },
+                    "rating": 4.1,
+                    "tags_recomendacion": [
+                        "polo",
+                        "verano",
+                        "algodon",
+                        "casual",
+                        "hombre"
+                    ],
+                    "codigo_barra": "780500100015",
+                    "articulo": "El",
+                    "pasillo": "Pasillo M-02 - Moda Hombre",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Moda Hombre",
+                        "pasillo": "M-02",
+                        "x": 75,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "calzado_mujer",
+            "nombre": "Moda - Calzado Mujer",
+            "ubicacion_tienda": {
+                "piso": 2,
+                "sector": "Calzado",
+                "pasillo": "C-01",
+                "referencia": "Piso 2, sector Calzado, pasillo C-01. Botines y tacones exhibidos en estanteria central"
+            },
+            "productos": [
+                {
+                    "sku": "PA-CAL-00001",
+                    "nombre": "Botin Chelsea Cuero Tacon Medio Mujer Negro",
+                    "marca": "Paris Shoes",
+                    "categoria": "Botines Mujer",
+                    "descripcion": "Botin al tobillo estilo Chelsea con elasticos laterales, tacon cuadrado de 6cm y punta redonda. Cuero ecologico y planta de goma antideslizante.",
+                    "precio": 49990,
+                    "en_oferta": true,
+                    "precio_oferta": 32990,
+                    "descuento_pct": 34,
+                    "stock_por_talla": {
+                        "35": 2,
+                        "36": 5,
+                        "37": 8,
+                        "38": 7,
+                        "39": 4,
+                        "40": 1
+                    },
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "botin",
+                        "chelsea",
+                        "tacon",
+                        "negro",
+                        "trabajo",
+                        "elegante"
+                    ],
+                    "codigo_barra": "780600100001",
+                    "articulo": "El",
+                    "pasillo": "Pasillo C-01 - Calzado Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Calzado",
+                        "pasillo": "C-01",
+                        "x": 55,
+                        "y": 35
+                    }
+                },
+                {
+                    "sku": "PA-CAL-00002",
+                    "nombre": "Sandalia Plataforma Tira Ancha Mujer",
+                    "marca": "Paris Shoes",
+                    "categoria": "Sandalias Mujer",
+                    "descripcion": "Sandalia de plataforma de 8cm con tira ancha y cierre de hebilla. Disponible en camel, blanco y negro.",
+                    "precio": 34990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock_por_talla": {
+                        "35": 3,
+                        "36": 5,
+                        "37": 7,
+                        "38": 6,
+                        "39": 4,
+                        "40": 2
+                    },
+                    "rating": 4.2,
+                    "tags_recomendacion": [
+                        "sandalia",
+                        "plataforma",
+                        "verano",
+                        "casual"
+                    ],
+                    "codigo_barra": "780600100002",
+                    "articulo": "La",
+                    "pasillo": "Pasillo C-01 - Calzado Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Calzado",
+                        "pasillo": "C-01",
+                        "x": 55,
+                        "y": 35
+                    }
+                },
+                {
+                    "sku": "PA-CAL-00003",
+                    "nombre": "Zapatilla Chunky Sole Urbana Mujer Blanca",
+                    "marca": "Paris Shoes",
+                    "categoria": "Zapatillas Urbanas Mujer",
+                    "descripcion": "Zapatilla de suela gruesa estilo dad shoe con upper en cuero ecologico blanco. Tendencia streetwear. Sin stock en talla 35.",
+                    "precio": 44990,
+                    "en_oferta": true,
+                    "precio_oferta": 31990,
+                    "descuento_pct": 29,
+                    "stock_por_talla": {
+                        "35": 0,
+                        "36": 3,
+                        "37": 6,
+                        "38": 7,
+                        "39": 5,
+                        "40": 2
+                    },
+                    "rating": 4.4,
+                    "tags_recomendacion": [
+                        "zapatilla",
+                        "chunky",
+                        "dad shoe",
+                        "streetwear",
+                        "urbana"
+                    ],
+                    "codigo_barra": "780600100003",
+                    "articulo": "La",
+                    "pasillo": "Pasillo C-01 - Calzado Mujer",
+                    "piso": 2,
+                    "posicion_mapa": {
+                        "piso": 2,
+                        "sector": "Calzado",
+                        "pasillo": "C-01",
+                        "x": 55,
+                        "y": 35
                     }
                 }
             ]
         },
         {
             "id": "electrohogar",
-            "nombre": "Electrohogar - Electrodomésticos (datos ilustrativos para demo)",
+            "nombre": "Electrohogar - Linea Blanca y Electrodomesticos",
             "ubicacion_tienda": {
                 "piso": 3,
-                "sector": "Línea Blanca",
+                "sector": "Linea Blanca",
                 "pasillo": "H-11",
-                "referencia": "Piso 3, sector electrodomésticos, al lado de refrigeración"
+                "referencia": "Piso 3, sector electrodomesticos y linea blanca, al fondo izquierda"
             },
             "productos": [
                 {
                     "sku": "PA-HOG-00001",
-                    "nombre": "Freidora de Aire Oster 4 Litros",
+                    "nombre": "Freidora de Aire Oster Digital 4 Litros",
                     "marca": "Oster",
-                    "categoria": "Electrodomésticos de Cocina",
-                    "descripcion": "Freidora de aire compacta que permite cocinar con poco o nada de aceite, con temporizador y control de temperatura.",
+                    "categoria": "Electrodomesticos de Cocina",
+                    "descripcion": "Freidora de aire compacta con panel digital, capacidad de 4 litros y control de temperatura de 80 a 200 grados. Cocina con hasta 80 por ciento menos de aceite.",
                     "precio": 69990,
                     "en_oferta": true,
                     "precio_oferta": 39990,
                     "descuento_pct": 43,
                     "stock": 30,
-                    "rating": 0,
+                    "rating": 4.5,
                     "tags_recomendacion": [
                         "cocina saludable",
                         "oferta destacada",
-                        "regalo hogar"
+                        "regalo hogar",
+                        "air fryer"
                     ],
                     "codigo_barra": "780400100001",
                     "articulo": "La",
-                    "pasillo": "Pasillo H-11 - Línea Blanca",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
                     "piso": 3,
                     "posicion_mapa": {
                         "piso": 3,
-                        "sector": "Línea Blanca",
+                        "sector": "Linea Blanca",
                         "pasillo": "H-11",
-                        "x": 28,
-                        "y": 28
+                        "x": 20,
+                        "y": 20
                     }
                 },
                 {
                     "sku": "PA-HOG-00002",
-                    "nombre": "Microondas Grill Samsung 28L",
+                    "nombre": "Microondas Grill Samsung 28 litros MS28T5018AK",
                     "marca": "Samsung",
-                    "categoria": "Electrodomésticos de Cocina",
-                    "descripcion": "Microondas con función grill y gran capacidad, ideal para familias.",
+                    "categoria": "Electrodomesticos de Cocina",
+                    "descripcion": "Microondas con funcion grill combinado, capacidad de 28 litros, 950W de potencia y panel tactil. Incluye recetas preprogramadas y limpieza de vapor.",
                     "precio": 129990,
                     "en_oferta": true,
                     "precio_oferta": 99990,
                     "descuento_pct": 23,
                     "stock": 14,
-                    "rating": 0,
+                    "rating": 4.3,
                     "tags_recomendacion": [
-                        "gran capacidad",
-                        "función grill",
-                        "familia"
+                        "microondas",
+                        "grill",
+                        "familia",
+                        "samsung"
                     ],
                     "codigo_barra": "780400100002",
                     "articulo": "El",
-                    "pasillo": "Pasillo H-11 - Línea Blanca",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
                     "piso": 3,
                     "posicion_mapa": {
                         "piso": 3,
-                        "sector": "Línea Blanca",
+                        "sector": "Linea Blanca",
                         "pasillo": "H-11",
-                        "x": 32,
-                        "y": 28
+                        "x": 25,
+                        "y": 20
                     }
                 },
                 {
                     "sku": "PA-HOG-00003",
-                    "nombre": "Refrigerador No Frost Midea 401 Litros",
+                    "nombre": "Refrigerador No Frost Midea 401 Litros MRFI-4000G",
                     "marca": "Midea",
-                    "categoria": "Refrigeración",
-                    "descripcion": "Refrigerador de gran capacidad con tecnología No Frost, pensado para hogares de 4 o más personas.",
+                    "categoria": "Refrigeracion",
+                    "descripcion": "Refrigerador French Door de 401 litros con tecnologia No Frost, dispensador de agua e iluminacion LED interior. Para hogar de 4 a 5 personas.",
                     "precio": 599990,
                     "en_oferta": true,
                     "precio_oferta": 479990,
                     "descuento_pct": 20,
                     "stock": 6,
-                    "rating": 0,
+                    "rating": 4.2,
                     "tags_recomendacion": [
+                        "refrigerador",
+                        "no frost",
                         "gran capacidad",
-                        "hogar familiar",
-                        "No Frost"
+                        "hogar familiar"
                     ],
                     "codigo_barra": "780400100003",
                     "articulo": "El",
-                    "pasillo": "Pasillo H-11 - Línea Blanca",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
                     "piso": 3,
                     "posicion_mapa": {
                         "piso": 3,
-                        "sector": "Línea Blanca",
+                        "sector": "Linea Blanca",
                         "pasillo": "H-11",
-                        "x": 28,
-                        "y": 32
+                        "x": 30,
+                        "y": 30
                     }
                 },
                 {
                     "sku": "PA-HOG-00004",
-                    "nombre": "Lavadora Carga Frontal LG 9kg",
+                    "nombre": "Lavadora Carga Frontal LG 9kg F4WV309S3E",
                     "marca": "LG",
                     "categoria": "Lavado y Secado",
-                    "descripcion": "Lavadora de carga frontal con múltiples programas de lavado y bajo consumo de agua.",
+                    "descripcion": "Lavadora con motor AI Direct Drive de 9 kg, tecnologia Steam para eliminar alergenos y 14 programas de lavado. Bajo consumo de agua.",
                     "precio": 449990,
                     "en_oferta": true,
                     "precio_oferta": 379990,
                     "descuento_pct": 16,
                     "stock": 9,
-                    "rating": 0,
+                    "rating": 4.5,
                     "tags_recomendacion": [
+                        "lavadora",
+                        "frontal",
+                        "lg",
                         "ahorro de agua",
-                        "múltiples programas"
+                        "eficiente"
                     ],
                     "codigo_barra": "780400100004",
                     "articulo": "La",
-                    "pasillo": "Pasillo H-11 - Línea Blanca",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
                     "piso": 3,
                     "posicion_mapa": {
                         "piso": 3,
-                        "sector": "Línea Blanca",
+                        "sector": "Linea Blanca",
                         "pasillo": "H-11",
-                        "x": 32,
-                        "y": 32
+                        "x": 35,
+                        "y": 30
                     }
                 },
                 {
                     "sku": "PA-HOG-00005",
-                    "nombre": "Aspiradora Robot Mademsa",
-                    "marca": "Mademsa",
-                    "categoria": "Aspirado y Limpieza",
-                    "descripcion": "Aspiradora robot programable para mantener los pisos limpios sin esfuerzo diario.",
-                    "precio": 199990,
-                    "en_oferta": true,
-                    "precio_oferta": 149990,
-                    "descuento_pct": 25,
-                    "stock": 11,
-                    "rating": 0,
+                    "nombre": "Lava y Seca Samsung WD11BBA044BW 11kg lavado y 7kg secado",
+                    "marca": "Samsung",
+                    "categoria": "Lavado y Secado",
+                    "descripcion": "Combinado que lava 11kg y seca 7kg en un solo equipo. Tecnologia EcoBubble y secado por condensacion. Ideal para departamentos con poco espacio.",
+                    "precio": 699990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 4,
+                    "rating": 4.4,
                     "tags_recomendacion": [
-                        "limpieza automática",
-                        "regalo hogar"
+                        "lava y seca",
+                        "samsung",
+                        "departamento",
+                        "2 en 1"
                     ],
                     "codigo_barra": "780400100005",
-                    "articulo": "La",
-                    "pasillo": "Pasillo H-11 - Línea Blanca",
+                    "articulo": "El",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
                     "piso": 3,
                     "posicion_mapa": {
                         "piso": 3,
-                        "sector": "Línea Blanca",
+                        "sector": "Linea Blanca",
                         "pasillo": "H-11",
-                        "x": 30,
-                        "y": 34
+                        "x": 35,
+                        "y": 35
+                    }
+                },
+                {
+                    "sku": "PA-HOG-00006",
+                    "nombre": "Aspiradora Robot Xiaomi Robot Vacuum S10 Plus",
+                    "marca": "Xiaomi",
+                    "categoria": "Aspirado y Limpieza",
+                    "descripcion": "Aspiradora robot con estacion de vaciado automatico, navegacion LiDAR de precision, fuerza de succion de 4000Pa y trapeado con agua. Control por app.",
+                    "precio": 399990,
+                    "en_oferta": true,
+                    "precio_oferta": 269990,
+                    "descuento_pct": 33,
+                    "stock": 8,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "robot aspiradora",
+                        "xiaomi",
+                        "lidar",
+                        "automatico",
+                        "smart home"
+                    ],
+                    "codigo_barra": "780400100006",
+                    "articulo": "La",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Linea Blanca",
+                        "pasillo": "H-11",
+                        "x": 25,
+                        "y": 35
+                    }
+                },
+                {
+                    "sku": "PA-HOG-00007",
+                    "nombre": "Aspiradora Robot Mademsa Plus",
+                    "marca": "Mademsa",
+                    "categoria": "Aspirado y Limpieza",
+                    "descripcion": "Aspiradora robot programable con sensor de colision, deposito de 600ml y hasta 90 minutos de autonomia. Opcion economica con control remoto incluido.",
+                    "precio": 149990,
+                    "en_oferta": true,
+                    "precio_oferta": 99990,
+                    "descuento_pct": 33,
+                    "stock": 11,
+                    "rating": 4.0,
+                    "tags_recomendacion": [
+                        "robot aspiradora",
+                        "economico",
+                        "programable",
+                        "mademsa"
+                    ],
+                    "codigo_barra": "780400100007",
+                    "articulo": "La",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Linea Blanca",
+                        "pasillo": "H-11",
+                        "x": 22,
+                        "y": 35
+                    }
+                },
+                {
+                    "sku": "PA-HOG-00008",
+                    "nombre": "Cafetera de Capsulas Nespresso Vertuo Pop",
+                    "marca": "Nespresso",
+                    "categoria": "Electrodomesticos de Cocina",
+                    "descripcion": "Cafetera de capsulas Vertuo con tecnologia Centrifusion. Prepara cafe de 40ml a 414ml, calienta en 30 segundos y apagado automatico.",
+                    "precio": 79990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 22,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "nespresso",
+                        "cafetera",
+                        "capsulas",
+                        "cafe",
+                        "regalo"
+                    ],
+                    "codigo_barra": "780400100008",
+                    "articulo": "La",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Linea Blanca",
+                        "pasillo": "H-11",
+                        "x": 20,
+                        "y": 20
+                    }
+                },
+                {
+                    "sku": "PA-HOG-00009",
+                    "nombre": "Cafetera Express Automatica De Longhi Magnifica Start",
+                    "marca": "De Longhi",
+                    "categoria": "Electrodomesticos de Cocina",
+                    "descripcion": "Cafetera superautomatica con molinillo integrado, crea espresso, americano y leche espumada con un toque. Deposito de agua de 1.8 litros y pantalla LCD.",
+                    "precio": 599990,
+                    "en_oferta": true,
+                    "precio_oferta": 449990,
+                    "descuento_pct": 25,
+                    "stock": 5,
+                    "rating": 4.7,
+                    "tags_recomendacion": [
+                        "cafetera automatica",
+                        "molinillo integrado",
+                        "de longhi",
+                        "espresso",
+                        "cafe gourmet"
+                    ],
+                    "codigo_barra": "780400100009",
+                    "articulo": "La",
+                    "pasillo": "Pasillo H-11 - Linea Blanca",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Linea Blanca",
+                        "pasillo": "H-11",
+                        "x": 20,
+                        "y": 20
+                    }
+                }
+            ]
+        },
+        {
+            "id": "decohogar",
+            "nombre": "Hogar - Deco y Ropa de Cama",
+            "ubicacion_tienda": {
+                "piso": 3,
+                "sector": "Deco Hogar",
+                "pasillo": "H-12",
+                "referencia": "Piso 3, sector Deco Hogar, pasillo H-12. Ropa de cama exhibida en mesas centrales"
+            },
+            "productos": [
+                {
+                    "sku": "PA-DEC-00001",
+                    "nombre": "Juego de Sabanas 100 por ciento Algodon 400 Hilos Queen",
+                    "marca": "Paris Home",
+                    "categoria": "Ropa de Cama",
+                    "descripcion": "Juego de sabanas queen de 400 hilos en algodon egipcio. Incluye sabana bajera ajustable, sabana encimera y 2 fundas de almohada. Suavidad premium.",
+                    "precio": 59990,
+                    "en_oferta": true,
+                    "precio_oferta": 39990,
+                    "descuento_pct": 33,
+                    "stock": 20,
+                    "rating": 4.6,
+                    "tags_recomendacion": [
+                        "sabanas",
+                        "algodon",
+                        "premium",
+                        "regalo hogar",
+                        "queen"
+                    ],
+                    "codigo_barra": "780700100001",
+                    "articulo": "El",
+                    "pasillo": "Pasillo H-12 - Deco Hogar",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Deco Hogar",
+                        "pasillo": "H-12",
+                        "x": 65,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-DEC-00002",
+                    "nombre": "Plumon de Plumas Naturales 500 Hilos 2 Plazas",
+                    "marca": "Paris Home",
+                    "categoria": "Plumones y Abrigo",
+                    "descripcion": "Plumon relleno de plumas naturales de pato, funda de algodon percal y cajitas de costura para evitar el desplazamiento del relleno. Calido y esponjoso.",
+                    "precio": 79990,
+                    "en_oferta": false,
+                    "precio_oferta": null,
+                    "descuento_pct": 0,
+                    "stock": 15,
+                    "rating": 4.5,
+                    "tags_recomendacion": [
+                        "plumon",
+                        "plumas naturales",
+                        "invierno",
+                        "calido",
+                        "2 plazas"
+                    ],
+                    "codigo_barra": "780700100002",
+                    "articulo": "El",
+                    "pasillo": "Pasillo H-12 - Deco Hogar",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Deco Hogar",
+                        "pasillo": "H-12",
+                        "x": 65,
+                        "y": 30
+                    }
+                },
+                {
+                    "sku": "PA-DEC-00003",
+                    "nombre": "Set Cojines Decorativos para Sofa 4 Piezas",
+                    "marca": "Paris Home",
+                    "categoria": "Decoracion",
+                    "descripcion": "Set de 4 cojines 45x45cm en diferentes texturas: terciopelo liso, boho tejido y pana acanalada. Colores coordinados en paleta terrosa. Relleno de fibra siliconada.",
+                    "precio": 44990,
+                    "en_oferta": true,
+                    "precio_oferta": 29990,
+                    "descuento_pct": 33,
+                    "stock": 18,
+                    "rating": 4.3,
+                    "tags_recomendacion": [
+                        "cojines",
+                        "decoracion",
+                        "sofa",
+                        "boho",
+                        "sala"
+                    ],
+                    "codigo_barra": "780700100003",
+                    "articulo": "El",
+                    "pasillo": "Pasillo H-12 - Deco Hogar",
+                    "piso": 3,
+                    "posicion_mapa": {
+                        "piso": 3,
+                        "sector": "Deco Hogar",
+                        "pasillo": "H-12",
+                        "x": 70,
+                        "y": 30
                     }
                 }
             ]
@@ -649,50 +2563,123 @@
     ],
     "marcas": {
         "Samsung": [
-            "tecnologia",
+            "smartphones",
+            "television",
+            "computacion",
+            "audio_gaming",
             "electrohogar"
         ],
+        "Apple": [
+            "smartphones",
+            "computacion"
+        ],
         "Honor": [
-            "tecnologia"
+            "smartphones"
         ],
         "Motorola": [
-            "tecnologia"
+            "smartphones"
         ],
         "Xiaomi": [
-            "tecnologia"
+            "smartphones",
+            "electrohogar"
         ],
-        "Apple": [
-            "tecnologia"
+        "Google": [
+            "smartphones"
         ],
-        "Dolce&Gabbana": [
-            "belleza"
+        "LG": [
+            "television",
+            "electrohogar"
         ],
-        "Prada": [
-            "belleza"
+        "Hisense": [
+            "television"
+        ],
+        "Sony": [
+            "television",
+            "audio_gaming"
+        ],
+        "TCL": [
+            "television"
+        ],
+        "Asus": [
+            "computacion"
+        ],
+        "HP": [
+            "computacion"
+        ],
+        "Microsoft": [
+            "audio_gaming"
+        ],
+        "JBL": [
+            "audio_gaming"
+        ],
+        "Lancome": [
+            "perfumes_mujer"
         ],
         "Carolina Herrera": [
-            "belleza"
+            "perfumes_mujer",
+            "perfumes_hombre"
+        ],
+        "Dior": [
+            "perfumes_mujer",
+            "perfumes_hombre"
+        ],
+        "Chanel": [
+            "perfumes_mujer",
+            "perfumes_hombre"
+        ],
+        "Viktor Rolf": [
+            "perfumes_mujer"
+        ],
+        "YSL": [
+            "perfumes_mujer"
+        ],
+        "Dolce Gabbana": [
+            "perfumes_hombre"
         ],
         "Giorgio Armani": [
-            "belleza"
+            "perfumes_hombre"
         ],
-        "Lancôme": [
-            "belleza"
+        "Prada": [
+            "perfumes_hombre"
         ],
-        "Adidas": [
-            "deportes"
-        ],
-        "New Balance": [
-            "deportes"
-        ],
-        "Puma": [
-            "deportes"
+        "Calvin Klein": [
+            "perfumes_hombre"
         ],
         "Nike": [
-            "deportes"
+            "zapatillas"
+        ],
+        "Adidas": [
+            "zapatillas"
+        ],
+        "New Balance": [
+            "zapatillas"
+        ],
+        "Puma": [
+            "zapatillas"
         ],
         "Under Armour": [
-            "deportes"
+            "zapatillas"
+        ],
+        "Reebok": [
+            "zapatillas"
+        ],
+        "Paris Collection": [
+            "ropa_mujer",
+            "ropa_hombre",
+            "calzado_mujer"
+        ],
+        "Paris Denim": [
+            "ropa_mujer",
+            "ropa_hombre"
+        ],
+        "Paris Active": [
+            "ropa_hombre"
+        ],
+        "Paris Shoes": [
+            "calzado_mujer"
+        ],
+        "Paris Home": [
+            "decohogar"
         ],
         "Oster": [
             "electrohogar"
@@ -700,169 +2687,263 @@
         "Midea": [
             "electrohogar"
         ],
-        "LG": [
+        "Mademsa": [
             "electrohogar"
         ],
-        "Mademsa": [
+        "Nespresso": [
+            "electrohogar"
+        ],
+        "De Longhi": [
             "electrohogar"
         ]
     },
     "ofertas_destacadas": [
         {
+            "sku": "PA-BEL-00011",
+            "descuento_pct": 47,
+            "motivo": "Perfume Armani con mayor descuento del catalogo"
+        },
+        {
             "sku": "PA-HOG-00001",
             "descuento_pct": 43,
-            "motivo": "Mayor descuento del catálogo"
-        },
-        {
-            "sku": "PA-DEP-00005",
-            "descuento_pct": 42,
-            "motivo": "Zapatilla en oferta agresiva"
-        },
-        {
-            "sku": "PA-BEL-00004",
-            "descuento_pct": 47,
-            "motivo": "Perfume premium a precio reducido"
+            "motivo": "Freidora de aire con gran oferta"
         },
         {
             "sku": "PA-TEC-00001",
             "descuento_pct": 44,
-            "motivo": "Smartphone gama alta con gran rebaja"
+            "motivo": "Samsung Galaxy S25 con gran rebaja"
+        },
+        {
+            "sku": "PA-BEL-00010",
+            "descuento_pct": 40,
+            "motivo": "Set Dolce Gabbana en oferta"
+        },
+        {
+            "sku": "PA-DEP-00001",
+            "descuento_pct": 25,
+            "motivo": "Nike Air Zoom Pegasus rebajada"
+        },
+        {
+            "sku": "PA-TV-00002",
+            "descuento_pct": 30,
+            "motivo": "QLED 65 pulgadas Samsung con 30% dcto"
+        },
+        {
+            "sku": "PA-HOG-00006",
+            "descuento_pct": 33,
+            "motivo": "Robot aspiradora Xiaomi con LiDAR"
         }
     ],
     "notas_para_avatar": {
-        "uso": "Este archivo es una base de datos ficticia pensada solo para pruebas de demo. Los SKU, stock exacto y ubicaciones de tienda son inventados; los nombres de marcas, tipos de producto y rangos de precio están inspirados en categorías reales de paris.cl vigentes al 26 de agosto de 2026.",
+        "uso": "Base de datos ficticia para demo. SKU, stock y ubicaciones son inventados; marcas y rangos de precio inspirados en paris.cl.",
+        "stock_por_talla": "Los productos de ropa y zapatillas tienen campo stock_por_talla con un objeto talla a cantidad. Si la cantidad es 0, el articulo NO esta disponible en esa talla. Informar siempre que tallas si estan disponibles.",
+        "comparacion_sugerida": "Para comparaciones de precio-calidad usar: tags_recomendacion, rating, precio_oferta y descripcion. Ser directo en diferencias.",
         "logica_sugerida": [
-            "Si el usuario pregunta por una categoría, mostrar 'ubicacion_tienda' junto con 2-3 productos destacados de esa categoría.",
-            "Si el usuario pregunta por ofertas, usar 'ofertas_destacadas' o filtrar productos con 'en_oferta': true.",
-            "Si el usuario pregunta por una marca, usar el índice 'marcas' para saber en qué categorías está presente.",
-            "Usar 'tags_recomendacion' para sugerir productos relacionados o hacer upsell/cross-sell.",
-            "Usar 'banner_publicitario.mensaje_avatar' como posible apertura de conversación o cierre con llamada a la acción."
+            "Si el usuario pregunta por una categoria, mostrar ubicacion_tienda con 2-3 productos destacados.",
+            "Si el usuario pregunta por ofertas, usar ofertas_destacadas o filtrar por en_oferta true.",
+            "Si el usuario pregunta por una marca, usar el indice marcas para saber en que categorias esta.",
+            "Usar tags_recomendacion para sugerir productos relacionados o hacer upsell cross-sell.",
+            "Para productos con stock_por_talla, siempre indicar que tallas estan disponibles (mayor a 0) y cuales estan agotadas (igual a 0).",
+            "Para comparar tecnologia: mencionar procesador, pantalla, bateria y precio. Para perfumes: notas olfativas, duracion, ocasion de uso y precio. Para ropa: material, corte y ocasion."
         ]
     },
     "mapa_tienda": {
+        "descripcion": "Coordenadas en escala de 0 a 100 en ambos ejes. El origen (0,0) esta en la esquina superior izquierda del plano de cada piso.",
         "pisos": [
             {
                 "piso": 1,
                 "nombre": "Piso 1 - Belleza, Deportes y Acceso Principal",
                 "kiosco_avatar": {
                     "x": 50,
-                    "y": 90,
-                    "nombre": "Entrada Principal - Tótem Avatar"
+                    "y": 88,
+                    "nombre": "Entrada Principal - Totem Avatar"
                 },
                 "puntos_interes": [
                     {
                         "id": "acceso_principal",
-                        "nombre": "Acceso Principal",
+                        "nombre": "Acceso Principal / Entrada",
                         "x": 50,
                         "y": 95
                     },
                     {
                         "id": "caja_principal",
-                        "nombre": "Caja Principal",
+                        "nombre": "Cajas Piso 1",
                         "x": 50,
                         "y": 75
                     },
                     {
                         "id": "modulo_informacion",
-                        "nombre": "Módulo de Información",
+                        "nombre": "Modulo de Informacion",
                         "x": 50,
-                        "y": 85
+                        "y": 82
                     },
                     {
                         "id": "punto_retiro",
                         "nombre": "Punto de Retiro en Tienda",
-                        "x": 80,
-                        "y": 85
+                        "x": 82,
+                        "y": 80
                     },
                     {
                         "id": "escaleras_p1",
-                        "nombre": "Escaleras Mecánicas y Ascensores",
+                        "nombre": "Escaleras Mecanicas y Ascensores",
                         "x": 50,
-                        "y": 50
+                        "y": 55
                     },
                     {
-                        "id": "sector_belleza",
-                        "nombre": "Sector Belleza y Perfumería (Pasillo B-02)",
-                        "x": 75,
-                        "y": 35
+                        "id": "sector_perfumes_mujer",
+                        "nombre": "Sector Perfumes Mujer (Pasillo B-01)",
+                        "x": 72,
+                        "y": 30
                     },
                     {
-                        "id": "sector_deportes",
-                        "nombre": "Sector Deportes y Zapatillas (Pasillo D-07)",
-                        "x": 25,
-                        "y": 35
+                        "id": "sector_perfumes_hombre",
+                        "nombre": "Sector Perfumes Hombre (Pasillo B-02)",
+                        "x": 78,
+                        "y": 30
+                    },
+                    {
+                        "id": "sector_zapatillas",
+                        "nombre": "Sector Zapatillas (Pasillo D-06)",
+                        "x": 18,
+                        "y": 28
+                    },
+                    {
+                        "id": "sector_deportes_ropa",
+                        "nombre": "Ropa Deportiva (Pasillo D-07)",
+                        "x": 18,
+                        "y": 42
+                    },
+                    {
+                        "id": "banos_p1",
+                        "nombre": "Servicios Higienicos Piso 1",
+                        "x": 10,
+                        "y": 75
                     }
                 ]
             },
             {
                 "piso": 2,
-                "nombre": "Piso 2 - Tecnología y Vestuario",
+                "nombre": "Piso 2 - Tecnologia, Moda y Calzado",
                 "puntos_interes": [
                     {
                         "id": "escaleras_p2",
-                        "nombre": "Escaleras Mecánicas y Ascensores",
+                        "nombre": "Escaleras Mecanicas y Ascensores",
                         "x": 50,
-                        "y": 50
+                        "y": 55
                     },
                     {
-                        "id": "caja_express",
-                        "nombre": "Caja Express",
-                        "x": 75,
-                        "y": 60
+                        "id": "caja_express_p2",
+                        "nombre": "Caja Express Piso 2",
+                        "x": 50,
+                        "y": 75
                     },
                     {
                         "id": "banos_p2",
-                        "nombre": "Servicios Higiénicos / Baños",
-                        "x": 80,
+                        "nombre": "Servicios Higienicos Piso 2",
+                        "x": 10,
+                        "y": 15
+                    },
+                    {
+                        "id": "sector_smartphones",
+                        "nombre": "Smartphones (Pasillo T-01)",
+                        "x": 15,
                         "y": 20
                     },
                     {
-                        "id": "sector_tecno",
-                        "nombre": "Sector Tecnología - Celulares (Pasillo T-04)",
-                        "x": 30,
-                        "y": 25
+                        "id": "sector_tvs",
+                        "nombre": "Televisores (Pasillo T-02)",
+                        "x": 25,
+                        "y": 20
                     },
                     {
-                        "id": "sector_vestuario",
-                        "nombre": "Vestuario y Calzado Mujer",
-                        "x": 70,
-                        "y": 30
+                        "id": "sector_computacion",
+                        "nombre": "Computacion y Tablets (Pasillo T-03)",
+                        "x": 35,
+                        "y": 20
+                    },
+                    {
+                        "id": "sector_audio_gaming",
+                        "nombre": "Audio, Gaming y Smartwatches (Pasillo T-04)",
+                        "x": 42,
+                        "y": 20
+                    },
+                    {
+                        "id": "sector_moda_mujer",
+                        "nombre": "Moda Mujer (Pasillo M-01)",
+                        "x": 65,
+                        "y": 20
+                    },
+                    {
+                        "id": "sector_moda_hombre",
+                        "nombre": "Moda Hombre (Pasillo M-02)",
+                        "x": 75,
+                        "y": 20
+                    },
+                    {
+                        "id": "sector_calzado",
+                        "nombre": "Calzado Mujer (Pasillo C-01)",
+                        "x": 55,
+                        "y": 35
+                    },
+                    {
+                        "id": "probadores_p2",
+                        "nombre": "Probadores",
+                        "x": 85,
+                        "y": 35
                     }
                 ]
             },
             {
                 "piso": 3,
-                "nombre": "Piso 3 - Electrohogar y Servicios",
+                "nombre": "Piso 3 - Electrohogar, Muebles y Deco",
                 "puntos_interes": [
                     {
                         "id": "escaleras_p3",
-                        "nombre": "Escaleras Mecánicas y Ascensores",
+                        "nombre": "Escaleras Mecanicas y Ascensores",
                         "x": 50,
+                        "y": 55
+                    },
+                    {
+                        "id": "caja_hogar_p3",
+                        "nombre": "Caja Hogar y Gran Equipo",
+                        "x": 35,
+                        "y": 72
+                    },
+                    {
+                        "id": "servicio_cliente_p3",
+                        "nombre": "Servicio al Cliente y Tarjeta Paris",
+                        "x": 70,
+                        "y": 72
+                    },
+                    {
+                        "id": "sector_linea_blanca",
+                        "nombre": "Linea Blanca: Refrigeracion y Lavado (Pasillo H-11)",
+                        "x": 28,
+                        "y": 30
+                    },
+                    {
+                        "id": "sector_pequenos_electrodom",
+                        "nombre": "Pequenos Electrodomesticos: Freidoras y Cafeteras (Pasillo H-11)",
+                        "x": 20,
+                        "y": 20
+                    },
+                    {
+                        "id": "sector_deco_hogar",
+                        "nombre": "Deco Hogar y Ropa de Cama (Pasillo H-12)",
+                        "x": 67,
+                        "y": 30
+                    },
+                    {
+                        "id": "sector_muebles",
+                        "nombre": "Muebles y Living (Pasillo H-13)",
+                        "x": 67,
                         "y": 50
                     },
                     {
-                        "id": "caja_hogar",
-                        "nombre": "Caja Hogar y Tecnología",
-                        "x": 35,
-                        "y": 65
-                    },
-                    {
-                        "id": "servicio_cliente",
-                        "nombre": "Servicio al Cliente y Tarjeta Paris",
-                        "x": 70,
-                        "y": 70
-                    },
-                    {
-                        "id": "sector_electro",
-                        "nombre": "Sector Línea Blanca y Electrodomésticos (Pasillo H-11)",
-                        "x": 30,
-                        "y": 30
-                    },
-                    {
-                        "id": "sector_deco",
-                        "nombre": "Ropa de Cama y Decohogar",
-                        "x": 70,
-                        "y": 30
+                        "id": "banos_p3",
+                        "nombre": "Servicios Higienicos Piso 3",
+                        "x": 10,
+                        "y": 15
                     }
                 ]
             }
