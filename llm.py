@@ -75,19 +75,16 @@ _histories: dict = {}
 MAX_HISTORY_TURNS = 10  # máximo de turnos (user+assistant) a conservar en memoria
 OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
 OLLAMA_MODEL = "qwen3-vl:32b-instruct"
+OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "16384"))
 
 # ─── Carga dinámica del catálogo de productos (BDD) ──────────────────────────
 _BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
-try:
-    with open(_BDD_PATH, encoding="utf-8") as _f:
-        _BDD: dict = json.load(_f)
-    logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH}")
-except Exception as _e:
-    _BDD = {}
-    logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
+_BDD: dict = {}
+_CATALOG_TEXT: str = ""
+SYSTEM_PROMPT: str = ""
 
 def _build_catalog_summary(bdd: dict) -> str:
-    """Construye un resumen compacto en texto limpio y natural para inyectar en el system prompt."""
+    """Construye un catálogo estructurado y detallado para inyectar en el system prompt."""
     if not bdd:
         return "(catálogo no disponible)"
 
@@ -97,7 +94,7 @@ def _build_catalog_summary(bdd: dict) -> str:
 
     banner = bdd.get("banner_publicitario", {})
     if banner.get("activo"):
-        lines.append(f"Campaña: {banner.get('titulo','')}, {banner.get('subtitulo','')}.")
+        lines.append(f"Campaña actual: {banner.get('titulo','')}, {banner.get('subtitulo','')}.")
 
     for cat in bdd.get("categorias", []):
         loc = cat.get("ubicacion_tienda", {})
@@ -112,14 +109,31 @@ def _build_catalog_summary(bdd: dict) -> str:
                 oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
                 precio_detalle = f"regular {precio_str} pesos, en oferta a {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
             else:
-                precio_detalle = f"precio {precio_str} pesos"
+                precio_detalle = f"precio regular {precio_str} pesos (sin oferta)"
 
             code = p.get('codigo_barra') or p.get('sku')
             piso_num = p.get('piso', piso)
             pasillo_txt = p.get('pasillo', pasillo)
+            cat_tipo = p.get('categoria', '')
+
+            disp_txt = ""
+            if p.get('stock_por_talla'):
+                tallas_info = []
+                for t, stk in p['stock_por_talla'].items():
+                    if stk > 0:
+                        tallas_info.append(f"talla {t} ({stk} un)")
+                    else:
+                        tallas_info.append(f"talla {t} AGOTADA")
+                disp_txt = f" Tallas: {', '.join(tallas_info)}."
+            elif p.get('stock') is not None:
+                stk = p.get('stock')
+                disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
+
+            tags = p.get('tags_recomendacion', [])
+            tags_txt = f" Usos/Tags: {', '.join(tags)}." if tags else ""
 
             lines.append(
-                f"- {p['nombre']} (Marca {p['marca']}, Código {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}."
+                f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Código {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}{tags_txt}"
             )
 
     ofertas = bdd.get("ofertas_destacadas", [])
@@ -130,16 +144,15 @@ def _build_catalog_summary(bdd: dict) -> str:
             prod = all_products.get(o['sku'], {})
             if prod:
                 oferta_precio = f"${prod.get('precio_oferta',0):,}".replace(",", ".")
-                lines.append(f"- {prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos.")
+                lines.append(f"- [{prod.get('categoria','')}] {prod.get('nombre','')}: {o['descuento_pct']} por ciento de descuento a {oferta_precio} pesos.")
 
     return "\n".join(lines)
 
-_CATALOG_TEXT = _build_catalog_summary(_BDD)
 
 def _make_system_prompt(catalog_text: str) -> str:
     return f'''
 Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
-Estás ubicado junto al tótem interactivo de la tienda y tu función principal es impulsar las ventas, orientar a los clientes, informar precios y ofertas con entusiasmo, recomendar alternativas y resolver dudas sobre la tienda.
+Estás ubicado junto al tótem interactivo de la tienda y tu función principal es impulsar las ventas, orientar a los clientes, informar precios y ofertas con entusiasmo, comparar productos, informar disponibilidad de stock y tallas, recomendar alternativas y resolver dudas sobre la tienda.
 
 REGLA ESTRICTA DE TEXTO LIMPIO PARA SÍNTESIS DE VOZ (CERO CARACTERES ESPECIALES):
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→ o ->), barras (/ o |), viñetas (•), numerales (#), corchetes ([ ]), llaves ({{ }}) ni ningún signo tipográfico especial.
@@ -149,7 +162,7 @@ REGLA ESTRICTA DE TEXTO LIMPIO PARA SÍNTESIS DE VOZ (CERO CARACTERES ESPECIALES
 
 REGLA ABSOLUTA DE TEMÁTICA (SOLO TIENDA PARIS):
 - SOLO puedes responder consultas relacionadas directamente con esta tienda Paris, sus productos, precios, ofertas, pisos, pasillos y servicios.
-- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre cualquier tema ajeno a la tienda, como programación, tecnología, conocimientos técnicos, ciencia, historia, geografía, matemáticas, significado de nombres, personas famosas o política.
+- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre conocimientos generales ajenos a la tienda (como programación de computadores, física, matemáticas, política, historia, ciencia o significado de nombres). PERO SÍ debes responder y asesorar activamente sobre todos los productos que vendemos en Paris: tecnología (smartphones, televisores, computadores, audio, parlantes, consolas de videojuegos, smartwatches), moda mujer y hombre, calzado, zapatillas deportivas, belleza y perfumería, y electrohogar.
 - Si el cliente te pregunta sobre CUALQUIER tema que no pertenezca a la tienda, niégate amablemente en una sola frase breve y redirige a las compras:
   "Disculpa, solo puedo ayudarte con productos, ofertas y ubicaciones de Paris. ¿Buscas algún producto hoy?"
 
@@ -163,8 +176,13 @@ Cuando el sistema te informe los datos de un producto escaneado, debes:
 - Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde, etc.), entonces indica claramente el piso, sector y pasillo que el sistema te proporcionó.
 - Si el cliente responde negativamente (no, gracias, etc.), cierra amablemente y ofrece ayuda con cualquier otra compra.
 
+RAZONAMIENTO Y COMPARACIÓN DE PRODUCTOS:
+- Cuando el cliente pregunte por el producto "más barato", "más económico", "en oferta" o de mejor precio de cualquier tipo o categoría (ej: parlantes, audífonos, televisores, celulares, zapatillas, perfumes, etc.), revisa todos los productos de ese tipo en el catálogo, compara sus precios y responde cuál es el de menor precio indicando su valor regular u oferta.
+- Cuando el cliente pregunte por disponibilidad de tallas en calzado o ropa, revisa la información de stock por tallas del producto. Si una talla está agotada, indícaselo claramente y menciona las tallas que sí están disponibles.
+- Si un producto fue escaneado previamente en la conversación, mantén ese producto como referencia si el cliente pide compararlo o buscar alternativas más baratas o de gama superior.
+
 ROL Y COMPORTAMIENTO COMERCIAL:
-- Habla siempre en español, de forma cercana, proactiva, profesional y orientada a la venta.
+- Habla siempre en español chileno natural, de forma cercana, proactiva, profesional y orientada a la venta.
 - Responde con máximo 2 oraciones breves (menos de 35 palabras).
 - Nunca digas que eres una inteligencia artificial o un bot.
 - Responde como un auténtico asesor comercial de Paris, directo y claro.
@@ -176,9 +194,9 @@ ROL Y COMPORTAMIENTO COMERCIAL:
 
 INFORMACIÓN DE LA TIENDA Y SERVICIOS:
 - Tienda: Paris Costanera Center (3 Pisos)
-- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería (Pasillo B-02), Deportes y Zapatillas (Pasillo D-07), Caja Principal, Módulo de Información y Punto de Retiro.
-- Piso 2: Tecnología - Celulares (Pasillo T-04), Vestuario y Calzado Mujer, Caja Express, Baños y Servicios Higiénicos.
-- Piso 3: Línea Blanca y Electrodomésticos (Pasillo H-11), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
+- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería Mujer y Hombre (Pasillo B-02), Deportes y Zapatillas (Pasillo D-07), Caja Principal y Punto de Retiro.
+- Piso 2: Tecnología Completa (Smartphones, Televisores, Computación, Audio y Parlantes, Consolas de Videojuegos y Smartwatches en Pasillos T-01 al T-04), Moda Mujer y Hombre, Calzado Mujer, Caja Express y Baños / SS.HH.
+- Piso 3: Electrohogar y Línea Blanca (Refrigeradores, Lavadoras, Cafeteras, Aspiradoras, Freidoras de Aire en Pasillos H-11 y H-12), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
 - Escaleras mecánicas y ascensores: en el centro de la tienda en todos los pisos (1, 2 y 3).
 
 CATÁLOGO COMPLETO DE PRODUCTOS Y UBICACIONES:
@@ -194,6 +212,12 @@ Respuesta del avatar: "Lo encuentras en el Piso 2, sector Tecno, pasillo T-04."
 
 Cliente: "No, gracias"
 Respuesta del avatar: "Perfecto, si necesitas ayuda para encontrar otro producto o consultar una oferta, aquí estaré."
+
+Cliente: "¿Cuál es el parlante más barato?"
+Respuesta del avatar: "El parlante más económico es el JBL Go 4 a 29.990 pesos en oferta. ¿Te gustaría saber en qué pasillo encontrarlo?"
+
+Cliente: "¿Tienen zapatillas Nike en talla 45?"
+Respuesta del avatar: "La talla 45 está agotada en este momento, pero tenemos disponibles las tallas del 40 al 44 a 99.990 pesos en el Piso 1."
 
 Cliente: "¿Tienen perfumes para hombre?"
 Respuesta del avatar: "Sí, tenemos el Dolce y Gabbana Devotion en oferta a 45.990 pesos y el Armani Acqua Di Giò a 89.990 en el piso 1."
@@ -212,7 +236,20 @@ Respuesta del avatar: "El punto de retiro está en el Piso 1, al costado derecho
 
 '''
 
-SYSTEM_PROMPT = _make_system_prompt(_CATALOG_TEXT)
+def reload_catalog() -> None:
+    global _BDD, _CATALOG_TEXT, SYSTEM_PROMPT
+    try:
+        with open(_BDD_PATH, encoding="utf-8") as _f:
+            _BDD = json.load(_f)
+        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH}")
+    except Exception as _e:
+        _BDD = {}
+        logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
+
+    _CATALOG_TEXT = _build_catalog_summary(_BDD)
+    SYSTEM_PROMPT = _make_system_prompt(_CATALOG_TEXT)
+
+reload_catalog()
 
 
 
@@ -262,6 +299,7 @@ def _warmup_ollama():
                 {"role": "system", "content": "OK"},
                 {"role": "user", "content": "1"}
             ],
+            "options": {"num_ctx": OLLAMA_NUM_CTX},
             "stream": False,
             "keep_alive": "7200m"
         }
@@ -322,6 +360,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         payload = {
             "model": OLLAMA_MODEL,
             "messages": _get_messages_with_history(sessionid, message),
+            "options": {"num_ctx": OLLAMA_NUM_CTX},
             "temperature": 0.7,
             "stream": False,
             "keep_alive": "7200m",
@@ -389,6 +428,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         payload = {
             "model": OLLAMA_MODEL,
             "messages": _get_messages_with_history(sessionid, message),
+            "options": {"num_ctx": OLLAMA_NUM_CTX},
             "temperature": 0.7,
             "stream": True,
             "keep_alive": "7200m",
