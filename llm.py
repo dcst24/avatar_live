@@ -102,12 +102,93 @@ def clean_rut(rut_str: str) -> str:
     return re.sub(r'[^0-9kK]', '', rut_str).upper()
 
 
+_SPANISH_NUMS = {
+    'cero': 0, 'un': 1, 'uno': 1, 'una': 1,
+    'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+    'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
+    'diez': 10, 'once': 11, 'doce': 12, 'trece': 13, 'catorce': 14, 'quince': 15,
+    'dieciseis': 16, 'dieciséis': 16, 'diecisiete': 17, 'dieciocho': 18, 'diecinueve': 19,
+    'veinte': 20, 'veintiuno': 21, 'veintidos': 22, 'veintidós': 22, 'veintitres': 23, 'veintitrés': 23,
+    'veinticuatro': 24, 'veinticinco': 25, 'veintiseis': 26, 'veintiséis': 26, 'veintisiete': 27,
+    'veintiocho': 28, 'veintinueve': 29,
+    'treinta': 30, 'cuarenta': 40, 'cincuenta': 50,
+    'sesenta': 60, 'setenta': 70, 'ochenta': 80, 'noventa': 90,
+    'cien': 100, 'ciento': 100, 'doscientos': 200, 'trescientos': 300,
+    'cuatrocientos': 400, 'quinientos': 500, 'seiscientos': 600,
+    'setecientos': 700, 'ochocientos': 800, 'novecientos': 900
+}
+
+def _parse_spoken_spanish_numbers(text: str) -> str:
+    """
+    Convierte números hablados en español a dígitos (ej: 'doce tres cuatro cinco...' -> '12 3 4 5...').
+    Especialmente útil cuando el STT transcribe números en palabras al dictar RUTs.
+    """
+    if not text:
+        return ""
+    # Tokeniza preservando palabras, dígitos, guiones y signos de puntuación
+    tokens = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ]+|\d+|[-]|[,.:;?!¿¡]', text)
+    result = []
+    i = 0
+    n = len(tokens)
+    while i < n:
+        tok = tokens[i]
+        tok_lower = tok.lower()
+        # Centenas compuestas: 'trescientos cuarenta y cinco' -> 345
+        if tok_lower in _SPANISH_NUMS and _SPANISH_NUMS[tok_lower] >= 100 and i + 1 < n and tokens[i+1].lower() in _SPANISH_NUMS:
+            val = _SPANISH_NUMS[tok_lower]
+            i += 1
+            if i + 2 < n and tokens[i].lower() in _SPANISH_NUMS and tokens[i+1].lower() == 'y' and tokens[i+2].lower() in _SPANISH_NUMS:
+                val += _SPANISH_NUMS[tokens[i].lower()] + _SPANISH_NUMS[tokens[i+2].lower()]
+                i += 3
+            elif tokens[i].lower() in _SPANISH_NUMS:
+                val += _SPANISH_NUMS[tokens[i].lower()]
+                i += 1
+            result.append(str(val))
+        # Decenas compuestas: 'cuarenta y cinco' -> 45
+        elif tok_lower in _SPANISH_NUMS and i + 2 < n and tokens[i+1].lower() == 'y' and tokens[i+2].lower() in _SPANISH_NUMS:
+            val = _SPANISH_NUMS[tok_lower] + _SPANISH_NUMS[tokens[i+2].lower()]
+            result.append(str(val))
+            i += 3
+        # Número simple en palabras
+        elif tok_lower in _SPANISH_NUMS:
+            result.append(str(_SPANISH_NUMS[tok_lower]))
+            i += 1
+        # Dígito verificador K/ka/ca
+        elif tok_lower in ('k', 'ka', 'ca') and (i > 0 and (tokens[i-1].lower() in ('guion', 'guión', 'raya', 'menos', '-') or (result and (result[-1].isdigit() or result[-1] == '-')))):
+            result.append('K')
+            i += 1
+        # Separadores de guion
+        elif tok_lower in ('guion', 'guión', 'raya', 'menos'):
+            result.append('-')
+            i += 1
+        # Conectores de millones / mil en RUTs dictados
+        elif tok_lower in ('millon', 'millones', 'mil') and (result and result[-1].isdigit()):
+            i += 1
+        elif tok.isdigit() or tok == '-':
+            result.append(tok)
+            i += 1
+        else:
+            result.append(tok)
+            i += 1
+
+    s = ' '.join(result)
+    s = re.sub(r'\s+([,.:;?!])', r'\1', s)
+    s = re.sub(r'([¿¡])\s+', r'\1', s)
+    s = re.sub(r'(?<=\d)\s*,\s*(?=\d)', '', s)
+    s = re.sub(r'(?<=\d)\s+(?=[\dkK]\b)', '', s)
+    s = re.sub(r'\s*-\s*', '-', s)
+    s = re.sub(r'(?<=\d)\s+(?=\d)', '', s)
+    s = re.sub(r'(\d+)-([\dkK])\b', r'\1-\2', s)
+    return s
+
+
 def normalize_user_input(text: str) -> str:
     """
     Normaliza el texto de entrada del usuario para mitigar errores comunes del STT:
     1. Transcripción de 'Enel' como 'en', 'en el', 'en él', 'ener', 'ene'.
     2. Dígitos espaciados de RUTs y números de clientes: '1 2 3 4 5 6 7 8 - 5' -> '12345678-5'.
-    3. Palabras de puntuación como 'guion', 'guión', 'raya'.
+    3. Palabras de números dictados en español: 'doce tres cuatro...' -> '1234...'.
+    4. Palabras de puntuación como 'guion', 'guión', 'raya', 'menos'.
     """
     if not text:
         return ""
@@ -120,13 +201,20 @@ def normalize_user_input(text: str) -> str:
     s = re.sub(r'\ben\s*,\s*', 'Enel, ', s, flags=re.IGNORECASE)
     s = re.sub(r'\ben\s+(?=rut|cliente|número|numero|\d)', 'Enel ', s, flags=re.IGNORECASE)
 
-    # 2. Normalizar guion y espacios alrededor
-    s = re.sub(r'\s*(?:-|guion|guión|raya)\s*', '-', s, flags=re.IGNORECASE)
+    # 2. Parsear números hablados en palabras españolas a dígitos
+    s = _parse_spoken_spanish_numbers(s)
 
-    # 3. Colapsar espacios entre dígitos consecutivos (ej: '1 2 3 4 5 6 7 8' -> '12345678')
+    # 3. Colapsar comas entre dígitos (cuando STT pone pausas tipo '12, 345, 678-5')
+    s = re.sub(r'(?<=\d)\s*,\s*(?=\d)', '', s)
+
+    # 4. Normalizar guion y espacios alrededor
+    s = re.sub(r'\s*(?:-|guion|guión|raya|menos)\s*', '-', s, flags=re.IGNORECASE)
+
+    # 5. Colapsar espacios entre dígitos consecutivos (ej: '1 2 3 4 5 6 7 8' -> '12345678')
     s = re.sub(r'(?<=\d)\s+(?=[\dkK]\b)', '', s)
+    s = re.sub(r'(?<=\d)\s+(?=\d)', '', s)
 
-    # 4. Asegurar formato RUT con guión: '12345678-5'
+    # 6. Asegurar formato RUT con guión: '12345678-5'
     s = re.sub(r'(\d+)-([\dkK])\b', r'\1-\2', s)
 
     return s
