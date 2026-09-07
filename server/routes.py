@@ -290,6 +290,80 @@ async def get_producto_barcode(request):
         return json_error(str(e))
 
 
+async def get_servipag_servicios(request):
+    """Obtener categorías y empresas de servicios disponibles en Servipag"""
+    try:
+        path = 'web/data/servipag_bdd.json'
+        if not os.path.exists(path):
+            return json_error("Base de datos Servipag no encontrada", code=404)
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return json_ok(data=data.get('categorias_servicios', []))
+    except Exception as e:
+        logger.exception('get_servipag_servicios exception:')
+        return json_error(str(e))
+
+
+async def get_servipag_cuentas(request):
+    """Obtener todas las cuentas registradas en Servipag"""
+    try:
+        path = 'web/data/servipag_bdd.json'
+        if not os.path.exists(path):
+            return json_error("Base de datos Servipag no encontrada", code=404)
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        return json_ok(data=data.get('cuentas_clientes', []))
+    except Exception as e:
+        logger.exception('get_servipag_cuentas exception:')
+        return json_error(str(e))
+
+
+async def get_servipag_rut(request):
+    """Obtener todas las cuentas asociadas a un RUT"""
+    raw_rut = request.match_info.get('rut', '')
+    target_rut = re.sub(r'[^0-9kK]', '', str(raw_rut)).upper()
+    try:
+        path = 'web/data/servipag_bdd.json'
+        if not os.path.exists(path):
+            return json_error("Base de datos Servipag no encontrada", code=404)
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        cuentas = [c for c in data.get('cuentas_clientes', []) if re.sub(r'[^0-9kK]', '', str(c.get('rut_titular', ''))).upper() == target_rut]
+        if not cuentas:
+            return json_error(f"No se encontraron cuentas asociadas al RUT {raw_rut}", code=404)
+        return json_ok(data={
+            "rut": raw_rut,
+            "titular": cuentas[0].get('nombre_titular', ''),
+            "total_cuentas": len(cuentas),
+            "cuentas": cuentas
+        })
+    except Exception as e:
+        logger.exception('get_servipag_rut exception:')
+        return json_error(str(e))
+
+
+async def get_servipag_cuenta(request):
+    """Buscar una cuenta específica por empresa e identificador"""
+    empresa = request.match_info.get('empresa', '').lower().strip()
+    identificador = request.match_info.get('identificador', '').strip()
+    try:
+        path = 'web/data/servipag_bdd.json'
+        if not os.path.exists(path):
+            return json_error("Base de datos Servipag no encontrada", code=404)
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        for c in data.get('cuentas_clientes', []):
+            emp_id = c.get('empresa_id', '').lower()
+            emp_nombre = c.get('empresa_nombre', '').lower()
+            c_ident = str(c.get('identificador', '')).strip()
+            if (empresa in emp_id or empresa in emp_nombre or emp_id in empresa) and (c_ident.lower() == identificador.lower()):
+                return json_ok(data=c)
+        return json_error(f"Cuenta no encontrada para empresa '{empresa}' con identificador '{identificador}'", code=404)
+    except Exception as e:
+        logger.exception('get_servipag_cuenta exception:')
+        return json_error(str(e))
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -303,6 +377,10 @@ def setup_routes(app):
     app.router.add_post("/clear_history", clear_history)
     app.router.add_get("/api/productos", get_productos)
     app.router.add_get("/api/producto/barcode/{codigo}", get_producto_barcode)
+    app.router.add_get("/api/servipag/servicios", get_servipag_servicios)
+    app.router.add_get("/api/servipag/cuentas", get_servipag_cuentas)
+    app.router.add_get("/api/servipag/rut/{rut}", get_servipag_rut)
+    app.router.add_get("/api/servipag/cuenta/{empresa}/{identificador}", get_servipag_cuenta)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)

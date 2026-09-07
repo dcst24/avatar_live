@@ -77,135 +77,118 @@ OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
 OLLAMA_MODEL = "qwen3-vl:32b-instruct"
 OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "4096"))
 
-# ─── Carga dinámica del catálogo de productos (BDD) ──────────────────────────
-_BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
+# ─── Carga dinámica de base de datos Servipag (Pago de Cuentas) ─────────────
+_SERVIPAG_BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "servipag_bdd.json")
+_RETAIL_BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
+_BDD_PATH = _SERVIPAG_BDD_PATH if os.path.exists(_SERVIPAG_BDD_PATH) else _RETAIL_BDD_PATH
+
 _BDD: dict = {}
-_CATEGORIES_BY_ID: dict = {}
-_BARCODE_TO_CAT: dict = {}
-_SKU_TO_CAT: dict = {}
-_BRAND_TO_CATS: dict = {}
-_KEYWORD_TO_CATS: dict = {}
+_CATEGORIAS_SERVICIOS: list = []
+_CATEGORIAS_BY_ID: dict = {}
+_EMPRESAS_BY_ID: dict = {}
+_EMPRESAS_BY_ALIAS: dict = {}
+_CUENTAS: list = []
+_CUENTAS_BY_CLEAN_RUT: dict = {}
+_CUENTAS_BY_IDENTIFICADOR: dict = {}
+_CUENTAS_BY_EMPRESA: dict = {}
 
-CATEGORY_KEYWORDS = {
-    "audio_gaming": ["parlante", "parlantes", "audio", "altavoz", "jbl", "marshall", "audifono", "audifonos", "audífono", "audífonos", "sony", "buds", "consola", "consolas", "playstation", "ps5", "xbox", "gamer", "gaming", "smartwatch", "reloj"],
-    "smartphones": ["celular", "celulares", "telefono", "telefonos", "smartphone", "smartphones", "iphone", "apple", "galaxy", "samsung", "xiaomi", "redmi", "motorola", "pixel"],
-    "television": ["tele", "teles", "televisor", "televisores", "tv", "tvs", "smart tv", "qled", "oled", "uled", "pantalla", "hisense", "roku"],
-    "computacion": ["notebook", "notebooks", "laptop", "laptops", "computador", "computadores", "tablet", "tablets", "macbook", "ipad", "asus", "lenovo"],
-    "zapatillas": ["zapatilla", "zapatillas", "running", "nike", "adidas", "puma", "new balance", "pegasus", "ultraboost", "calzado deportivo", "talla", "tallas"],
-    "perfumes_hombre": ["perfume hombre", "perfumes hombre", "perfume de hombre", "armani", "acqua di gio", "sauvage", "dior", "one million", "bleu"],
-    "perfumes_mujer": ["perfume mujer", "perfumes mujer", "perfume de mujer", "carolina herrera", "good girl", "lancome", "coco mademoiselle", "devotion"],
-    "electrohogar": ["refrigerador", "refrigeradores", "lavadora", "lavadoras", "secadora", "aspiradora", "aspiradoras", "cafetera", "cafeteras", "freidora", "airfryer", "microondas", "linea blanca", "electrohogar", "electrodomestico"],
-    "ropa_mujer": ["vestido", "vestidos", "blusa", "falda", "pantalon mujer", "ropa mujer"],
-    "ropa_hombre": ["camisa", "poleron", "pantalon hombre", "chino", "ropa hombre"],
-    "calzado_mujer": ["sandalia", "sandalias", "bota", "botas", "tacon", "calzado mujer"],
-    "decohogar": ["plumon", "sabana", "sabanas", "cobertor", "almohada", "cama", "deco", "decohogar", "toalla"]
-}
+def clean_rut(rut_str: str) -> str:
+    """Limpia el RUT removiendo puntos, guiones y espacios, dejando dígitos y K mayúscula."""
+    if not rut_str:
+        return ""
+    return re.sub(r'[^0-9kK]', '', rut_str).upper()
 
-def _format_category(cat: dict) -> str:
-    loc = cat.get("ubicacion_tienda", {})
-    piso = loc.get("piso", "?")
-    pasillo = loc.get("pasillo", "")
-    lines = [f"\nCategoría: {cat['nombre']} (Piso {piso}, {pasillo}):"]
-    for p in cat.get("productos", []):
-        precio_str = f"${p['precio']:,}".replace(",", ".")
-        if p.get("en_oferta") and p.get("precio_oferta"):
-            oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-            precio_detalle = f"antes {precio_str} pesos, oferta {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
-        else:
-            precio_detalle = f"precio {precio_str} pesos"
+def _format_account_for_prompt(acc: dict) -> str:
+    monto_fmt = f"${acc['monto']:,} pesos".replace(",", ".") if acc.get('monto', 0) > 0 else "0 pesos"
+    venc_txt = f"Vence: {acc['fecha_vencimiento']}" if acc.get('fecha_vencimiento') else "Sin fecha de vencimiento"
+    return (
+        f"- Empresa: {acc.get('empresa_nombre', '')} | Servicio: {acc.get('categoria', '')} | "
+        f"Titular: {acc.get('nombre_titular', '')} (RUT: {acc.get('rut_titular', '')}) | "
+        f"{acc.get('identificador_tipo', 'Identificador')}: {acc.get('identificador', '')} | "
+        f"Monto: {monto_fmt} | Estado: {acc.get('estado', '').upper()} ({acc.get('detalle_estado', '')}) | {venc_txt}"
+    )
 
-        code = p.get("codigo_barra") or p.get("sku")
-        piso_num = p.get("piso", piso)
-        pasillo_txt = p.get("pasillo", pasillo)
-        cat_tipo = p.get("categoria", "")
-
-        disp_txt = ""
-        if p.get("stock_por_talla"):
-            tallas_info = [f"talla {t} ({stk} un)" if stk > 0 else f"talla {t} AGOTADA" for t, stk in p["stock_por_talla"].items()]
-            disp_txt = f" Tallas: {', '.join(tallas_info)}."
-        elif p.get("stock") is not None:
-            stk = p.get("stock")
-            disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
-
-        lines.append(f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}")
-    return "\n".join(lines)
+def _format_category_for_prompt(cat: dict) -> str:
+    empresas_str = ", ".join([e["nombre"] for e in cat.get("empresas", [])])
+    return f"- Servicio {cat['nombre']}: Empresas disponibles: {empresas_str}"
 
 
-BASE_SYSTEM_PROMPT = '''Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
-Estás ubicado junto al tótem interactivo de la tienda y tu función principal es orientar a los clientes, informar precios y ofertas, comparar productos y resolver dudas de la tienda.
+BASE_SYSTEM_PROMPT = '''Eres el Asistente Virtual de Servipag en un tótem interactivo de atención y pago de cuentas en Chile.
+Tu función principal es guiar y orientar al usuario de forma clara, ágil, empática y profesional para consultar el estado de sus cuentas (luz, agua, internet, gas, autopistas/TAG) y proceder a su pago.
 
 REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras en total).
-- El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
-- NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
+- El usuario te escucha hablar mediante síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
+- NUNCA uses formato Markdown como asteriscos (*), negritas (**), guiones (- o —), flechas (→) ni viñetas (•).
+- Lee siempre los montos en pesos chilenos completos (ej: "28.990 pesos").
 
-REGLAS DE COMPORTAMIENTO ANTE UN ESCANEO DE PRODUCTO (CÓDIGO DE BARRAS / SKU):
-Cuando el sistema te informe los datos de un producto escaneado, debes responder de manera ULTRA CONCISA:
-- Si el producto NO tiene oferta: di únicamente su nombre y su precio directo (ej: "El parlante JBL Charge 5 cuesta 179.990 pesos."). ESTÁ ESTRICTAMENTE PROHIBIDO decir la frase "precio regular".
-- Si el producto SÍ tiene oferta: destaca de inmediato el precio de oferta y el descuento (ej: "El Galaxy S25 está en oferta a 599.990 pesos con 44 por ciento de descuento.").
-- NUNCA digas frases aduladoras ni de relleno como "Buena elección", "Excelente elección", "Qué buen gusto" o "Gran compra".
-- Termina la frase preguntando exactamente: "¿Te gustaría saber en qué pasillo encontrarlo?"
-- NO menciones el piso ni la ubicación al escanear, a menos que el cliente responda afirmativamente.
-- Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde solo el piso y pasillo en una sola frase breve (ej: "Lo encuentras en el Piso 2, pasillo T-04.").
-- Si el cliente rechaza saber la ubicación diciendo ÚNICAMENTE que no ("no", "no gracias", "no es necesario"): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
-- Si el cliente indica que no hay el producto o que no lo encuentra en el pasillo o góndola ("no hay este producto", "no lo encuentro", "no queda stock"): aclara amablemente que según el sistema sí figura con stock en tienda, y sugiérele consultar a un vendedor o asesor del piso para revisar bodega (ej: "Según mi sistema sí tenemos stock disponible. Puedes consultar a un vendedor en este piso para que revise en bodega.").
+FLUJO CONVERSACIONAL PASO A PASO:
+1. IDENTIFICAR SERVICIO:
+   Si el usuario saluda o dice que quiere pagar una cuenta sin especificar cuál, pregúntale:
+   "¡Hola! ¿Qué cuenta deseas pagar hoy: luz, agua, internet, gas o autopista?"
+2. IDENTIFICAR EMPRESA:
+   Si ya se conoce el tipo de servicio pero no la empresa, pregúntale cuál es su empresa proveedora mencionando las principales:
+   Ejemplo (Luz): "¿De qué empresa es tu cuenta de luz: Enel, CGE o Chilquinta?"
+   Ejemplo (Agua): "¿De qué empresa es tu cuenta de agua: Aguas Andinas, Essbio o Esval?"
+   Ejemplo (Internet): "¿De qué compañía es tu servicio: VTR, Movistar, Entel o Mundo?"
+3. IDENTIFICAR CUENTA O RUT:
+   Si ya se conoce la empresa pero falta el identificador, solicítalo con amabilidad:
+   Ejemplo: "¿Me indicas tu número de cliente o tu RUT?"
+4. INFORMAR ESTADO Y MONTO (DISTINGUIR CON EXACTITUD LOS 4 CASOS):
+   - DEUDA ACTIVA (al día / próxima a vencer):
+     Informa el monto y fecha de vencimiento, y pregunta si desea pagar.
+     Ejemplo: "Tu cuenta de Enel es de 28.990 pesos con vencimiento el 15 de septiembre. ¿Deseas pagarla ahora?"
+   - DEUDA VENCIDA (atrasada / corte programado):
+     Informa con claridad el monto vencido y una advertencia amable.
+     Ejemplo: "Tu cuenta de VTR tiene una deuda vencida de 38.990 pesos con aviso de corte. ¿Deseas pagarla ahora?"
+   - DEUDA PAGADA / AL DÍA:
+     Informa que la cuenta no tiene saldo pendiente (cero pesos) y pregunta si desea pagar otra cuenta.
+     Ejemplo: "Tu cuenta de Enel se encuentra totalmente al día con cero pesos pendientes. ¿Deseas pagar otra cuenta?"
+   - AÚN NO HAY DEUDAS / SIN FACTURACIÓN:
+     Informa que la cuenta no registra facturación pendiente por el momento.
+     Ejemplo: "Tu cuenta de Metrogas no registra facturación emitida por ahora. ¿Te ayudo con otra cuenta?"
+5. CONFIRMACIÓN Y TRANSICIÓN DE PAGO:
+   Si el usuario responde afirmativamente que desea pagar ("sí", "pagar", "quiero pagar", "proceder", "claro"):
+   Responde EXACTAMENTE con la instrucción de pago en el lector de tarjeta:
+   "Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector."
 
-REGLA ABSOLUTA DE TEMÁTICA (SOLO TIENDA PARIS):
-- SOLO puedes responder consultas relacionadas directamente con esta tienda Paris, sus productos, precios, ofertas, pisos, pasillos y servicios.
-- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre conocimientos generales ajenos a la tienda (como programación de computadores, física, matemáticas, política, historia, ciencia o significado de nombres). PERO SÍ debes responder y asesorar activamente sobre todos los productos que vendemos en Paris: tecnología (smartphones, televisores, computadores, audio, parlantes, consolas de videojuegos, smartwatches), moda mujer y hombre, calzado, zapatillas deportivas, belleza y perfumería, y electrohogar.
-- Si el cliente te pregunta sobre un tema ajeno a la tienda, niégate amablemente en una sola frase breve y redirige a las compras:
-  "Disculpa, solo puedo ayudarte con productos, ofertas y ubicaciones de Paris. ¿Buscas algún producto hoy?"
+CONSULTA DIRECTA POR RUT:
+- Si el usuario proporciona directamente su RUT (ej: "18.765.432-1"):
+  Consulta sus cuentas asociadas y dale un resumen conciso indicando las que tienen deuda activa o vencida.
+  Ejemplo: "Hola Juan, tienes dos cuentas pendientes: Enel por 28.990 pesos y Aguas Andinas por 14.500 pesos. ¿Cuál deseas pagar?"
 
-RAZONAMIENTO Y CONSULTAS DE PRODUCTOS:
-- Cuando pregunten por el producto "más barato", "más económico", "en oferta" o de mejor precio de cualquier tipo o categoría, responde de inmediato el nombre y precio del producto más económico de esa sección.
-- Cuando pregunten por disponibilidad de tallas en calzado o ropa, indica directamente si la talla solicitada tiene stock o está agotada, y menciona brevemente las tallas disponibles.
-- Si un producto fue escaneado antes en la conversación, mantén ese producto como referencia si el cliente pide compararlo o buscar alternativas.
-- Si el cliente dice que no ve o no encuentra el producto escaneado, recuérdale que en sistema figura stock y que consulte al vendedor del piso.
-
-ROL Y COMPORTAMIENTO COMERCIAL:
-- Habla siempre en español chileno natural, proactivo, profesional y directo.
-- Responde siempre con oraciones breves (máximo 1 o 2 oraciones, menos de 20 palabras).
-- Nunca digas que eres una inteligencia artificial o un bot.
-- Si un producto o marca no está en el catálogo, responde brevemente que actualmente no contamos con esa opción.
-
-INFORMACIÓN DE LA TIENDA Y SERVICIOS:
-- Tienda: Paris Costanera Center (3 Pisos)
-- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería Mujer y Hombre (Pasillo B-02), Deportes y Zapatillas (Pasillo D-07), Caja Principal y Punto de Retiro.
-- Piso 2: Tecnología Completa (Smartphones, Televisores, Computación, Audio y Parlantes, Consolas de Videojuegos y Smartwatches en Pasillos T-01 al T-04), Moda Mujer y Hombre, Calzado Mujer, Caja Express y Baños / SS.HH.
-- Piso 3: Electrohogar y Línea Blanca (Refrigeradores, Lavadoras, Cafeteras, Aspiradoras, Freidoras de Aire en Pasillos H-11 y H-12), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
-- Escaleras mecánicas y ascensores: en el centro de la tienda en todos los pisos (1, 2 y 3).
+REGLA ABSOLUTA DE TEMÁTICA:
+- Solo atiendes consultas sobre Servipag, empresas proveedoras y pago de servicios básicos en Chile.
+- No respondas preguntas de programación, cultura general o temas ajenos. Responde cortésmente: "Disculpa, solo atiendo consultas y pagos de cuentas en Servipag. ¿Qué cuenta deseas pagar hoy?"
 
 EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
 
-Sistema informa: "Producto escaneado: Parlante Portatil JBL Charge 5 Azul. Marca: JBL. Precio: 179.990 pesos. Ubicación: Piso 2, Tecno, Pasillo T-04."
-Respuesta del avatar: "El parlante JBL Charge 5 cuesta 179.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?"
+Cliente: "Hola, quiero pagar una cuenta"
+Respuesta del avatar: "¡Hola! ¿Qué cuenta deseas pagar: luz, agua, internet, gas o autopista?"
 
-Cliente: "Sí"
-Respuesta del avatar: "Lo encuentras en el Piso 2, pasillo T-04."
+Cliente: "La luz"
+Respuesta del avatar: "¿De qué empresa es tu cuenta: Enel, CGE o Chilquinta?"
+
+Cliente: "Enel, cliente 1234567"
+Respuesta del avatar: "Tu cuenta de Enel tiene un saldo de 28.990 pesos al día. ¿Deseas pagarla ahora?"
+
+Cliente: "Sí, pagar"
+Respuesta del avatar: "Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector."
 
 Cliente: "No, gracias"
-Respuesta del avatar: "Perfecto, aquí estaré si necesitas algo más."
+Respuesta del avatar: "Perfecto, si necesitas algo más aquí estaré. ¡Que tengas un excelente día!"
 
-Cliente: "No hay este producto en la góndola"
-Respuesta del avatar: "Según el sistema sí tenemos stock disponible. Te sugiero consultar a un vendedor del piso para revisar bodega."
+Cliente: "Mi RUT es 15.432.987-K"
+Respuesta del avatar: "Hola María, tu cuenta de VTR tiene una deuda vencida de 38.990 pesos. ¿Deseas pagarla ahora?"
 
-Cliente: "No encuentro el parlante"
-Respuesta del avatar: "En el sistema figura stock en tienda. Puedes pedirle a un vendedor del piso 2 que revise en bodega."
+Cliente: "Quiero revisar mi cuenta de Enel, RUT 12.345.678-5"
+Respuesta del avatar: "Tu cuenta de Enel se encuentra al día con cero pesos pendientes. ¿Deseas pagar otra cuenta?"
 
-Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. En oferta a 599.990 pesos con 44 por ciento de descuento (antes 1.069.990 pesos). Ubicación: Piso 2, Tecno, Pasillo T-04."
-Respuesta del avatar: "El Galaxy S25 está en oferta a 599.990 pesos con un 44 por ciento de descuento. ¿Te gustaría saber en qué pasillo encontrarlo?"
+Cliente: "Metrogas, cliente 65432109"
+Respuesta del avatar: "Tu cuenta de Metrogas no registra facturación pendiente por el momento. ¿Deseas consultar otro servicio?"
 
-Cliente: "¿Cuál es el parlante más barato?"
-Respuesta del avatar: "El más económico es el JBL Go 4 a 29.990 pesos en oferta. ¿Te gustaría saber su ubicación?"
-
-Cliente: "¿Tienen zapatillas Nike en talla 45?"
-Respuesta del avatar: "La talla 45 está agotada, pero tenemos disponibles del 40 al 44 a 99.990 pesos en el Piso 1."
-
-Cliente: "¿Dónde están los baños?"
-Respuesta del avatar: "Los servicios higiénicos se encuentran en el Piso 2, frente al sector central."
-
-Cliente: "¿Cómo hago una función en Python?"
-Respuesta del avatar: "Disculpa, solo respondo sobre productos y compras en tienda Paris. ¿Te ayudo a buscar algo hoy?"
+Cliente: "Costanera Norte, patente BBCL12"
+Respuesta del avatar: "Tu cuenta de Costanera Norte tiene una deuda vencida de 45.200 pesos. ¿Deseas proceder al pago?"
 '''
 
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
@@ -213,113 +196,128 @@ SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     """
-    Selecciona e inyecta de forma ultraligera ÚNICAMENTE las categorías y productos
-    relevantes para la consulta del usuario, acelerando drásticamente el tiempo de respuesta.
+    Selecciona e inyecta dinámicamente las cuentas, empresas y categorías
+    relevantes para la consulta actual del usuario en Servipag.
     """
     search_text = user_msg.lower()
     for h in history[-2:]:
         search_text += " " + h.get("content", "").lower()
 
-    matched_cats = set()
+    # Si estamos en modo Servipag
+    if _CUENTAS or _CATEGORIAS_SERVICIOS:
+        matched_accounts = []
+        matched_categories = []
+        matched_companies = []
 
-    # 1. Búsqueda por sinónimos y palabras clave de categoría
-    for cid, kws in CATEGORY_KEYWORDS.items():
-        if any(kw in search_text for kw in kws):
-            matched_cats.add(cid)
+        # 1. Búsqueda por RUT (con formato o solo números)
+        clean_user_ruts = re.findall(r'\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b|\b\d{7,8}[\dkK]\b', search_text)
+        for r in clean_user_ruts:
+            cr = clean_rut(r)
+            if cr in _CUENTAS_BY_CLEAN_RUT:
+                for acc in _CUENTAS_BY_CLEAN_RUT[cr]:
+                    if acc not in matched_accounts:
+                        matched_accounts.append(acc)
 
-    # 2. Búsqueda por código de barras o SKU
-    for cb, cid in _BARCODE_TO_CAT.items():
-        if cb in search_text:
-            matched_cats.add(cid)
-    for sku, cid in _SKU_TO_CAT.items():
-        if sku in search_text:
-            matched_cats.add(cid)
+        # 2. Búsqueda por identificador de cliente / patente
+        for ident, acc in _CUENTAS_BY_IDENTIFICADOR.items():
+            if ident.lower() in search_text:
+                if acc not in matched_accounts:
+                    matched_accounts.append(acc)
 
-    # 3. Búsqueda por marca registrada en catálogo
-    for brand, cids in _BRAND_TO_CATS.items():
-        if f" {brand} " in f" {search_text} ":
-            matched_cats.update(cids)
+        # 3. Búsqueda por alias / nombre de empresa
+        for alias, emp in _EMPRESAS_BY_ALIAS.items():
+            if f" {alias} " in f" {search_text} ":
+                if emp not in matched_companies:
+                    matched_companies.append(emp)
+                emp_id = emp.get("id", "")
+                if emp_id in _CUENTAS_BY_EMPRESA:
+                    for acc in _CUENTAS_BY_EMPRESA[emp_id]:
+                        if acc not in matched_accounts:
+                            matched_accounts.append(acc)
 
-    # 4. Búsqueda por palabra distintiva del nombre del producto
-    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', search_text)
-    for w in words:
-        if w in _KEYWORD_TO_CATS:
-            matched_cats.update(_KEYWORD_TO_CATS[w])
+        # 4. Búsqueda por categoría de servicio
+        for cat in _CATEGORIAS_SERVICIOS:
+            cat_id = cat.get("id", "")
+            sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
+            if any(s in search_text for s in sinonimos):
+                if cat not in matched_categories:
+                    matched_categories.append(cat)
 
-    # Casos especiales de género / categoría amplia
-    if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
-        matched_cats.add("perfumes_mujer")
-        matched_cats.add("perfumes_hombre")
+        extra_parts = []
+        if matched_accounts:
+            extra_parts.append("CUENTAS ENCONTRADAS PARA ESTE CLIENTE:\n" + "\n".join([_format_account_for_prompt(a) for a in matched_accounts]))
+        if matched_companies:
+            comp_info = [f"- {c['nombre']} (Identificador: {c['tipo_identificador']}, formato: {c.get('formato_identificador','')})" for c in matched_companies]
+            extra_parts.append("EMPRESAS SELECCIONADAS:\n" + "\n".join(comp_info))
+        if matched_categories and not matched_accounts:
+            extra_parts.append("SERVICIOS Y EMPRESAS DISPONIBLES:\n" + "\n".join([_format_category_for_prompt(c) for c in matched_categories]))
 
-    if "ropa" in search_text and not matched_cats.intersection({"ropa_mujer", "ropa_hombre"}):
-        matched_cats.add("ropa_mujer")
-        matched_cats.add("ropa_hombre")
+        if extra_parts:
+            return f"{BASE_SYSTEM_PROMPT}\n\nCONTEXTO ESPECÍFICO DE ESTA CONSULTA:\n" + "\n\n".join(extra_parts)
+        return BASE_SYSTEM_PROMPT
 
-    if ("zapatilla" in search_text or "zapato" in search_text or "calzado" in search_text) and not matched_cats.intersection({"zapatillas", "calzado_mujer"}):
-        matched_cats.add("zapatillas")
-        matched_cats.add("calzado_mujer")
-
-    extra_context = ""
-    if matched_cats:
-        cat_lines = []
-        for cid in matched_cats:
-            if cid in _CATEGORIES_BY_ID:
-                cat_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
-        extra_context = "\n".join(cat_lines)
-    elif any(w in search_text for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
-        ofertas = _BDD.get("ofertas_destacadas", [])
-        all_prods = {p["sku"]: p for c in _BDD.get("categorias", []) for p in c.get("productos", [])}
-        lines = ["\nOfertas destacadas de la semana:"]
-        for o in ofertas:
-            prod = all_prods.get(o["sku"])
-            if prod:
-                lines.append(f"- [{prod.get('categoria','')}] {prod['nombre']}: oferta a ${prod.get('precio_oferta',0):,} pesos ({o['descuento_pct']} por ciento dcto).".replace(",", "."))
-        extra_context = "\n".join(lines)
-
-    if extra_context:
-        return f"{BASE_SYSTEM_PROMPT}\nCATÁLOGO RELEVANTE PARA ESTA CONSULTA:\n{extra_context}"
     return BASE_SYSTEM_PROMPT
 
 
 def reload_catalog() -> None:
-    global _BDD, _CATEGORIES_BY_ID, _BARCODE_TO_CAT, _SKU_TO_CAT, _BRAND_TO_CATS, _KEYWORD_TO_CATS
+    global _BDD, _CATEGORIAS_SERVICIOS, _CATEGORIAS_BY_ID, _EMPRESAS_BY_ID, _EMPRESAS_BY_ALIAS
+    global _CUENTAS, _CUENTAS_BY_CLEAN_RUT, _CUENTAS_BY_IDENTIFICADOR, _CUENTAS_BY_EMPRESA
+
+    _BDD = {}
+    _CATEGORIAS_SERVICIOS = []
+    _CATEGORIAS_BY_ID = {}
+    _EMPRESAS_BY_ID = {}
+    _EMPRESAS_BY_ALIAS = {}
+    _CUENTAS = []
+    _CUENTAS_BY_CLEAN_RUT = {}
+    _CUENTAS_BY_IDENTIFICADOR = {}
+    _CUENTAS_BY_EMPRESA = {}
+
     try:
         with open(_BDD_PATH, encoding="utf-8") as _f:
             _BDD = json.load(_f)
-        _CATEGORIES_BY_ID = {c["id"]: c for c in _BDD.get("categorias", [])}
-        _BARCODE_TO_CAT = {}
-        _SKU_TO_CAT = {}
-        _BRAND_TO_CATS = {}
-        _KEYWORD_TO_CATS = {}
 
-        for cat in _BDD.get("categorias", []):
-            cid = cat["id"]
-            for prod in cat.get("productos", []):
-                cb = str(prod.get("codigo_barra", "")).strip().lower()
-                if cb:
-                    _BARCODE_TO_CAT[cb] = cid
-                sku = str(prod.get("sku", "")).strip().lower()
-                if sku:
-                    _SKU_TO_CAT[sku] = cid
-                marca = str(prod.get("marca", "")).strip().lower()
-                if marca:
-                    _BRAND_TO_CATS.setdefault(marca, set()).add(cid)
-                nombre_words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', prod.get("nombre", "").lower())
-                for w in nombre_words:
-                    if len(w) >= 4 and w not in {"para", "negro", "blanco", "azul", "rojo", "gris", "verde", "inch", "pulgadas"}:
-                        _KEYWORD_TO_CATS.setdefault(w, set()).add(cid)
+        # Si es base de datos Servipag
+        if "categorias_servicios" in _BDD or "cuentas_clientes" in _BDD:
+            _CATEGORIAS_SERVICIOS = _BDD.get("categorias_servicios", [])
+            _CATEGORIAS_BY_ID = {c["id"]: c for c in _CATEGORIAS_SERVICIOS}
 
-        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_BARCODE_TO_CAT)} barcodes, {len(_BRAND_TO_CATS)} marcas)")
+            for cat in _CATEGORIAS_SERVICIOS:
+                for emp in cat.get("empresas", []):
+                    emp["categoria"] = cat["id"]
+                    _EMPRESAS_BY_ID[emp["id"]] = emp
+                    _EMPRESAS_BY_ALIAS[emp["nombre"].lower()] = emp
+                    _EMPRESAS_BY_ALIAS[emp["id"].lower()] = emp
+                    for al in emp.get("alias", []):
+                        _EMPRESAS_BY_ALIAS[al.lower()] = emp
+
+            _CUENTAS = _BDD.get("cuentas_clientes", [])
+            for acc in _CUENTAS:
+                cr = clean_rut(acc.get("rut_titular", ""))
+                if cr:
+                    _CUENTAS_BY_CLEAN_RUT.setdefault(cr, []).append(acc)
+
+                ident = str(acc.get("identificador", "")).strip()
+                if ident:
+                    _CUENTAS_BY_IDENTIFICADOR[ident] = acc
+
+                emp_id = acc.get("empresa_id", "")
+                if emp_id:
+                    _CUENTAS_BY_EMPRESA.setdefault(emp_id, []).append(acc)
+
+            logger.info(
+                f"[LLM] Base de datos Servipag cargada desde {_BDD_PATH}: "
+                f"{len(_CATEGORIAS_SERVICIOS)} categorías, {len(_EMPRESAS_BY_ID)} empresas, "
+                f"{len(_CUENTAS)} cuentas registradas ({len(_CUENTAS_BY_CLEAN_RUT)} RUTs)"
+            )
+        else:
+            logger.warning(f"[LLM] Formato de BDD no reconocido en {_BDD_PATH}")
+
     except Exception as _e:
-        _BDD = {}
-        _CATEGORIES_BY_ID = {}
-        _BARCODE_TO_CAT = {}
-        _SKU_TO_CAT = {}
-        _BRAND_TO_CATS = {}
-        _KEYWORD_TO_CATS = {}
-        logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
+        logger.error(f"[LLM] Error cargando base de datos: {_e}")
 
 reload_catalog()
+
 
 
 

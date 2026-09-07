@@ -1,0 +1,322 @@
+{
+  "version": "1.0",
+  "descripcion": "Base de datos de servicios, empresas y cuentas de clientes para Asistente Virtual Servipag",
+  "categorias_servicios": [
+    {
+      "id": "luz",
+      "nombre": "Electricidad / Luz",
+      "sinonimos": ["luz", "electricidad", "energia", "corriente", "electrica"],
+      "empresas": [
+        {
+          "id": "enel",
+          "nombre": "Enel Distribución",
+          "alias": ["enel", "chilectra"],
+          "tipo_identificador": "Número de cliente",
+          "formato_identificador": "7 dígitos (ej: 1234567)"
+        },
+        {
+          "id": "cge",
+          "nombre": "CGE",
+          "alias": ["cge", "compania general de electricidad"],
+          "tipo_identificador": "Número de cliente",
+          "formato_identificador": "9 dígitos (ej: 213456789)"
+        },
+        {
+          "id": "chilquinta",
+          "nombre": "Chilquinta Energía",
+          "alias": ["chilquinta"],
+          "tipo_identificador": "Número de cliente",
+          "formato_identificador": "7 dígitos (ej: 3141592)"
+        }
+      ]
+    },
+    {
+      "id": "agua",
+      "nombre": "Agua Potable",
+      "sinonimos": ["agua", "agua potable", "alcantarillado"],
+      "empresas": [
+        {
+          "id": "aguas_andinas",
+          "nombre": "Aguas Andinas",
+          "alias": ["aguas andinas", "aguas cordillera", "aguas manquehue"],
+          "tipo_identificador": "Número de cuenta",
+          "formato_identificador": "8 dígitos (ej: 87654321)"
+        },
+        {
+          "id": "essbio",
+          "nombre": "Essbio",
+          "alias": ["essbio"],
+          "tipo_identificador": "Número de servicio",
+          "formato_identificador": "7 dígitos (ej: 4567890)"
+        },
+        {
+          "id": "esval",
+          "nombre": "Esval",
+          "alias": ["esval"],
+          "tipo_identificador": "Número de cliente",
+          "formato_identificador": "7 dígitos (ej: 5678901)"
+        }
+      ]
+    },
+    {
+      "id": "internet_telecom",
+      "nombre": "Internet, Telefonía y TV Cable",
+      "sinonimos": ["internet", "wifi", "cable", "television", "celular", "telefono", "telefonia", "fibra", "movil"],
+      "empresas": [
+        {
+          "id": "vtr",
+          "nombre": "VTR",
+          "alias": ["vtr"],
+          "tipo_identificador": "RUT o Número de contrato",
+          "formato_identificador": "RUT titular o 8 dígitos"
+        },
+        {
+          "id": "movistar",
+          "nombre": "Movistar",
+          "alias": ["movistar", "telefonica"],
+          "tipo_identificador": "RUT o Número telefónico",
+          "formato_identificador": "RUT titular o 9 dígitos"
+        },
+        {
+          "id": "entel",
+          "nombre": "Entel",
+          "alias": ["entel"],
+          "tipo_identificador": "RUT o Número móvil",
+          "formato_identificador": "RUT titular o 9 dígitos"
+        },
+        {
+          "id": "mundo",
+          "nombre": "Mundo Pacífico",
+          "alias": ["mundo", "mundo pacifico"],
+          "tipo_identificador": "RUT o Número de cliente",
+          "formato_identificador": "RUT titular o 7 dígitos"
+        },
+        {
+          "id": "wom",
+          "nombre": "WOM",
+          "alias": ["wom"],
+          "tipo_identificador": "RUT o Número de línea",
+          "formato_identificador": "RUT titular o 9 dígitos"
+        }
+      ]
+    },
+    {
+      "id": "gas",
+      "nombre": "Gas Natural y Licuado",
+      "sinonimos": ["gas", "gas natural", "balon de gas", "cilindro de gas", "caneria de gas"],
+      "empresas": [
+        {
+          "id": "metrogas",
+          "nombre": "Metrogas",
+          "alias": ["metrogas"],
+          "tipo_identificador": "Número de cliente",
+          "formato_identificador": "8 dígitos (ej: 65432109)"
+        },
+        {
+          "id": "lipigas",
+          "nombre": "Lipigas",
+          "alias": ["lipigas"],
+          "tipo_identificador": "RUT o Código de cliente",
+          "formato_identificador": "RUT titular o 6 dígitos"
+        },
+        {
+          "id": "abastible",
+          "nombre": "Abastible",
+          "alias": ["abastible"],
+          "tipo_identificador": "RUT o Código de cliente",
+          "formato_identificador": "RUT titular o 6 dígitos"
+        }
+      ]
+    },
+    {
+      "id": "autopistas_tag",
+      "nombre": "Autopistas y TAG Urbano",
+      "sinonimos": ["autopista", "autopistas", "tag", "peaje", "costanera", "vespucio"],
+      "empresas": [
+        {
+          "id": "costanera_norte",
+          "nombre": "Costanera Norte",
+          "alias": ["costanera norte", "costanera"],
+          "tipo_identificador": "RUT o Patente",
+          "formato_identificador": "RUT titular o Patente (ej: BBCL12)"
+        },
+        {
+          "id": "autopista_central",
+          "nombre": "Autopista Central",
+          "alias": ["autopista central", "central"],
+          "tipo_identificador": "RUT o Patente",
+          "formato_identificador": "RUT titular o Patente"
+        },
+        {
+          "id": "vespucio_sur",
+          "nombre": "Vespucio Sur",
+          "alias": ["vespucio sur", "vespucio"],
+          "tipo_identificador": "RUT o Patente",
+          "formato_identificador": "RUT titular o Patente"
+        }
+      ]
+    }
+  ],
+  "cuentas_clientes": [
+    {
+      "id_cuenta": "CTA-101",
+      "rut_titular": "18.765.432-1",
+      "nombre_titular": "Juan Pérez",
+      "categoria": "luz",
+      "empresa_id": "enel",
+      "empresa_nombre": "Enel Distribución",
+      "identificador_tipo": "Número de cliente",
+      "identificador": "1234567",
+      "monto": 28990,
+      "fecha_vencimiento": "15-09-2026",
+      "estado": "activa",
+      "detalle_estado": "Boleta del mes al día, próxima a vencer",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Av. Providencia 1450, Depto 402, Providencia"
+    },
+    {
+      "id_cuenta": "CTA-102",
+      "rut_titular": "18.765.432-1",
+      "nombre_titular": "Juan Pérez",
+      "categoria": "agua",
+      "empresa_id": "aguas_andinas",
+      "empresa_nombre": "Aguas Andinas",
+      "identificador_tipo": "Número de cuenta",
+      "identificador": "87654321",
+      "monto": 14500,
+      "fecha_vencimiento": "20-09-2026",
+      "estado": "activa",
+      "detalle_estado": "Boleta del mes al día, próxima a vencer",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Av. Providencia 1450, Depto 402, Providencia"
+    },
+    {
+      "id_cuenta": "CTA-201",
+      "rut_titular": "15.432.987-K",
+      "nombre_titular": "María González",
+      "categoria": "internet_telecom",
+      "empresa_id": "vtr",
+      "empresa_nombre": "VTR",
+      "identificador_tipo": "Número de contrato",
+      "identificador": "55443322",
+      "monto": 38990,
+      "fecha_vencimiento": "28-08-2026",
+      "estado": "vencida",
+      "detalle_estado": "Deuda vencida con aviso de corte de servicio",
+      "periodo": "Julio 2026",
+      "direccion_suministro": "Calle Las Lilas 320, Ñuñoa"
+    },
+    {
+      "id_cuenta": "CTA-202",
+      "rut_titular": "15.432.987-K",
+      "nombre_titular": "María González",
+      "categoria": "luz",
+      "empresa_id": "cge",
+      "empresa_nombre": "CGE",
+      "identificador_tipo": "Número de cliente",
+      "identificador": "213456789",
+      "monto": 19200,
+      "fecha_vencimiento": "18-09-2026",
+      "estado": "activa",
+      "detalle_estado": "Boleta al día, próxima a vencer",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Calle Las Lilas 320, Ñuñoa"
+    },
+    {
+      "id_cuenta": "CTA-301",
+      "rut_titular": "12.345.678-5",
+      "nombre_titular": "Carlos Silva",
+      "categoria": "luz",
+      "empresa_id": "enel",
+      "empresa_nombre": "Enel Distribución",
+      "identificador_tipo": "Número de cliente",
+      "identificador": "7654321",
+      "monto": 0,
+      "fecha_vencimiento": "12-09-2026",
+      "estado": "pagada",
+      "detalle_estado": "Cuenta al día, pagada el 01-09-2026 por $32.400",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Los Conquistadores 2100, Las Condes"
+    },
+    {
+      "id_cuenta": "CTA-302",
+      "rut_titular": "12.345.678-5",
+      "nombre_titular": "Carlos Silva",
+      "categoria": "agua",
+      "empresa_id": "aguas_andinas",
+      "empresa_nombre": "Aguas Andinas",
+      "identificador_tipo": "Número de cuenta",
+      "identificador": "11223344",
+      "monto": 0,
+      "fecha_vencimiento": "16-09-2026",
+      "estado": "pagada",
+      "detalle_estado": "Cuenta al día, pagada el 02-09-2026 por $16.800",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Los Conquistadores 2100, Las Condes"
+    },
+    {
+      "id_cuenta": "CTA-401",
+      "rut_titular": "20.123.456-7",
+      "nombre_titular": "Camila Soto",
+      "categoria": "gas",
+      "empresa_id": "metrogas",
+      "empresa_nombre": "Metrogas",
+      "identificador_tipo": "Número de cliente",
+      "identificador": "65432109",
+      "monto": 0,
+      "fecha_vencimiento": null,
+      "estado": "sin_deuda",
+      "detalle_estado": "Aún no hay deudas, nuevo periodo sin facturación emitida",
+      "periodo": "Sin facturación",
+      "direccion_suministro": "Av. Vitacura 4500, Vitacura"
+    },
+    {
+      "id_cuenta": "CTA-501",
+      "rut_titular": "9.876.543-2",
+      "nombre_titular": "Roberto Morales",
+      "categoria": "autopistas_tag",
+      "empresa_id": "costanera_norte",
+      "empresa_nombre": "Costanera Norte",
+      "identificador_tipo": "Patente / RUT",
+      "identificador": "BBCL12",
+      "monto": 45200,
+      "fecha_vencimiento": "25-08-2026",
+      "estado": "vencida",
+      "detalle_estado": "Cuenta de pase diario y peajes vencida",
+      "periodo": "Julio 2026",
+      "direccion_suministro": "Vehículo Patente BBCL12"
+    },
+    {
+      "id_cuenta": "CTA-502",
+      "rut_titular": "9.876.543-2",
+      "nombre_titular": "Roberto Morales",
+      "categoria": "internet_telecom",
+      "empresa_id": "entel",
+      "empresa_nombre": "Entel",
+      "identificador_tipo": "Número móvil",
+      "identificador": "987654321",
+      "monto": 15990,
+      "fecha_vencimiento": "14-09-2026",
+      "estado": "activa",
+      "detalle_estado": "Plan móvil 5G vigente, próximo a vencer",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "Línea celular +56 9 8765 4321"
+    },
+    {
+      "id_cuenta": "CTA-503",
+      "rut_titular": "9.876.543-2",
+      "nombre_titular": "Roberto Morales",
+      "categoria": "agua",
+      "empresa_id": "aguas_andinas",
+      "empresa_nombre": "Aguas Andinas",
+      "identificador_tipo": "Número de cuenta",
+      "identificador": "99887766",
+      "monto": 0,
+      "fecha_vencimiento": "10-09-2026",
+      "estado": "pagada",
+      "detalle_estado": "Cuenta al día, pagada por $12.000",
+      "periodo": "Agosto 2026",
+      "direccion_suministro": "San Diego 1050, Santiago Centro"
+    }
+  ]
+}
