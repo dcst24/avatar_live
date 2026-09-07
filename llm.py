@@ -46,9 +46,12 @@ def normalizar(text: str) -> str:
     text = re.sub(r'`+([^`]+)`+', r'\1', text)
     text = re.sub(r'^\s*#{1,6}\s*', '', text, flags=re.MULTILINE)
 
-    # 5. Eliminar viñetas, bullets y guiones en cualquier posición
-    text = re.sub(r'[-—–]+', ' ', text)
-    text = re.sub(r'[*#|_\\/\[\]{}~^<>•·●○■◆▪\(\)]', ' ', text)
+    # 5. Eliminar viñetas y bullets de lista
+    # Solo guiones que son viñetas: al inicio de línea seguidos de espacio, o rodeados de espacios
+    text = re.sub(r'(?m)^\s*[—–]\s+', ' ', text)   # em-dash/en-dash al inicio (siempre viñeta)
+    text = re.sub(r'(?m)^\s*-\s+', ' ', text)       # guion corto al inicio de línea como viñeta
+    text = re.sub(r'\s[-—–]\s', ' ', text)           # guion/em-dash entre espacios (viñeta inline)
+    text = re.sub(r'[*#|_\\/\[\]{}~^<>•·●○■◆▪]', ' ', text)
 
     # 6. Eliminar emojis (rangos unicode de emoticones y símbolos visuales)
     text = re.sub(
@@ -937,12 +940,15 @@ reload_catalog()
 
 
 # ─── Detección inteligente de oraciones para streaming de voz ultra-rápido ───
-MIN_CHUNK_LEN = 120  # caracteres mínimos antes de enviar un fragmento (evita cortes y desincronización en respuestas cortas)
+MIN_CHUNK_LEN = 15  # caracteres mínimos antes de enviar un fragmento al TTS/avatar
+
+# Caracteres de fin de frase que disparan el envío de fragmento al avatar
+SENTENCE_ENDINGS = set(',.!?;:\n，。！？：；')
 
 def _is_sentence_boundary(chunk_buf: str) -> bool:
     """
     Determina si el buffer actual ha alcanzado un límite de oración natural para enviar al avatar.
-    Soporta '.', '?', '!' y signos orientales, pero evita cortar en medio de precios
+    Soporta '.', ',', '?', '!' y signos orientales, pero evita cortar en medio de precios
     chilenos como '599.990' o '1.069.990'.
     """
     if len(chunk_buf) < MIN_CHUNK_LEN:
@@ -954,6 +960,10 @@ def _is_sentence_boundary(chunk_buf: str) -> bool:
 
     last_char = trimmed[-1]
 
+    # Coma: corte natural para fluidez (evita acumular oraciones largas)
+    if last_char == ',':
+        return True
+
     # Signos inequívocos de fin de frase
     if last_char in ('?', '!', ';', ':', '\n', '？', '！', '；', '：'):
         return True
@@ -962,10 +972,6 @@ def _is_sentence_boundary(chunk_buf: str) -> bool:
     if last_char in ('.', '。'):
         if re.search(r'\d\.$', trimmed):
             return False
-        return True
-
-    # Si el buffer es largo (> 80 chars) y termina en coma, también cortar para fluidez
-    if len(trimmed) > 80 and last_char == ',':
         return True
 
     return False
