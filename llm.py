@@ -348,11 +348,26 @@ def extract_entities(user_msg: str, history: list = []) -> tuple:
     return rut, emp, ident, cat
 
 
+def formatear_fecha_natural(fecha_str: str) -> str:
+    """Convierte fechas en formato DD/MM/AAAA a lenguaje natural (ej: '28 de agosto')."""
+    if not fecha_str or str(fecha_str).strip().lower() in ("no aplica", "n/a", "none", "-", ""):
+        return ""
+    m = re.match(r'(\d{1,2})[/.-](\d{1,2})', str(fecha_str).strip())
+    if m:
+        dia = int(m.group(1))
+        mes_idx = int(m.group(2))
+        meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"]
+        mes_nombre = meses[mes_idx] if 1 <= mes_idx <= 12 else str(mes_idx)
+        return f"{dia} de {mes_nombre}"
+    return str(fecha_str).strip()
+
+
 def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificador: str = None, categoria: str = None) -> dict:
     """
     Motor de verificación determinista de cuentas Servipag:
     Valida la concordancia entre empresa y RUT/identificador, detectando cuentas al día,
     con deuda activa, deuda vencida, o discordancia entre el RUT y la empresa consultada.
+    Genera instrucciones de comunicación oral amables y humanas, evitando etiquetas rígidas de base de datos.
     """
     clean_r = clean_rut(rut) if rut else None
     emp_norm = empresa.lower().strip() if empresa else None
@@ -371,8 +386,9 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "valido": False,
                 "rut": clean_r,
                 "mensaje": (
-                    f"rut no registrado: No se encontraron cuentas registradas para el rut {rut}. "
-                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese rut en el sistema y pídele verificar el rut o ingresar su número de cliente."
+                    f"INFORMACIÓN: No se registran cuentas para el RUT {rut}.\n"
+                    "INSTRUCCIÓN OBLIGATORIA: Informa con calidez y amabilidad que ese RUT no figura registrado en el sistema, "
+                    "y pídele verificar el RUT o ingresar su número de cliente."
                 )
             }
 
@@ -381,45 +397,81 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
             monto = cuenta_match.get("monto", 0)
             monto_fmt = f"${monto:,} pesos".replace(",", ".") if monto > 0 else "0 pesos"
             estado = cuenta_match.get("estado", "").lower()
+            titular = cuenta_match.get("nombre_titular", "")
+            emp_nombre = cuenta_match.get("empresa_nombre", "")
+            fecha_venc_nat = formatear_fecha_natural(cuenta_match.get("fecha_vencimiento", ""))
+
+            # Subcaso A1: Cuenta al día o pagada (saldo 0)
+            if monto == 0 or estado in ("pagada", "al dia", "al día"):
+                frase_sugerida = (
+                    f"Hola {titular}, tu cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                    if titular else
+                    f"Esa cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                )
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta de {emp_nombre} de {titular or 'el cliente'} no tiene deuda pendiente (saldo 0 pesos, cuenta al día).\n"
+                    f"INSTRUCCIÓN OBLIGATORIA DE RESPUESTA: Comunícalo con naturalidad y calidez. Di algo como:\n"
+                    f"'{frase_sugerida}'.\n"
+                    "PROHIBIDO sonar robótico o leer etiquetas de base de datos como saldos o fechas de vencimiento cuando la cuenta está al día."
+                )
+            # Subcaso A2: Deuda vencida
+            elif estado == "vencida":
+                frase_sugerida = (
+                    f"Hola {titular}, tu cuenta de {emp_nombre} presenta una deuda vencida de {monto_fmt}. ¿Deseas pagarla ahora?"
+                    if titular else
+                    f"Tu cuenta de {emp_nombre} presenta una deuda vencida de {monto_fmt}. ¿Deseas pagarla ahora?"
+                )
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta de {emp_nombre} de {titular or 'el cliente'} presenta una deuda vencida de {monto_fmt}.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA DE RESPUESTA: Informa con cercanía, claridad y amabilidad. Di algo como:\n"
+                    f"'{frase_sugerida}'.\n"
+                    "PROHIBIDO sonar rígido o usar lenguaje técnico computacional."
+                )
+            # Subcaso A3: Deuda activa / al día próxima a vencer
+            else:
+                venc_txt = f" con vencimiento el {fecha_venc_nat}" if fecha_venc_nat else ""
+                frase_sugerida = (
+                    f"Hola {titular}, tu cuenta de {emp_nombre} presenta una deuda de {monto_fmt}{venc_txt}. ¿Deseas pagarla ahora?"
+                    if titular else
+                    f"Tu cuenta de {emp_nombre} presenta una deuda de {monto_fmt}{venc_txt}. ¿Deseas pagarla ahora?"
+                )
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta de {emp_nombre} de {titular or 'el cliente'} presenta un cobro de {monto_fmt}{venc_txt}.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA DE RESPUESTA: Informa de forma cercana, fluida y directa. Di algo como:\n"
+                    f"'{frase_sugerida}'.\n"
+                    "PROHIBIDO usar lenguaje rígido o etiquetas técnicas de base de datos."
+                )
+
             return {
                 "status": "cuenta_verificada",
                 "valido": True,
                 "cuenta": cuenta_match,
-                "titular": cuenta_match.get("nombre_titular", ""),
+                "titular": titular,
                 "rut": cuenta_match.get("rut_titular", ""),
                 "monto": monto,
                 "estado": estado,
-                "mensaje": (
-                    f"CUENTA VERIFICADA: Titular {cuenta_match['nombre_titular']}, empresa {cuenta_match['empresa_nombre']}. "
-                    f"Monto: {monto_fmt}. Estado: {estado.upper()} ({cuenta_match.get('detalle_estado', '')}). "
-                    f"Vence: {cuenta_match.get('fecha_vencimiento', 'No aplica')}. "
-                    f"INSTRUCCIÓN: Informa exactamente este monto y estado. "
-                    f"{'Informa que está al día con cero pesos y pregunta si desea pagar otra cuenta.' if monto == 0 else 'Pregunta si desea pagar ahora.'}"
-                )
+                "mensaje": mensaje
             }
         else:
             # Discordancia de empresa: el rut existe pero tiene otras empresas registradas
             titular = cuentas_rut[0].get("nombre_titular", "el cliente")
             emp_consultada_nombre = _EMPRESAS_BY_ID.get(emp_norm, {}).get("nombre", emp_norm.upper())
-            cuentas_info = []
-            for c in cuentas_rut:
-                m = f"${c['monto']:,} pesos".replace(",", ".") if c['monto'] > 0 else "0 pesos"
-                cuentas_info.append(f"{c['empresa_nombre']} ({c['categoria']}, {m} - {c['estado']})")
-            cuentas_str = " y ".join(cuentas_info)
-
-            # Buscar si tiene cuenta en el mismo rubro (ej: luz)
             categoria_rubro = _EMPRESAS_BY_ID.get(emp_norm, {}).get("categoria", "")
             cuenta_mismo_rubro = next((c for c in cuentas_rut if c.get("categoria") == categoria_rubro), None)
 
-            aclaracion = ""
             if cuenta_mismo_rubro:
                 m_rubro = f"${cuenta_mismo_rubro['monto']:,} pesos".replace(",", ".") if cuenta_mismo_rubro['monto'] > 0 else "0 pesos"
-                aclaracion = (
-                    f"pero para el servicio de {cuenta_mismo_rubro['categoria']} tiene registrada una cuenta en {cuenta_mismo_rubro['empresa_nombre']} "
-                    f"con estado {cuenta_mismo_rubro['estado'].upper()} ({m_rubro})"
-                )
+                est_rubro = cuenta_mismo_rubro.get("estado", "").lower()
+                if cuenta_mismo_rubro['monto'] == 0 or est_rubro in ("pagada", "al dia", "al día"):
+                    aclaracion = f"Para el servicio de {cuenta_mismo_rubro['categoria']}, tu cuenta registrada es en {cuenta_mismo_rubro['empresa_nombre']} y no presenta deuda al día de hoy."
+                else:
+                    aclaracion = f"Para el servicio de {cuenta_mismo_rubro['categoria']}, tu cuenta registrada es en {cuenta_mismo_rubro['empresa_nombre']} con una deuda de {m_rubro}."
             else:
-                aclaracion = f"sus cuentas registradas son en {cuentas_str}"
+                cuentas_info = [c['empresa_nombre'] for c in cuentas_rut]
+                cuentas_str = ", ".join(cuentas_info)
+                aclaracion = f"Tus cuentas registradas son en {cuentas_str}."
+
+            frase_sugerida = f"Hola {titular}, no registras cuenta en {emp_consultada_nombre} con ese rut. {aclaracion} ¿Deseas consultar esa cuenta o ingresar otro rut?"
 
             return {
                 "status": "discordancia_empresa",
@@ -429,9 +481,9 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "empresa_consultada": emp_consultada_nombre,
                 "cuentas_registradas": cuentas_rut,
                 "mensaje": (
-                    f"DISCORDANCIA VERIFICADA POR LA API: El cliente {titular} (rut {rut}) no tiene cuenta registrada en {emp_consultada_nombre}. "
-                    f"INSTRUCCIÓN OBLIGATORIA AL ASISTENTE: Dile con amabilidad a {titular} que no registra cuenta en {emp_consultada_nombre} para ese rut, "
-                    f"{aclaracion}. Pregúntale si desea consultar esa cuenta o ingresar otro rut. PROHIBIDO INVENTAR MONTOS."
+                    f"INFORMACIÓN OFICIAL: El cliente {titular} no registra cuenta en {emp_consultada_nombre}.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Explica con amabilidad la discordancia en tono natural y cercano. Di algo como:\n"
+                    f"'{frase_sugerida}'. PROHIBIDO INVENTAR MONTOS."
                 )
             }
 
@@ -443,34 +495,40 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "valido": False,
                 "rut": clean_r,
                 "mensaje": (
-                    f"rut no registrado: No se encontraron cuentas registradas para el rut {rut}. "
-                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese rut en el sistema y pídele verificar el rut o ingresar su número de cliente."
+                    f"INFORMACIÓN: No se registraron cuentas para el RUT {rut}.\n"
+                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese RUT en el sistema y pídele verificar el RUT o ingresar su número de cliente."
                 )
             }
         titular = cuentas_rut[0].get("nombre_titular", "el cliente")
         deudas = [c for c in cuentas_rut if c.get("monto", 0) > 0]
         if not deudas:
+            frase_sugerida = f"Hola {titular}, tus cuentas se encuentran al día y no presentan deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
             return {
                 "status": "rut_al_dia",
                 "valido": True,
                 "titular": titular,
                 "cuentas": cuentas_rut,
                 "mensaje": (
-                    f"CONSULTA POR rut VERIFICADA: El cliente {titular} tiene todas sus cuentas al día con saldo 0 pesos: "
-                    f"{', '.join([c['empresa_nombre'] for c in cuentas_rut])}. "
-                    f"INSTRUCCIÓN: Saluda a {titular}, infórmale que todas sus cuentas están al día con cero pesos pendientes y pregúntale si desea pagar otra cuenta."
+                    f"INFORMACIÓN OFICIAL: Todas las cuentas de {titular} están al día sin deuda pendiente.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Responde con amabilidad y calidez: '{frase_sugerida}'. "
+                    "PROHIBIDO decir 'saldo: 0' ni etiquetas técnicas."
                 )
             }
         else:
-            deudas_desc = [f"{c['empresa_nombre']} (${c['monto']:,} pesos - {c['estado']})".replace(",", ".") for c in deudas]
+            deudas_desc = [
+                f"tu cuenta de {c['empresa_nombre']} por ${c['monto']:,} pesos ({'vencida' if c.get('estado') == 'vencida' else 'pendiente'})".replace(",", ".")
+                for c in deudas
+            ]
+            deudas_txt = " y ".join(deudas_desc)
+            frase_sugerida = f"Hola {titular}, registras una deuda pendiente en {deudas_txt}. ¿Deseas pagarla ahora?"
             return {
                 "status": "rut_con_deuda",
                 "valido": True,
                 "titular": titular,
                 "cuentas_pendientes": deudas,
                 "mensaje": (
-                    f"CONSULTA POR rut VERIFICADA: El cliente {titular} tiene las siguientes cuentas pendientes: {', '.join(deudas_desc)}. "
-                    f"INSTRUCCIÓN: Saluda a {titular}, infórmale exactamente estas cuentas y montos pendientes y pregúntale cuál desea pagar."
+                    f"INFORMACIÓN OFICIAL: {titular} tiene cuentas pendientes de pago.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo de forma fluida y natural: '{frase_sugerida}'."
                 )
             }
 
@@ -480,19 +538,39 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
         if c:
             monto = c.get("monto", 0)
             monto_fmt = f"${monto:,} pesos".replace(",", ".") if monto > 0 else "0 pesos"
+            estado = c.get("estado", "").lower()
+            titular = c.get("nombre_titular", "")
+            emp_nombre = c.get("empresa_nombre", "")
+            fecha_venc_nat = formatear_fecha_natural(c.get("fecha_vencimiento", ""))
+
+            if monto == 0 or estado in ("pagada", "al dia", "al día"):
+                frase_sugerida = f"Hola {titular}, esa cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta {identificador} en {emp_nombre} no tiene deuda pendiente (saldo 0 pesos, al día).\n"
+                    f"INSTRUCCIÓN: Comunícalo con calidez: '{frase_sugerida}'. PROHIBIDO sonar robótico o leer encabezados del sistema."
+                )
+            elif estado == "vencida":
+                frase_sugerida = f"Hola {titular}, tu cuenta de {emp_nombre} presenta una deuda vencida de {monto_fmt}. ¿Deseas pagarla ahora?"
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta {identificador} en {emp_nombre} presenta una deuda vencida de {monto_fmt}.\n"
+                    f"INSTRUCCIÓN: Informa con cercanía: '{frase_sugerida}'."
+                )
+            else:
+                venc_txt = f" con vencimiento el {fecha_venc_nat}" if fecha_venc_nat else ""
+                frase_sugerida = f"Hola {titular}, tu cuenta de {emp_nombre} presenta una deuda de {monto_fmt}{venc_txt}. ¿Deseas pagarla ahora?"
+                mensaje = (
+                    f"INFORMACIÓN OFICIAL: La cuenta {identificador} en {emp_nombre} presenta un cobro de {monto_fmt}{venc_txt}.\n"
+                    f"INSTRUCCIÓN: Informa con claridad: '{frase_sugerida}'."
+                )
+
             return {
                 "status": "cuenta_verificada",
                 "valido": True,
                 "cuenta": c,
-                "titular": c.get("nombre_titular", ""),
+                "titular": titular,
                 "monto": monto,
-                "estado": c.get("estado", ""),
-                "mensaje": (
-                    f"CUENTA VERIFICADA: Titular {c['nombre_titular']}, empresa {c['empresa_nombre']}, identificador {c['identificador']}. "
-                    f"Monto: {monto_fmt}. Estado: {c['estado'].upper()} ({c.get('detalle_estado', '')}). "
-                    f"INSTRUCCIÓN: Informa exactamente este monto y estado. "
-                    f"{'Informa que está al día con cero pesos y pregunta si desea pagar otra cuenta.' if monto == 0 else 'Pregunta si desea pagar ahora.'}"
-                )
+                "estado": estado,
+                "mensaje": mensaje
             }
         else:
             return {
@@ -500,8 +578,8 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "valido": False,
                 "identificador": identificador,
                 "mensaje": (
-                    f"IDENTIFICADOR NO ENCONTRADO: No se encontró cuenta con el identificador {identificador}. "
-                    "INSTRUCCIÓN: Informa con amabilidad que no se encontró esa cuenta y solicita verificar el número."
+                    f"INFORMACIÓN: No se encontró cuenta con el número de cliente {identificador}.\n"
+                    "INSTRUCCIÓN: Informa con amabilidad que no se encontró esa cuenta y solicita verificar el número o dictar el RUT."
                 )
             }
 
@@ -517,9 +595,16 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - NUNCA uses formato Markdown como asteriscos (*), negritas (**), guiones (- o —), flechas (→) ni viñetas (•).
 - Lee siempre los montos en pesos chilenos completos (ej: "28.990 pesos").
 
+REGLA ABSOLUTA DE LENGUAJE NATURAL Y HUMANO (CERO RIGIDEZ / CERO FORMATO DE BASE DE DATOS):
+- NUNCA respondas con lenguaje técnico de base de datos ni leas etiquetas del sistema como estados de cuentas, titulares o fechas con barras.
+- Habla como un asistente humano amable, cercano y empático en un tótem de atención Servipag.
+- Si una cuenta está pagada o al día (monto 0): Di siempre con naturalidad: "Esa cuenta no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?" o "Hola [Nombre], tu cuenta de [Empresa] no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?".
+- Si tiene deuda activa: Di de forma directa y amable: "[Nombre], tu cuenta de [Empresa] presenta una deuda de [Monto] pesos con vencimiento el [Fecha en palabras]. ¿Deseas pagarla ahora?".
+- Si tiene deuda vencida: Di con amabilidad y claridad: "[Nombre], tu cuenta de [Empresa] presenta una deuda vencida de [Monto] pesos. ¿Deseas pagarla ahora?".
+
 REGLA ABSOLUTA DE VERACIDAD Y CONCORDANCIA (ANTI-ALUCINACIÓN):
 - NUNCA inventes nombres, ruts, empresas ni montos de cuentas.
-- Los montos mostrados en los ejemplos ("28.990", "38.990", etc.) son solo ilustrativos del formato. JAMÁS uses un monto de un ejemplo si no corresponde a la cuenta verificada del cliente en el bloque [VERIFICACIÓN OFICIAL DE LA API SERVIPAG].
+- Los montos mostrados en los ejemplos ("28.990", "38.990", etc.) son solo ilustrativos del formato. JAMÁS uses un monto de un ejemplo si no corresponde a la información verificada del cliente.
 - Si el cliente indica una empresa pero su rut no tiene cuenta en ella, infórmale con amabilidad la discordancia y menciona la empresa que sí tiene registrada.
 
 FLUJO CONVERSACIONAL PASO A PASO:
@@ -534,15 +619,10 @@ FLUJO CONVERSACIONAL PASO A PASO:
 3. IDENTIFICAR CUENTA O RUT:
    Si ya se conoce la empresa pero falta el identificador, solicítalo con amabilidad:
    Ejemplo: "¿Me indicas tu número de cliente o tu rut?"
-4. INFORMAR ESTADO Y MONTO (DISTINGUIR CON EXACTITUD LOS 4 CASOS):
-   - DEUDA ACTIVA (al día / próxima a vencer):
-     Informa el monto y fecha de vencimiento, y pregunta si desea pagar.
-   - DEUDA VENCIDA (atrasada / corte programado):
-     Informa con claridad el monto vencido y una advertencia amable.
-   - DEUDA PAGADA / AL DÍA:
-     Informa que la cuenta no tiene saldo pendiente (cero pesos) y pregunta si desea pagar otra cuenta.
-   - AÚN NO HAY DEUDAS / SIN FACTURACIÓN:
-     Informa que la cuenta no registra facturación pendiente por el momento.
+4. INFORMAR ESTADO Y MONTO DE FORMA NATURAL:
+   - CUENTA AL DÍA (0 pesos): Informa que no presenta deuda al día de hoy y pregunta si desea consultar otra cuenta.
+   - DEUDA ACTIVA: Informa el monto y fecha en palabras, y pregunta si desea pagar.
+   - DEUDA VENCIDA: Informa el monto vencido con claridad y amabilidad, y pregunta si desea pagar.
 5. CONFIRMACIÓN Y TRANSICIÓN DE PAGO:
    Si el usuario responde afirmativamente que desea pagar ("sí", "pagar", "quiero pagar", "proceder", "claro"):
    Responde EXACTAMENTE con la instrucción de pago en el lector de tarjeta:
@@ -550,11 +630,11 @@ FLUJO CONVERSACIONAL PASO A PASO:
 
 CONSULTA DIRECTA POR RUT:
 - Si el usuario proporciona directamente su rut (ej: "18.765.432-1"):
-  Consulta sus cuentas asociadas y dale un resumen conciso indicando las que tienen deuda activa o vencida.
+  Consulta sus cuentas asociadas y dale un resumen conciso indicando las que tienen deuda activa o vencida, o que no presentan deuda si están al día.
 
 REGLA ABSOLUTA DE TEMÁTICA:
 - Solo atiendes consultas sobre Servipag, empresas proveedoras y pago de servicios básicos en Chile.
-- No respondas preguntas de programación, cultura general o temas ajenos. Responde cortésmente: "Disculpa, solo atiendo consultas y pagos de cuentas en Servipag. ¿Qué cuenta deseas pagar hoy?"
+- No respondas preguntas ajenas al servicio. Responde cortésmente: "Disculpa, solo atiendo consultas y pagos de cuentas en Servipag. ¿Qué cuenta deseas pagar hoy?"
 
 EJEMPLOS DE FORMATO (CORTOS Y PRECISOS):
 Cliente: "Hola, quiero pagar una cuenta"
@@ -589,11 +669,10 @@ def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
             "valido": False,
             "numero": incomplete_num,
             "mensaje": (
-                f"NÚMERO INCOMPLETO ({incomplete_num}): El usuario ingresó o dictó '{incomplete_num}', el cual es incompleto. "
-                "Un rut chileno tiene 8 o 9 dígitos con su dígito verificador (por ejemplo, 12.345.678-5) "
-                "y un número de cliente tiene entre 6 y 9 dígitos. "
-                f"INSTRUCCIÓN OBLIGATORIA: Informa con amabilidad que el número {incomplete_num} está incompleto, "
-                "y solicita que dicte o digite su rut completo o su número de cliente."
+                f"NÚMERO INCOMPLETO ({incomplete_num}): El usuario dictó o digitó solo '{incomplete_num}', que es un fragmento incompleto. "
+                "Un RUT chileno tiene 8 o 9 dígitos con su dígito verificador y un número de cliente tiene entre 6 y 9 dígitos.\n"
+                f"INSTRUCCIÓN OBLIGATORIA: Informa con amabilidad y brevedad que el número {incomplete_num} está incompleto, "
+                "y pídele que dicte o digite su RUT completo con dígito verificador o su número de cliente."
             )
         }
 
@@ -657,9 +736,9 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
         if api_result and api_result.get("mensaje"):
             return (
                 f"{BASE_SYSTEM_PROMPT}\n\n"
-                "[VERIFICACIÓN OFICIAL DE LA API SERVIPAG - DATOS VERIFICADOS OBLIGATORIOS]:\n"
+                "[CONTEXTO OFICIAL DEL CLIENTE (Comunica con lenguaje oral natural, sin repetir títulos ni etiquetas técnicas)]:\n"
                 f"{api_result['mensaje']}\n"
-                "ATENCIÓN: Basa tu respuesta ÚNICAMENTE en esta verificación. PROHIBIDO inventar montos, nombres o empresas."
+                "ATENCIÓN: Basa tu respuesta en estos datos. Responde con lenguaje oral natural, breve y empático."
             )
 
     return BASE_SYSTEM_PROMPT

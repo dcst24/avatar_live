@@ -1386,16 +1386,17 @@
         }
 
         function isDictatingRutOrNumber(text) {
+            if (_isWaitingRut) return true;
             if (!text) return false;
             const clean = text.toLowerCase();
-            // Detecta explícitamente palabras de identificación o números
-            if (/\b(rut|cliente|cuenta|numero|número)\b/i.test(clean)) return true;
+            // Detecta explícitamente palabras de identificación
+            if (/\b(rut|cliente|cuenta|numero|número|identificador)\b/i.test(clean)) return true;
             // Si contiene dígitos
-            const digits = (clean.match(/\d/g) || []).length;
-            if (digits >= 1) return true;
-            // Palabras de números dictados en secuencia
-            const numWords = (clean.match(/\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|cero|diez|once|doce|veinte|treinta|cuarenta|cincuenta|millon|millones|guion|guión|raya)\b/gi) || []).length;
-            if (numWords >= 2) return true;
+            if (/\d/.test(clean)) return true;
+            // Palabras de números dictados en español (incluso una sola palabra como 'doce', 'treinta', 'dos', 'once')
+            if (/\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|cero|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintidós|veintitres|veintitrés|veinticuatro|veinticinco|veintiseis|veintiséis|veintisiete|veintiocho|veintinueve|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|quinientos|mil|millon|millones|guion|guión|raya|menos|k|ka)\b/i.test(clean)) {
+                return true;
+            }
             return false;
         }
 
@@ -1524,6 +1525,7 @@
         let _rutBuffer = '';
         let _pendingRutNumpadShow = false;
         let _isRutError = false;
+        let _isWaitingRut = false;
         let _lastAvatarMessage = '';
 
         function formatRutDisplay(raw) {
@@ -1893,6 +1895,51 @@
         let _gotAnyResult = false;
         let _audioCaptureErrors = 0;
         let _networkSpeechErrors = 0;
+        let _pendingCommitTimeout = null;
+        let _voiceAccumulator = '';
+        let _questionDispatched = false;
+
+        const _dispatchQuestion = (rawText) => {
+            if (_questionDispatched) return;
+            _questionDispatched = true;
+            clearTimeout(_pendingCommitTimeout);
+            _pendingCommitTimeout = null;
+            _voiceAccumulator = '';
+
+            const normalizedText = normalizeUserInput(rawText);
+            let question = _extractQuestion(normalizedText);
+            if (!question && _containsWakeWord(normalizedText)) {
+                clearTimeout(_wakeBufferTimeout);
+                _alwaysOnActive = false;
+                sendGreetingAsAvatar();
+                return;
+            } else if (!question) {
+                question = normalizedText.trim();
+            }
+
+            LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
+
+            if (question) {
+                clearTimeout(_wakeBufferTimeout);
+
+                if (hasCompleteRut(question)) {
+                    _isWaitingRut = false;
+                }
+
+                if (_isSleepWord(question)) {
+                    LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                    stopAlwaysOnListening();
+                    sendToLLM(question, true);
+                    sleepModel(false);
+                    return;
+                }
+
+                LOG(`Enviando al LLM: "${question}"`);
+                _alwaysOnActive = false;
+                stopAlwaysOnListening();
+                sendToLLM(question);
+            }
+        };
 
         function setupRecognition() {
             LOG('setupRecognition: creando instancia...');
@@ -1908,57 +1955,19 @@
             rec.continuous = false;
             rec.maxAlternatives = 1;
 
-            let _pendingCommitTimeout = null;
-            let _lastInterimText = '';
-            let _questionDispatched = false;
-
-            const _dispatchQuestion = (rawText) => {
-                if (_questionDispatched) return;
-                _questionDispatched = true;
-                clearTimeout(_pendingCommitTimeout);
-                _lastInterimText = '';
-
-                const normalizedText = normalizeUserInput(rawText);
-                let question = _extractQuestion(normalizedText);
-                if (!question && _containsWakeWord(normalizedText)) {
-                    clearTimeout(_wakeBufferTimeout);
-                    _alwaysOnActive = false;
-                    sendGreetingAsAvatar();
-                    return;
-                } else if (!question) {
-                    question = normalizedText.trim();
-                }
-
-                LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
-
-                if (question) {
-                    clearTimeout(_wakeBufferTimeout);
-
-                    if (_isSleepWord(question)) {
-                        LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
-                        stopAlwaysOnListening();
-                        sendToLLM(question, true);
-                        sleepModel(false);
-                        return;
-                    }
-
-                    LOG(`Enviando al LLM: "${question}"`);
-                    _alwaysOnActive = false;
-                    stopAlwaysOnListening();
-                    sendToLLM(question);
-                }
-            };
-
             rec.onstart = () => {
                 _recStartMs = Date.now();
                 _gotAnyResult = false;
-                _lastInterimText = '';
+                // NOTA: Si hay un timer de pausa de dictado en curso, NO borrar el acumulador
+                // para permitir concatenar el siguiente tramo de números/palabras.
+                if (!_pendingCommitTimeout) {
+                    _voiceAccumulator = '';
+                }
                 _questionDispatched = false;
-                clearTimeout(_pendingCommitTimeout);
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake}, acumulado="${_voiceAccumulator}")`);
                 isListening = true;
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                setUserText('', false);
+                setUserText(_voiceAccumulator ? normalizeUserInput(_voiceAccumulator) : '', false);
             };
 
             rec.onresult = (event) => {
@@ -2007,43 +2016,70 @@
                     _waitingFollowUpAck = false;
                 }
 
-                const cleanDisplay = final ? normalizeUserInput(final) : interim;
+                // Construir frase combinando con lo acumulado previamente
+                const currentCombined = _voiceAccumulator ? (_voiceAccumulator + ' ' + rawText) : rawText;
+                const cleanDisplay = normalizeUserInput(currentCombined);
                 setUserText(cleanDisplay, !final);
 
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
-                    _lastInterimText = final.trim();
+                    _voiceAccumulator = currentCombined.trim();
 
-                    // Si está dictando un RUT o números, pero aún no ha completado los dígitos del RUT:
-                    // Esperar 2500ms por si el navegador marcó "final" en una pausa natural entre números
-                    if (isDictatingRutOrNumber(_lastInterimText) && !hasCompleteRut(_lastInterimText)) {
-                        LOG(`[Final Pause Buffer] Detectados números/RUT en progreso ("${_lastInterimText}") → esperando 2500ms`);
+                    const dictatingRut = isDictatingRutOrNumber(_voiceAccumulator);
+                    const completeRut = hasCompleteRut(_voiceAccumulator);
+
+                    if (dictatingRut && !completeRut) {
+                        // Dictado de RUT o números en progreso: esperar 4000ms de silencio real para permitir pausas
+                        LOG(`[RUT Dictation Buffer] Fragmento detectado ("${_voiceAccumulator}") → esperando 4000ms para siguiente tramo...`);
                         _pendingCommitTimeout = setTimeout(() => {
-                            if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                                LOG(`[RUT Auto-Commit tras pausa] Enviando: "${_lastInterimText}"`);
-                                const txt = _lastInterimText;
+                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
+                                LOG(`[RUT Commit tras 4s de silencio] Enviando acumulado: "${_voiceAccumulator}"`);
+                                const txt = _voiceAccumulator;
+                                _voiceAccumulator = '';
                                 try { rec.stop(); } catch (e) {}
                                 _dispatchQuestion(txt);
                             }
-                        }, 2500);
+                        }, 4000);
+                    } else if (completeRut) {
+                        // RUT completo identificado (ej: 12.345.678-5 o 12345678-5) -> commit rápido (1200ms)
+                        LOG(`[RUT Completo] RUT válido completado ("${_voiceAccumulator}") → enviando en 1200ms`);
+                        _pendingCommitTimeout = setTimeout(() => {
+                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
+                                const txt = _voiceAccumulator;
+                                _voiceAccumulator = '';
+                                try { rec.stop(); } catch (e) {}
+                                _dispatchQuestion(txt);
+                            }
+                        }, 1200);
                     } else {
-                        _dispatchQuestion(final);
+                        // Frase estándar (no RUT): commit según longitud
+                        const words = _voiceAccumulator.split(/\s+/).length;
+                        const delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+                        _pendingCommitTimeout = setTimeout(() => {
+                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
+                                const txt = _voiceAccumulator;
+                                _voiceAccumulator = '';
+                                try { rec.stop(); } catch (e) {}
+                                _dispatchQuestion(txt);
+                            }
+                        }, delayMs);
                     }
                 } else if (_conversationAwake && interim && !_questionDispatched) {
-                    _lastInterimText = (final ? final + ' ' : '') + interim.trim();
                     clearTimeout(_pendingCommitTimeout);
-                    const words = _lastInterimText.split(/\s+/).length;
+                    const dictatingRut = isDictatingRutOrNumber(currentCombined);
+                    const completeRut = hasCompleteRut(currentCombined);
+                    const words = currentCombined.split(/\s+/).length;
                     let delayMs;
-                    if (isDictatingRutOrNumber(_lastInterimText)) {
-                        // Si la persona está dictando el RUT o números, dar 2500ms (o 1400ms si ya completó el RUT)
-                        delayMs = hasCompleteRut(_lastInterimText) ? 1400 : 2500;
+                    if (dictatingRut) {
+                        delayMs = completeRut ? 1400 : 3500;
                     } else {
-                        delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+                        delayMs = (words <= 2) ? 500 : ((words <= 4) ? 750 : 1000);
                     }
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                            LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
-                            const txt = _lastInterimText;
+                        if (_conversationAwake && currentCombined && !_questionDispatched) {
+                            LOG(`[Interim Auto-Commit] Silencio detectado tras "${currentCombined}" (${delayMs}ms) → enviando`);
+                            const txt = currentCombined;
+                            _voiceAccumulator = '';
                             try { rec.stop(); } catch (e) {}
                             _dispatchQuestion(txt);
                         }
@@ -2076,46 +2112,58 @@
 
             rec.onend = () => {
                 const elapsed = Date.now() - _recStartMs;
-                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
+                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, pendingTimeout=${!!_pendingCommitTimeout}, acumulado="${_voiceAccumulator}"`);
 
-                if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                    if (isDictatingRutOrNumber(_lastInterimText) && !hasCompleteRut(_lastInterimText) && elapsed < 3500) {
-                        LOG(`[onend] Persona dictando RUT/números ("${_lastInterimText}"), manteniendo buffer para permitir continuar...`);
-                    } else {
-                        clearTimeout(_pendingCommitTimeout);
-                        LOG(`[onend Auto-Commit] Texto pendiente en buffer: "${_lastInterimText}" → enviando`);
-                        const txt = _lastInterimText;
-                        _dispatchQuestion(txt);
-                        stopListening();
-                        return;
+                // Si hay un timeout de commit pendiente (ej: el usuario dijo "12" y pausó esperando continuar),
+                // NO DISPARAR envío prematuro en onend. Dejar correr el timer de 4000ms y reiniciar reconocimiento de inmediato.
+                if (_pendingCommitTimeout) {
+                    LOG(`[onend] Silencio detectado pero commit pendiente activo para "${_voiceAccumulator}". Manteniendo buffer.`);
+                    stopListening();
+                    if (_alwaysOnActive) {
+                        setTimeout(() => {
+                            if (_alwaysOnActive && !isListening && !isSpeaking) {
+                                LOG('Reiniciando reconocimiento de inmediato para continuar capturando dictado...');
+                                startAlwaysOnListening();
+                            }
+                        }, 250);
                     }
+                    return;
+                }
+
+                if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
+                    clearTimeout(_pendingCommitTimeout);
+                    LOG(`[onend Auto-Commit] Enviando buffer pendiente: "${_voiceAccumulator}"`);
+                    const txt = _voiceAccumulator;
+                    _voiceAccumulator = '';
+                    _dispatchQuestion(txt);
+                    stopListening();
+                    return;
                 }
 
                 if (!_gotAnyResult && elapsed < 1500) {
-                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
+                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 600ms`);
                     stopListening();
                     setTimeout(() => {
                         if (!isListening && _alwaysOnActive) {
-                            LOG('Reintento de SpeechRecognition (always-on)...');
                             recognition = setupRecognition();
                             if (recognition) {
                                 try { recognition.start(); }
                                 catch (ex) { ERR('reintento falló:', ex.name); }
                             }
                         }
-                    }, 700);
+                    }, 600);
                     return;
                 }
 
                 stopListening();
 
                 if (_alwaysOnActive) {
-                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 600ms');
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 500ms');
                     setTimeout(() => {
-                        if (_alwaysOnActive && !isListening) {
+                        if (_alwaysOnActive && !isListening && !isSpeaking) {
                             startAlwaysOnListening();
                         }
-                    }, 600);
+                    }, 500);
                 }
             };
 
@@ -2348,6 +2396,9 @@
                     LOG(`sendToLLM: Avatar solicita o reporta error en RUT (asking=${isAskingRut}, error=${isRutError}). Programando apertura de teclado táctil.`);
                     _pendingRutNumpadShow = true;
                     _isRutError = isRutError;
+                    _isWaitingRut = true;
+                } else {
+                    _isWaitingRut = false;
                 }
 
                 // Fallback de seguridad: si tras 3.5s del stream el avatar no reportó habla, reactivar escucha y mostrar teclado si correspondía
