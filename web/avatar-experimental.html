@@ -1617,9 +1617,12 @@
             if (_rutBuffer.length < 7) return;
             const finalRut = formatRutDisplay(_rutBuffer);
             LOG(`numpadSubmit: RUT ingresado desde teclado táctil: "${finalRut}"`);
-            
+
             // Ocultar teclado inmediatamente tras digitar
             hideRutNumpad();
+
+            // Detener escucha activa para que el mic no capture ruido en la transición
+            stopAlwaysOnListening();
 
             // Despertar modelo / conversación
             wakeUpModel();
@@ -1627,6 +1630,7 @@
             // Enviar el RUT al LLM
             await sendToLLM(finalRut);
         }
+
 
         LOG('Modo ASR: SpeechRecognition');
 
@@ -2091,7 +2095,13 @@
                 const elapsed = Date.now() - _recStartMs;
                 ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
 
-                if (e.error === 'audio-capture') {
+                if (e.error === 'aborted' || e.error === 'no-speech') {
+                    // Eventos normales: 'aborted' ocurre cuando se detiene el reconocimiento
+                    // mientras el avatar habla (esperado), 'no-speech' es timeout normal sin voz.
+                    LOG(`onerror "${e.error}" ignorado silenciosamente (evento normal).`);
+                    // No cambiar estado de UI — el speaking monitor maneja la transición.
+                    return;
+                } else if (e.error === 'audio-capture') {
                     _audioCaptureErrors++;
                     ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
                     setState('ready', '⚠ Error captura de audio — intenta de nuevo');
@@ -2102,13 +2112,12 @@
                     _networkSpeechErrors++;
                     ERR('network error #' + _networkSpeechErrors + ': SpeechRecognition no puede conectar a los servidores de voz.');
                     setState('ready', 'Error de red STT — reintenta o verifica soporte de voz');
-                } else if (e.error !== 'no-speech') {
-                    setState('ready', `⚠ Error: ${e.error}`);
                 } else {
-                    LOG('no-speech: timeout normal sin voz');
+                    setState('ready', `⚠ Error: ${e.error}`);
                 }
                 stopListening();
             };
+
 
             rec.onend = () => {
                 const elapsed = Date.now() - _recStartMs;
@@ -2387,6 +2396,18 @@
 
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
+
+                // Una vez que el LLM termina de generar, el TTS ya está procesando.
+                // Marcar proactivamente isSpeaking=true para que el speaking monitor
+                // no reactive el micrófono durante la latencia de síntesis de Kokoro (1-3s).
+                if (fullText.trim()) {
+                    isSpeaking = true;
+                    setState('speaking', 'Hablando…');
+                    stopAlwaysOnListening();
+                    _armSpeakingWatchdog();
+                    const wrap = document.getElementById('avatar-wrap');
+                    if (wrap) wrap.classList.add('avatar-speaking');
+                }
 
                 // Detectar si el avatar está pidiendo el RUT o reportando error / número incompleto / no existencia
                 const isAskingRut = /(?:rut|cliente|identificador).*(?:ind[ií]ca|dime|ingresa|digita|cu[aá]l|proporciona|favor|dame|asociad)|(?:cu[aá]l|qu[eé]|dime|ingresa|digita).*(?:rut|cliente|identificador)|(?:incompleto|completo)/i.test(fullText);
