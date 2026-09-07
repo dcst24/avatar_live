@@ -1082,10 +1082,10 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         logger.error("[LLM] Timeout al conectar con Ollama (>120s)")
         return "Disculpa, el servidor de lenguaje tardó demasiado en responder."
     except requests.exceptions.ConnectionError as e:
-        logger.error(f"[LLM] No se pudo conectar a Ollama: {e}")
+        logger.error("[LLM] No se pudo conectar a Ollama: {e}")
         return "Disculpa, no me pude conectar al servidor de lenguaje."
     except KeyError as e:
-        logger.error(f"[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
+        logger.error("[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
         return "Disculpa, recibí una respuesta inesperada."
     except Exception as e:
         logger.exception("[LLM] Error inesperado:")
@@ -1095,7 +1095,10 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
     Envía `message` al LLM y rinde los fragmentos de respuesta a medida que van llegando
-    de Ollama, alimentando al avatar en tiempo real y haciendo yield para el streaming HTTP.
+    de Ollama para el streaming HTTP (chat en tiempo real).
+    El audio del avatar se envía al TTS en fragmentos de oración completos una vez que
+    el LLM termina de generar, evitando la pérdida del primer fragmento por race condition
+    con flush_talk/PAUSE.
     Mantiene historial de conversación por sesión.
     """
     message = normalize_user_input(message)
@@ -1116,7 +1119,6 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         response = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=120)
         response.raise_for_status()
 
-        chunk_buf = ""
         full_text = ""
 
         for line in response.iter_lines():
@@ -1130,29 +1132,32 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                     continue
 
                 full_text += content
-                chunk_buf += content
 
                 # Rinde el token de inmediato para la interfaz de chat en tiempo real
                 yield content
 
-                # Dividir para el TTS del avatar solo si el buffer es suficientemente largo (>= 120 chars)
-                # y alcanza un límite de oración natural, evitando micro-cortes a mitad de respuestas cortas
-                if len(chunk_buf) >= MIN_CHUNK_LEN and _is_sentence_boundary(chunk_buf):
-                    fragment = normalizar(chunk_buf.strip())
-                    if fragment:
-                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
-                        avatar_session.put_msg_txt(fragment, datainfo)
-                    chunk_buf = ""
-
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar cualquier texto restante al avatar
-        if chunk_buf.strip():
-            last_frag = normalizar(chunk_buf.strip())
-            if last_frag:
-                logger.info(f"[LLM Stream] -> avatar (final): {last_frag}")
-                avatar_session.put_msg_txt(last_frag, datainfo)
+        # Enviar el texto completo al avatar TTS en fragmentos de oración
+        # (después de que el LLM terminó, para evitar race condition con flush_talk)
+        if full_text.strip():
+            clean_full = normalizar(full_text.strip())
+            if clean_full:
+                # Dividir en fragmentos por puntuación, respetando MIN_CHUNK_LEN
+                chunk_buf = ""
+                for char in clean_full:
+                    chunk_buf += char
+                    if char in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
+                        fragment = chunk_buf.strip()
+                        if fragment:
+                            logger.info(f"[LLM Stream] -> avatar: {fragment}")
+                            avatar_session.put_msg_txt(fragment, datainfo)
+                        chunk_buf = ""
+                # Enviar resto final
+                if chunk_buf.strip():
+                    logger.info(f"[LLM Stream] -> avatar (final): {chunk_buf.strip()}")
+                    avatar_session.put_msg_txt(chunk_buf.strip(), datainfo)
 
         # Guardar turno completo en historial (normalizado)
         _append_to_history(sessionid, message, normalizar(full_text))
