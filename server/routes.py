@@ -364,6 +364,36 @@ async def get_servipag_cuenta(request):
         return json_error(str(e))
 
 
+async def servipag_verificar(request):
+    """Verificar cuenta Servipag con concordancia de empresa, RUT e identificador (anti-alucinación)"""
+    from llm import verificar_cuenta_servipag, normalize_user_input
+    try:
+        if request.method == 'POST':
+            data = await request.json()
+        else:
+            data = dict(request.query)
+
+        empresa = data.get('empresa', '').strip() or None
+        rut = data.get('rut', '').strip() or None
+        identificador = data.get('identificador', '').strip() or None
+        categoria = data.get('categoria', '').strip() or None
+
+        if rut:
+            rut = normalize_user_input(rut)
+
+        if not (empresa or rut or identificador or categoria):
+            return json_error("Debe proporcionar al menos 'empresa', 'rut' o 'identificador'", code=400)
+
+        resultado = verificar_cuenta_servipag(empresa=empresa, rut=rut, identificador=identificador, categoria=categoria)
+        if resultado is None:
+            return json_error("No se encontraron registros para la consulta", code=404)
+
+        return json_ok(data=resultado)
+    except Exception as e:
+        logger.exception('servipag_verificar exception:')
+        return json_error(str(e))
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -381,6 +411,8 @@ def setup_routes(app):
     app.router.add_get("/api/servipag/cuentas", get_servipag_cuentas)
     app.router.add_get("/api/servipag/rut/{rut}", get_servipag_rut)
     app.router.add_get("/api/servipag/cuenta/{empresa}/{identificador}", get_servipag_cuenta)
+    app.router.add_post("/api/servipag/verificar", servipag_verificar)
+    app.router.add_get("/api/servipag/verificar", servipag_verificar)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)

@@ -1122,6 +1122,29 @@
                 .trim();
         }
 
+        function normalizeUserInput(text) {
+            if (!text) return '';
+            let s = text.trim();
+
+            // 1. Normalizar Enel si STT transcribió 'En', 'en el', 'en él', 'ener', 'ene'
+            s = s.replace(/^(?:en|en\s+el|en\s+él|ene|ener)$/i, 'Enel');
+            s = s.replace(/\b(?:empresa|cuenta|para|de)\s+(?:en\s+el|en\s+él|ener|ene|en)\b/gi, (m) => m.split(/\s+/)[0] + ' Enel');
+            s = s.replace(/\b(?:en\s+el|en\s+él|ener|ene)\b/gi, 'Enel');
+            s = s.replace(/\ben\s*,\s*/gi, 'Enel, ');
+            s = s.replace(/\ben\s+(?=rut|cliente|número|numero|\d)/gi, 'Enel ');
+
+            // 2. Normalizar guion y espacios alrededor
+            s = s.replace(/\s*(?:-|guion|guión|raya)\s*/gi, '-');
+
+            // 3. Colapsar espacios entre dígitos consecutivos (ej: '1 2 3 4 5 6 7 8 - 5' -> '12345678-5')
+            s = s.replace(/(?<=\d)\s+(?=[\dkK]\b)/gi, '');
+
+            // 4. Asegurar formato RUT con guión
+            s = s.replace(/(\d+)-([\dkK])\b/gi, '$1-$2');
+
+            return s;
+        }
+
         function addChatBubble(role, text) {
             const container = document.getElementById('chat-container');
             if (!container) return;
@@ -1175,12 +1198,17 @@
         }
 
         function scheduleFollowUp() {
+            // Si ya preguntamos "¿Necesitas algo más?" y esperamos respuesta,
+            // NO reprogramar — evita el bucle infinito de preguntas
+            if (_waitingFollowUpAck) {
+                LOG('scheduleFollowUp: ya esperando ACK del follow-up, no reprogramar.');
+                return;
+            }
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
-            _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
             _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                LOG("15 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
                 _waitingFollowUpAck = true;
                 
@@ -1197,16 +1225,16 @@
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 30000);
+            }, 15000);
         }
 
         function scheduleFollowUpAckTimeout() {
             clearTimeout(_followUpAckTimeoutId);
             if (!_waitingFollowUpAck || !_conversationAwake) return;
-            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            LOG('scheduleFollowUpAckTimeout: esperando 15s respuesta al follow-up…');
             _followUpAckTimeoutId = setTimeout(() => {
                 if (!_waitingFollowUpAck) return;
-                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                LOG('15s sin respuesta al follow-up → enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
@@ -1229,7 +1257,7 @@
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('listening', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 30000);
+            }, 15000);
         }
 
         // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
@@ -1719,14 +1747,15 @@
                 clearTimeout(_pendingCommitTimeout);
                 _lastInterimText = '';
 
-                let question = _extractQuestion(rawText);
-                if (!question && _containsWakeWord(rawText)) {
+                const normalizedText = normalizeUserInput(rawText);
+                let question = _extractQuestion(normalizedText);
+                if (!question && _containsWakeWord(normalizedText)) {
                     clearTimeout(_wakeBufferTimeout);
                     _alwaysOnActive = false;
                     sendGreetingAsAvatar();
                     return;
                 } else if (!question) {
-                    question = rawText.trim();
+                    question = normalizedText.trim();
                 }
 
                 LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
@@ -1801,7 +1830,8 @@
                     _waitingFollowUpAck = false;
                 }
 
-                setUserText(final || interim, !final);
+                const cleanDisplay = final ? normalizeUserInput(final) : interim;
+                setUserText(cleanDisplay, !final);
 
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
