@@ -174,7 +174,8 @@ def _parse_spoken_spanish_numbers(text: str) -> str:
     s = ' '.join(result)
     s = re.sub(r'\s+([,.:;?!])', r'\1', s)
     s = re.sub(r'([¿¡])\s+', r'\1', s)
-    s = re.sub(r'(?<=\d)\s*,\s*(?=\d)', '', s)
+    # Colapsar puntos y comas entre dígitos (ej: '12. 345. 678' -> '12345678')
+    s = re.sub(r'(?<=\d)\s*[\.,]\s*(?=\d)', '', s)
     s = re.sub(r'(?<=\d)\s+(?=[\dkK]\b)', '', s)
     s = re.sub(r'\s*-\s*', '-', s)
     s = re.sub(r'(?<=\d)\s+(?=\d)', '', s)
@@ -204,8 +205,8 @@ def normalize_user_input(text: str) -> str:
     # 2. Parsear números hablados en palabras españolas a dígitos
     s = _parse_spoken_spanish_numbers(s)
 
-    # 3. Colapsar comas entre dígitos (cuando STT pone pausas tipo '12, 345, 678-5')
-    s = re.sub(r'(?<=\d)\s*,\s*(?=\d)', '', s)
+    # 3. Colapsar puntos y comas entre dígitos (cuando STT pone pausas tipo '12, 345, 678-5' o '12. 345. 678-5')
+    s = re.sub(r'(?<=\d)\s*[\.,]\s*(?=\d)', '', s)
 
     # 4. Normalizar guion y espacios alrededor
     s = re.sub(r'\s*(?:-|guion|guión|raya|menos)\s*', '-', s, flags=re.IGNORECASE)
@@ -220,49 +221,131 @@ def normalize_user_input(text: str) -> str:
     return s
 
 
-def extract_entities(user_msg: str, history: list = []) -> tuple:
+def extract_rut(text: str) -> str:
     """
-    Extrae (clean_rut, empresa_id, identificador, categoria_id)
-    analizando el mensaje actual y el historial reciente (últimos 2 turnos).
+    Extrae un RUT chileno completo y válido (7 a 8 dígitos + dígito verificador).
+    Retorna su forma limpia en mayúsculas (ej: '123456785', '15432987K') o None si no es un RUT válido.
     """
-    norm_msg = normalize_user_input(user_msg)
-    history_text = " ".join([normalize_user_input(h.get("content", "")) for h in history[-2:]])
-    combined = (norm_msg + " " + history_text).lower()
+    if not text:
+        return None
+    norm = normalize_user_input(text)
+    # Formato con guión o formato chileno estándar (ej: 12.345.678-5, 12345678-5, 7.123.456-K)
+    m = re.search(r'\b(\d{1,2}(?:\.?\d{3}){2})-?([0-9kK])\b|\b(\d{7,8})-?([0-9kK])\b', norm, re.IGNORECASE)
+    if m:
+        body = m.group(1) or m.group(3)
+        dv = m.group(2) or m.group(4)
+        return clean_rut(body) + dv.upper()
+    # Formato continuo de 8 o 9 caracteres alfanuméricos cuando el mensaje es predominantemente el RUT
+    clean = re.sub(r'[^0-9kK]', '', norm).upper()
+    if 8 <= len(clean) <= 9 and re.search(r'^\d{7,8}[0-9kK]$', clean):
+        return clean
+    return None
 
-    # 1. Extraer RUT (del mensaje actual prioritariamente, o del historial)
-    ruts_msg = re.findall(r'\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b|\b\d{7,8}-?[\dkK]\b', norm_msg)
-    ruts_hist = re.findall(r'\b\d{1,2}\.?\d{3}\.?\d{3}-?[\dkK]\b|\b\d{7,8}-?[\dkK]\b', history_text)
-    all_ruts = ruts_msg + ruts_hist
-    found_rut = clean_rut(all_ruts[0]) if all_ruts else None
 
-    # 2. Extraer Empresa
-    found_emp = None
-    # Revisar alias de empresas cargadas en BDD
-    for alias, emp in _EMPRESAS_BY_ALIAS.items():
-        if re.search(r'\b' + re.escape(alias) + r'\b', combined):
-            found_emp = emp.get("id")
-            break
+def extract_incomplete_number(text: str) -> str:
+    """
+    Detecta si el usuario ingresó o dictó un número incompleto (1 a 5 dígitos),
+    que no califica como RUT chileno ni como número de cliente válido.
+    """
+    if not text:
+        return None
+    norm = normalize_user_input(text)
+    # Si ya contiene un RUT completo, no es número incompleto
+    if extract_rut(norm):
+        return None
+    # Si contiene un identificador de cliente válido (6 a 9 dígitos), no es incompleto
+    if re.search(r'\b\d{6,9}\b', norm):
+        return None
+    # Detectar números aislados de 1 a 5 dígitos
+    m = re.search(r'\b\d{1,5}\b', norm)
+    if m:
+        return m.group(0)
+    return None
 
-    # 3. Extraer Identificador numérico (que no sea el RUT)
-    idents = re.findall(r'\b\d{6,9}\b', norm_msg)
-    found_ident = None
+
+def extract_identificador(text: str, found_rut: str = None) -> str:
+    """
+    Extrae un número de cliente de servicios básicos (6 a 9 dígitos numéricos
+    que no correspondan al RUT ya identificado).
+    """
+    if not text:
+        return None
+    norm = normalize_user_input(text)
+    idents = re.findall(r'\b\d{6,9}\b', norm)
     if idents:
         for idt in idents:
             if found_rut and idt in found_rut:
                 continue
-            found_ident = idt
+            return idt
+    return None
+
+
+def extract_user_entities(user_msg: str, history: list = []) -> tuple:
+    """
+    Extrae entidades de la conversación asegurando que:
+    1. Empresa y servicio provengan EXCLUSIVAMENTE de los mensajes del USUARIO
+       (evita falsos positivos por preguntas del asistente como '¿De qué empresa: Enel, CGE o Chilquinta?').
+    2. Los números incompletos (< 6 dígitos) se aíslen para no buscar cuentas fantasmas.
+    3. El RUT del mensaje actual tenga prioridad absoluta sobre RUTs anteriores.
+    Retorna (rut, incomplete_number, identificador, empresa, categoria, intencion_pago).
+    """
+    # Recopilar solo las intervenciones del usuario
+    user_turns = [h.get("content", "") for h in history if h.get("role") == "user"]
+    all_user_msgs = user_turns + [user_msg]
+    user_text = " ".join([normalize_user_input(t) for t in all_user_msgs]).lower()
+    norm_current = normalize_user_input(user_msg)
+
+    # 1. RUT (del mensaje actual prioritariamente; de turnos previos solo si el mensaje actual no es un número)
+    rut = extract_rut(norm_current)
+    incomplete_num = extract_incomplete_number(norm_current)
+
+    if not rut and not incomplete_num:
+        for t in reversed(user_turns):
+            r = extract_rut(t)
+            if r:
+                rut = r
+                break
+
+    # 2. Identificador numérico de cliente (6 a 9 dígitos)
+    ident = extract_identificador(norm_current, rut)
+    if not ident and not incomplete_num:
+        for t in reversed(user_turns):
+            idt = extract_identificador(t, rut)
+            if idt:
+                ident = idt
+                break
+
+    # 3. Empresa (buscada ÚNICAMENTE en lo que dijo el usuario)
+    empresa = None
+    for alias, emp in _EMPRESAS_BY_ALIAS.items():
+        if re.search(r'\b' + re.escape(alias) + r'\b', user_text):
+            empresa = emp.get("id")
             break
 
-    # 4. Extraer Categoría de servicio
-    found_cat = None
+    # 4. Categoría de servicio (buscada ÚNICAMENTE en lo que dijo el usuario)
+    categoria = None
     for cat in _CATEGORIAS_SERVICIOS:
         cat_id = cat.get("id", "")
         sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
-        if any(re.search(r'\b' + re.escape(s) + r'\b', combined) for s in sinonimos):
-            found_cat = cat_id
+        if any(re.search(r'\b' + re.escape(s) + r'\b', user_text) for s in sinonimos):
+            categoria = cat_id
             break
 
-    return found_rut, found_emp, found_ident, found_cat
+    # 5. Intención afirmativa de pago
+    intencion_pago = bool(re.search(
+        r'\b(si|sí|pagar|quiero pagar|pagar ahora|cancelo|proceder|pagemosla|pagémosla|claro)\b',
+        norm_current.lower()
+    ))
+
+    return rut, incomplete_num, ident, empresa, categoria, intencion_pago
+
+
+def extract_entities(user_msg: str, history: list = []) -> tuple:
+    """
+    Función de compatibilidad: extrae (clean_rut, empresa_id, identificador, categoria_id).
+    """
+    rut, inc_num, ident, emp, cat, pay = extract_user_entities(user_msg, history)
+    return rut, emp, ident, cat
 
 
 def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificador: str = None, categoria: str = None) -> dict:
@@ -490,6 +573,78 @@ Respuesta del avatar: "Perfecto, si necesitas algo más aquí estaré. ¡Que ten
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 
+def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
+    """
+    Motor central de orquestación de la API Servipag:
+    Evalúa el mensaje del usuario y su historial para determinar con exactitud
+    cuándo y cómo consultar la API determinista de cuentas, evitando falsos positivos,
+    números incompletos y opciones asumidas erróneamente del asistente.
+    """
+    rut, incomplete_num, ident, empresa, categoria, intencion_pago = extract_user_entities(user_msg, history)
+
+    # 1. Caso Número Incompleto (1 a 5 dígitos): El usuario dictó o digitó un fragmento
+    if incomplete_num and not rut and not ident:
+        return {
+            "status": "identificacion_incompleta",
+            "valido": False,
+            "numero": incomplete_num,
+            "mensaje": (
+                f"NÚMERO INCOMPLETO ({incomplete_num}): El usuario ingresó o dictó '{incomplete_num}', el cual es incompleto. "
+                "Un rut chileno tiene 8 o 9 dígitos con su dígito verificador (por ejemplo, 12.345.678-5) "
+                "y un número de cliente tiene entre 6 y 9 dígitos. "
+                f"INSTRUCCIÓN OBLIGATORIA: Informa con amabilidad que el número {incomplete_num} está incompleto, "
+                "y solicita que dicte o digite su rut completo o su número de cliente."
+            )
+        }
+
+    # 2. Caso Confirmación de Pago
+    if intencion_pago and not rut and not ident:
+        return {
+            "status": "instruccion_pago",
+            "valido": True,
+            "mensaje": (
+                "CONFIRMACIÓN DE PAGO: El usuario confirmó que desea pagar. "
+                "INSTRUCCIÓN OBLIGATORIA: Responde exactamente: "
+                "'Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector.'"
+            )
+        }
+
+    # 3. Caso Identificación Presente (RUT o Identificador): Consulta determinista a la API
+    if rut or ident:
+        return verificar_cuenta_servipag(empresa=empresa, rut=rut, identificador=ident, categoria=categoria)
+
+    # 4. Caso Empresa Seleccionada (sin RUT ni Identificador)
+    if empresa and not rut and not ident:
+        emp_obj = _EMPRESAS_BY_ID.get(empresa)
+        if emp_obj:
+            return {
+                "status": "solicitar_identificador",
+                "valido": False,
+                "empresa": empresa,
+                "mensaje": (
+                    f"EMPRESA SELECCIONADA: {emp_obj['nombre']} ({emp_obj['tipo_identificador']}). "
+                    "INSTRUCCIÓN OBLIGATORIA: Solicita amablemente al usuario su número de cliente o su rut para consultar su cuenta."
+                )
+            }
+
+    # 5. Caso Categoría de Servicio Seleccionada (sin Empresa)
+    if categoria and not empresa and not rut and not ident:
+        cat_obj = _CATEGORIAS_BY_ID.get(categoria)
+        if cat_obj:
+            emp_names = ", ".join([e["nombre"] for e in cat_obj.get("empresas", [])])
+            return {
+                "status": "solicitar_empresa",
+                "valido": False,
+                "categoria": categoria,
+                "mensaje": (
+                    f"SERVICIO SELECCIONADO: {cat_obj['nombre']}. Empresas disponibles: {emp_names}. "
+                    "INSTRUCCIÓN OBLIGATORIA: Pregunta al usuario de qué empresa es su cuenta entre las opciones disponibles."
+                )
+            }
+
+    return None
+
+
 def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     """
     Selecciona e inyecta dinámicamente la verificación oficial de Servipag
@@ -497,38 +652,15 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     """
     clean_msg = normalize_user_input(user_msg)
 
-    # Si estamos en modo Servipag
     if _CUENTAS or _CATEGORIAS_SERVICIOS:
-        rut, empresa, ident, cat = extract_entities(clean_msg, history)
-        verif = verificar_cuenta_servipag(empresa=empresa, rut=rut, identificador=ident, categoria=cat)
-
-        extra_parts = []
-        if verif and verif.get("mensaje"):
-            extra_parts.append(
+        api_result = consultar_api_servipag(clean_msg, history)
+        if api_result and api_result.get("mensaje"):
+            return (
+                f"{BASE_SYSTEM_PROMPT}\n\n"
                 "[VERIFICACIÓN OFICIAL DE LA API SERVIPAG - DATOS VERIFICADOS OBLIGATORIOS]:\n"
-                f"{verif['mensaje']}\n"
+                f"{api_result['mensaje']}\n"
                 "ATENCIÓN: Basa tu respuesta ÚNICAMENTE en esta verificación. PROHIBIDO inventar montos, nombres o empresas."
             )
-        elif empresa and not rut and not ident:
-            emp_obj = _EMPRESAS_BY_ID.get(empresa)
-            if emp_obj:
-                extra_parts.append(
-                    f"EMPRESA SELECCIONADA: {emp_obj['nombre']} ({emp_obj['tipo_identificador']}).\n"
-                    "INSTRUCCIÓN: Solicita amablemente al usuario su número de cliente o su rut para consultar su cuenta."
-                )
-        elif cat and not empresa and not rut and not ident:
-            cat_obj = _CATEGORIAS_BY_ID.get(cat)
-            if cat_obj:
-                emp_names = ", ".join([e["nombre"] for e in cat_obj.get("empresas", [])])
-                extra_parts.append(
-                    f"SERVICIO SELECCIONADO: {cat_obj['nombre']}.\n"
-                    f"Empresas disponibles: {emp_names}.\n"
-                    "INSTRUCCIÓN: Pregunta al usuario de qué empresa es su cuenta entre las opciones disponibles."
-                )
-
-        if extra_parts:
-            return f"{BASE_SYSTEM_PROMPT}\n\nCONTEXTO ESPECÍFICO DE ESTA CONSULTA:\n" + "\n\n".join(extra_parts)
-        return BASE_SYSTEM_PROMPT
 
     return BASE_SYSTEM_PROMPT
 

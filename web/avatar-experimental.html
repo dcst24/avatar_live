@@ -1346,7 +1346,8 @@
             let s = result.join(' ');
             s = s.replace(/\s+([,.:;?!])/g, '$1');
             s = s.replace(/([¿¡])\s+/g, '$1');
-            s = s.replace(/(?<=\d)\s*,\s*(?=\d)/g, '');
+            // Colapsar puntos y comas entre dígitos (ej: '12. 345. 678' -> '12345678')
+            s = s.replace(/(?<=\d)\s*[\.,]\s*(?=\d)/g, '');
             s = s.replace(/(?<=\d)\s+(?=[\dkK]\b)/gi, '');
             s = s.replace(/\s*-\s*/g, '-');
             s = s.replace(/(?<=\d)\s+(?=\d)/g, '');
@@ -1368,8 +1369,8 @@
             // 2. Parsear números hablados en palabras españolas a dígitos
             s = parseSpokenSpanishNumbers(s);
 
-            // 3. Colapsar comas entre dígitos (cuando STT pone pausas tipo '12, 345, 678-5')
-            s = s.replace(/(?<=\d)\s*,\s*(?=\d)/g, '');
+            // 3. Colapsar puntos y comas entre dígitos (cuando STT pone pausas tipo '12, 345, 678-5' o '12. 345. 678-5')
+            s = s.replace(/(?<=\d)\s*[\.,]\s*(?=\d)/g, '');
 
             // 4. Normalizar guion y espacios alrededor
             s = s.replace(/\s*(?:-|guion|guión|raya|menos)\s*/gi, '-');
@@ -2339,9 +2340,9 @@
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
 
-                // Detectar si el avatar está pidiendo el RUT o reportando error / no existencia
-                const isAskingRut = /(?:rut|cliente|identificador).*(?:ind[ií]ca|dime|ingresa|digita|cu[aá]l|proporciona|favor|dame|asociad)|(?:cu[aá]l|qu[eé]|dime|ingresa|digita).*(?:rut|cliente|identificador)/i.test(fullText);
-                const isRutError = /(?:no\s+(?:encontr[eé]|figura|est[aá]\s+registrado|existe|pude\s+encontrar)|no\s+tengo\s+registrado|verifica|revisa|error|inv[aá]lido|no\s+coincide).*(?:rut|cuenta|cliente)|(?:rut|cuenta|cliente).*(?:no\s+(?:encontr[eé]|figura|est[aá]\s+registrado|existe)|incorrecto|inv[aá]lido)/i.test(fullText);
+                // Detectar si el avatar está pidiendo el RUT o reportando error / número incompleto / no existencia
+                const isAskingRut = /(?:rut|cliente|identificador).*(?:ind[ií]ca|dime|ingresa|digita|cu[aá]l|proporciona|favor|dame|asociad)|(?:cu[aá]l|qu[eé]|dime|ingresa|digita).*(?:rut|cliente|identificador)|(?:incompleto|completo)/i.test(fullText);
+                const isRutError = /(?:no\s+(?:encontr[eé]|figura|est[aá]\s+registrado|existe|pude\s+encontrar)|no\s+tengo\s+registrado|no\s+se\s+registran|verifica|revisa|error|inv[aá]lido|no\s+coincide|incompleto).*(?:rut|cuenta|cliente|n[uú]mero)|(?:rut|cuenta|cliente|n[uú]mero).*(?:no\s+(?:encontr[eé]|figura|est[aá]\s+registrado|existe|se\s+registran)|incorrecto|inv[aá]lido|incompleto)/i.test(fullText);
 
                 if (isAskingRut || isRutError) {
                     LOG(`sendToLLM: Avatar solicita o reporta error en RUT (asking=${isAskingRut}, error=${isRutError}). Programando apertura de teclado táctil.`);
