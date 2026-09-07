@@ -998,10 +998,10 @@
         let _wakeBufferTimeout = null;
 
         const WAKE_ONLY_GREETINGS = [
-            '¡Hola! ¿En qué te puedo ayudar?',
-            '¡Buenas! ¿Buscas algo en especial?',
-            '¡Hola! ¿Necesitas ayuda para encontrar algo?',
-            'Aquí estoy, ¿en qué te ayudo?'
+            '¡Hola! Bienvenido a Servipag. ¿Qué cuenta deseas pagar hoy: luz, agua, internet, gas o autopista?',
+            '¡Hola! ¿Qué servicio o cuenta deseas pagar hoy: luz, agua o internet?',
+            '¡Hola! ¿En qué cuenta o servicio te puedo ayudar hoy?',
+            'Aquí estoy. ¿Qué cuenta deseas consultar o pagar hoy?'
         ];
 
         function _randomGreeting() {
@@ -1609,7 +1609,7 @@
         // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
         // Watchdog: si el avatar lleva más de MAX_SPEAKING_MS en estado "hablando"
         // sin que el backend reporte speaking=false (latencia / corte de red), lo resetea forzosamente.
-        const MAX_SPEAKING_MS = 35000;
+        const MAX_SPEAKING_MS = 12000;
         let _speakingWatchdog = null;
 
         function _clearSpeakingWatchdog() {
@@ -1632,11 +1632,10 @@
                         setState('listening', 'Esperando activación…');
                     }
                     setTimeout(() => {
-                        if (!isListening) {
-                            _alwaysOnActive = false;
-                            startAlwaysOnListening();
-                        }
-                    }, 500);
+                        _alwaysOnActive = false;
+                        isListening = false;
+                        startAlwaysOnListening();
+                    }, 400);
                 }
             }, MAX_SPEAKING_MS);
         }
@@ -1653,7 +1652,7 @@
                         body: JSON.stringify({ sessionid })
                     });
                     const data = await res.json();
-                    const speaking = data.data;
+                    const speaking = Boolean(data.data);
                     if (speaking !== isSpeaking) {
                         isSpeaking = speaking;
                         LOG('isSpeaking cambió →', speaking);
@@ -1662,6 +1661,10 @@
                             if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
+                            // Pausar reconocimiento mientras el avatar habla para no captar su propia voz ni eco
+                            if (isListening || _alwaysOnActive) {
+                                stopAlwaysOnListening();
+                            }
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -1683,11 +1686,12 @@
                             }
 
                             setTimeout(() => {
-                                if (!isListening) {
+                                if (!isSpeaking) {
                                     _alwaysOnActive = false;
+                                    isListening = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 500);
+                            }, 400);
                         }
                     }
                 } catch (e) {
@@ -1786,6 +1790,7 @@
 
                     if (_isSleepWord(question)) {
                         LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                        stopAlwaysOnListening();
                         sendToLLM(question, true);
                         sleepModel(false);
                         return;
@@ -1793,6 +1798,7 @@
 
                     LOG(`Enviando al LLM: "${question}"`);
                     _alwaysOnActive = false;
+                    stopAlwaysOnListening();
                     sendToLLM(question);
                 }
             };
@@ -1810,6 +1816,10 @@
             };
 
             rec.onresult = (event) => {
+                if (isSpeaking) {
+                    LOG('SpeechRecognition ignorado: avatar hablando');
+                    return;
+                }
                 _gotAnyResult = true;
                 let interim = '';
                 let final = '';
@@ -2072,6 +2082,7 @@
             LOG(`sendGreetingAsAvatar: "${greetingText}"`);
             setState('thinking', 'Pensando…');
             queueAvatarBubble(greetingText);
+            stopAlwaysOnListening();
 
             const sessionid = document.getElementById('sessionid').value;
             try {
@@ -2086,6 +2097,13 @@
                 });
             } catch (err) {
                 ERR('sendGreetingAsAvatar: error de red:', err);
+                setTimeout(() => {
+                    if (!isSpeaking && _conversationAwake && !isListening) {
+                        setState('listening', 'Escuchando pregunta…');
+                        _alwaysOnActive = false;
+                        startAlwaysOnListening();
+                    }
+                }, 1500);
             }
         }
 
@@ -2175,9 +2193,25 @@
 
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
 
+                // Fallback de seguridad: si tras 3.5s del stream el avatar no reportó habla, reactivar escucha
+                setTimeout(() => {
+                    if (!isSpeaking && _conversationAwake && !isListening) {
+                        LOG('Fallback post-stream: avatar no reportó habla, reactivando escucha...');
+                        setState('listening', 'Escuchando pregunta…');
+                        _alwaysOnActive = false;
+                        startAlwaysOnListening();
+                    }
+                }, 3500);
+
             } catch (err) {
                 ERR('sendToLLM: error de red o streaming:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
+                setTimeout(() => {
+                    if (_conversationAwake && !isListening) {
+                        _alwaysOnActive = false;
+                        startAlwaysOnListening();
+                    }
+                }, 2000);
             }
         }
 
