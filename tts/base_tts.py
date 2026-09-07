@@ -33,6 +33,8 @@ class BaseTTS:
 
     def put_msg_txt(self, msg: str, datainfo: dict = {}): 
         if len(msg) > 0:
+            import re
+            msg = re.sub(r'\b[Rr][Uu][Tt]\b', 'rut', msg)
             self.msgqueue.put((msg, datainfo))
 
     def render(self, quit_event):

@@ -63,6 +63,9 @@ def normalizar(text: str) -> str:
     text = re.sub(r'[.]{2,}', '.', text)
     text = re.sub(r'\s{2,}', ' ', text)
 
+    # 8. Convertir RUT / Rut a minúsculas 'rut' para que los motores TTS lo pronuncien como palabra y no como sigla ('erre u te')
+    text = re.sub(r'\b[Rr][Uu][Tt]\b', 'rut', text)
+
     return text.strip()
 
 
@@ -197,8 +200,8 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "valido": False,
                 "rut": clean_r,
                 "mensaje": (
-                    f"RUT NO REGISTRADO: No se encontraron cuentas registradas para el RUT {rut}. "
-                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese RUT en el sistema y pídele verificar el RUT o ingresar su número de cliente."
+                    f"rut no registrado: No se encontraron cuentas registradas para el rut {rut}. "
+                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese rut en el sistema y pídele verificar el rut o ingresar su número de cliente."
                 )
             }
 
@@ -224,7 +227,7 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 )
             }
         else:
-            # Discordancia de empresa: el RUT existe pero tiene otras empresas registradas
+            # Discordancia de empresa: el rut existe pero tiene otras empresas registradas
             titular = cuentas_rut[0].get("nombre_titular", "el cliente")
             emp_consultada_nombre = _EMPRESAS_BY_ID.get(emp_norm, {}).get("nombre", emp_norm.upper())
             cuentas_info = []
@@ -255,9 +258,9 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "empresa_consultada": emp_consultada_nombre,
                 "cuentas_registradas": cuentas_rut,
                 "mensaje": (
-                    f"DISCORDANCIA VERIFICADA POR LA API: El cliente {titular} (RUT {rut}) NO tiene cuenta registrada en {emp_consultada_nombre}. "
-                    f"INSTRUCCIÓN OBLIGATORIA AL ASISTENTE: Dile con amabilidad a {titular} que no registra cuenta en {emp_consultada_nombre} para ese RUT, "
-                    f"{aclaracion}. Pregúntale si desea consultar esa cuenta o ingresar otro RUT. PROHIBIDO INVENTAR MONTOS."
+                    f"DISCORDANCIA VERIFICADA POR LA API: El cliente {titular} (rut {rut}) no tiene cuenta registrada en {emp_consultada_nombre}. "
+                    f"INSTRUCCIÓN OBLIGATORIA AL ASISTENTE: Dile con amabilidad a {titular} que no registra cuenta en {emp_consultada_nombre} para ese rut, "
+                    f"{aclaracion}. Pregúntale si desea consultar esa cuenta o ingresar otro rut. PROHIBIDO INVENTAR MONTOS."
                 )
             }
 
@@ -269,8 +272,8 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "valido": False,
                 "rut": clean_r,
                 "mensaje": (
-                    f"RUT NO REGISTRADO: No se encontraron cuentas registradas para el RUT {rut}. "
-                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese RUT en el sistema y pídele verificar el RUT o ingresar su número de cliente."
+                    f"rut no registrado: No se encontraron cuentas registradas para el rut {rut}. "
+                    "INSTRUCCIÓN: Informa con amabilidad que no figura ese rut en el sistema y pídele verificar el rut o ingresar su número de cliente."
                 )
             }
         titular = cuentas_rut[0].get("nombre_titular", "el cliente")
@@ -282,7 +285,7 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "titular": titular,
                 "cuentas": cuentas_rut,
                 "mensaje": (
-                    f"CONSULTA POR RUT VERIFICADA: El cliente {titular} tiene todas sus cuentas al día con saldo 0 pesos: "
+                    f"CONSULTA POR rut VERIFICADA: El cliente {titular} tiene todas sus cuentas al día con saldo 0 pesos: "
                     f"{', '.join([c['empresa_nombre'] for c in cuentas_rut])}. "
                     f"INSTRUCCIÓN: Saluda a {titular}, infórmale que todas sus cuentas están al día con cero pesos pendientes y pregúntale si desea pagar otra cuenta."
                 )
@@ -295,7 +298,7 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 "titular": titular,
                 "cuentas_pendientes": deudas,
                 "mensaje": (
-                    f"CONSULTA POR RUT VERIFICADA: El cliente {titular} tiene las siguientes cuentas pendientes: {', '.join(deudas_desc)}. "
+                    f"CONSULTA POR rut VERIFICADA: El cliente {titular} tiene las siguientes cuentas pendientes: {', '.join(deudas_desc)}. "
                     f"INSTRUCCIÓN: Saluda a {titular}, infórmale exactamente estas cuentas y montos pendientes y pregúntale cuál desea pagar."
                 )
             }
@@ -344,9 +347,9 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Lee siempre los montos en pesos chilenos completos (ej: "28.990 pesos").
 
 REGLA ABSOLUTA DE VERACIDAD Y CONCORDANCIA (ANTI-ALUCINACIÓN):
-- NUNCA inventes nombres, RUTs, empresas ni montos de cuentas.
+- NUNCA inventes nombres, ruts, empresas ni montos de cuentas.
 - Los montos mostrados en los ejemplos ("28.990", "38.990", etc.) son solo ilustrativos del formato. JAMÁS uses un monto de un ejemplo si no corresponde a la cuenta verificada del cliente en el bloque [VERIFICACIÓN OFICIAL DE LA API SERVIPAG].
-- Si el cliente indica una empresa pero su RUT no tiene cuenta en ella, infórmale con amabilidad la discordancia y menciona la empresa que sí tiene registrada.
+- Si el cliente indica una empresa pero su rut no tiene cuenta en ella, infórmale con amabilidad la discordancia y menciona la empresa que sí tiene registrada.
 
 FLUJO CONVERSACIONAL PASO A PASO:
 1. IDENTIFICAR SERVICIO:
@@ -359,7 +362,7 @@ FLUJO CONVERSACIONAL PASO A PASO:
    Ejemplo (Internet): "¿De qué compañía es tu servicio: VTR, Movistar, Entel o Mundo?"
 3. IDENTIFICAR CUENTA O RUT:
    Si ya se conoce la empresa pero falta el identificador, solicítalo con amabilidad:
-   Ejemplo: "¿Me indicas tu número de cliente o tu RUT?"
+   Ejemplo: "¿Me indicas tu número de cliente o tu rut?"
 4. INFORMAR ESTADO Y MONTO (DISTINGUIR CON EXACTITUD LOS 4 CASOS):
    - DEUDA ACTIVA (al día / próxima a vencer):
      Informa el monto y fecha de vencimiento, y pregunta si desea pagar.
@@ -375,7 +378,7 @@ FLUJO CONVERSACIONAL PASO A PASO:
    "Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector."
 
 CONSULTA DIRECTA POR RUT:
-- Si el usuario proporciona directamente su RUT (ej: "18.765.432-1"):
+- Si el usuario proporciona directamente su rut (ej: "18.765.432-1"):
   Consulta sus cuentas asociadas y dale un resumen conciso indicando las que tienen deuda activa o vencida.
 
 REGLA ABSOLUTA DE TEMÁTICA:
@@ -423,7 +426,7 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
             if emp_obj:
                 extra_parts.append(
                     f"EMPRESA SELECCIONADA: {emp_obj['nombre']} ({emp_obj['tipo_identificador']}).\n"
-                    "INSTRUCCIÓN: Solicita amablemente al usuario su número de cliente o su RUT para consultar su cuenta."
+                    "INSTRUCCIÓN: Solicita amablemente al usuario su número de cliente o su rut para consultar su cuenta."
                 )
         elif cat and not empresa and not rut and not ident:
             cat_obj = _CATEGORIAS_BY_ID.get(cat)

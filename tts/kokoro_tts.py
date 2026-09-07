@@ -69,6 +69,9 @@ def normalize_text_for_tts(text: str) -> str:
     text = re.sub(r'[.]{2,}', '.', text)
     text = re.sub(r'\s{2,}', ' ', text)
 
+    # 9. Convertir RUT / Rut a minúsculas 'rut' para pronunciación natural de palabra
+    text = re.sub(r'\b[Rr][Uu][Tt]\b', 'rut', text)
+
     return text.strip()
 
 

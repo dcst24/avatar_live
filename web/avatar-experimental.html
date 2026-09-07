@@ -1119,6 +1119,7 @@
                 .replace(/[,]{2,}/g, ',')
                 .replace(/[.]{2,}/g, '.')
                 .replace(/\s{2,}/g, ' ')
+                .replace(/\b[Rr][Uu][Tt]\b/g, 'rut')
                 .trim();
         }
 
@@ -1143,6 +1144,26 @@
             s = s.replace(/(\d+)-([\dkK])\b/gi, '$1-$2');
 
             return s;
+        }
+
+        function isDictatingRutOrNumber(text) {
+            if (!text) return false;
+            const clean = text.toLowerCase();
+            // Detecta explícitamente palabras de identificación o números
+            if (/\b(rut|cliente|cuenta|numero|número)\b/i.test(clean)) return true;
+            // Si contiene dígitos
+            const digits = (clean.match(/\d/g) || []).length;
+            if (digits >= 1) return true;
+            // Palabras de números dictados en secuencia
+            const numWords = (clean.match(/\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|cero|diez|once|doce|veinte|treinta|cuarenta|cincuenta|millon|millones|guion|guión|raya)\b/gi) || []).length;
+            if (numWords >= 2) return true;
+            return false;
+        }
+
+        function hasCompleteRut(text) {
+            if (!text) return false;
+            const norm = normalizeUserInput(text);
+            return /\b\d{7,8}-?[\dkK]\b/.test(norm);
         }
 
         function addChatBubble(role, text) {
@@ -1835,12 +1856,34 @@
 
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
-                    _dispatchQuestion(final);
+                    _lastInterimText = final.trim();
+
+                    // Si está dictando un RUT o números, pero aún no ha completado los dígitos del RUT:
+                    // Esperar 2500ms por si el navegador marcó "final" en una pausa natural entre números
+                    if (isDictatingRutOrNumber(_lastInterimText) && !hasCompleteRut(_lastInterimText)) {
+                        LOG(`[Final Pause Buffer] Detectados números/RUT en progreso ("${_lastInterimText}") → esperando 2500ms`);
+                        _pendingCommitTimeout = setTimeout(() => {
+                            if (_conversationAwake && _lastInterimText && !_questionDispatched) {
+                                LOG(`[RUT Auto-Commit tras pausa] Enviando: "${_lastInterimText}"`);
+                                const txt = _lastInterimText;
+                                try { rec.stop(); } catch (e) {}
+                                _dispatchQuestion(txt);
+                            }
+                        }, 2500);
+                    } else {
+                        _dispatchQuestion(final);
+                    }
                 } else if (_conversationAwake && interim && !_questionDispatched) {
-                    _lastInterimText = interim.trim();
+                    _lastInterimText = (final ? final + ' ' : '') + interim.trim();
                     clearTimeout(_pendingCommitTimeout);
                     const words = _lastInterimText.split(/\s+/).length;
-                    const delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+                    let delayMs;
+                    if (isDictatingRutOrNumber(_lastInterimText)) {
+                        // Si la persona está dictando el RUT o números, dar 2500ms (o 1400ms si ya completó el RUT)
+                        delayMs = hasCompleteRut(_lastInterimText) ? 1400 : 2500;
+                    } else {
+                        delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+                    }
                     _pendingCommitTimeout = setTimeout(() => {
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
                             LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
@@ -1878,14 +1921,18 @@
             rec.onend = () => {
                 const elapsed = Date.now() - _recStartMs;
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
-                clearTimeout(_pendingCommitTimeout);
 
                 if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                    LOG(`[onend Auto-Commit] Texto pendiente en buffer: "${_lastInterimText}" → enviando`);
-                    const txt = _lastInterimText;
-                    _dispatchQuestion(txt);
-                    stopListening();
-                    return;
+                    if (isDictatingRutOrNumber(_lastInterimText) && !hasCompleteRut(_lastInterimText) && elapsed < 3500) {
+                        LOG(`[onend] Persona dictando RUT/números ("${_lastInterimText}"), manteniendo buffer para permitir continuar...`);
+                    } else {
+                        clearTimeout(_pendingCommitTimeout);
+                        LOG(`[onend Auto-Commit] Texto pendiente en buffer: "${_lastInterimText}" → enviando`);
+                        const txt = _lastInterimText;
+                        _dispatchQuestion(txt);
+                        stopListening();
+                        return;
+                    }
                 }
 
                 if (!_gotAnyResult && elapsed < 1500) {
