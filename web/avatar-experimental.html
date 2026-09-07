@@ -2491,26 +2491,47 @@
             document.addEventListener('keydown', _globalUnlockAudio);
             document.addEventListener('touchstart', _globalUnlockAudio);
 
-            // Soporte opcional de teclado físico cuando el teclado táctil de RUT está abierto
+            // Soporte robusto de teclado físico y pegado (Ctrl+V) para RUT
             document.addEventListener('keydown', (e) => {
+                // No interceptar si el usuario está interactuando con otro input
+                if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') && e.target.id !== 'numpad-display') {
+                    return;
+                }
+
                 const overlay = document.getElementById('rut-numpad-overlay');
-                if (!overlay || !overlay.classList.contains('open')) return;
+                const isOpen = overlay && overlay.classList.contains('open');
 
                 if (/^[0-9]$/.test(e.key)) {
                     e.preventDefault();
+                    if (!isOpen) showRutNumpad(false);
                     numpadPress(e.key);
                 } else if (e.key === 'k' || e.key === 'K') {
                     e.preventDefault();
+                    if (!isOpen) showRutNumpad(false);
                     numpadPress('K');
-                } else if (e.key === 'Backspace') {
+                } else if (isOpen && e.key === 'Backspace') {
                     e.preventDefault();
                     numpadBackspace();
-                } else if (e.key === 'Escape') {
+                } else if (isOpen && e.key === 'Escape') {
                     e.preventDefault();
                     hideRutNumpad();
-                } else if (e.key === 'Enter') {
+                } else if (isOpen && e.key === 'Enter') {
                     e.preventDefault();
                     numpadSubmit();
+                }
+            });
+
+            // Soporte para pegar (Ctrl+V) un RUT directamente en la pantalla
+            document.addEventListener('paste', (e) => {
+                const pasted = (e.clipboardData || window.clipboardData)?.getData('text');
+                if (!pasted) return;
+                const clean = pasted.replace(/[^0-9kK]/g, '').toUpperCase();
+                if (clean.length >= 7 && clean.length <= 9) {
+                    e.preventDefault();
+                    showRutNumpad(true);
+                    _rutBuffer = clean;
+                    updateNumpadDisplay();
+                    LOG('RUT pegado exitosamente desde portapapeles:', _rutBuffer);
                 }
             });
         });
