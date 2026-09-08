@@ -2141,7 +2141,21 @@
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
+            if (typeof _postPaymentFollowUpSafetyTimeout !== 'undefined') {
+                clearTimeout(_postPaymentFollowUpSafetyTimeout);
+            }
+            if (typeof _pendingReceiptFollowUp !== 'undefined') {
+                _pendingReceiptFollowUp = false;
+            }
             clearServerHistory();
+
+            // Cerrar tabla de cuentas, carro, numpad y vaciar carro
+            hideAccountsPanel();
+            closeCart();
+            hideRutNumpad();
+            _cart = [];
+            updateCartUI();
+
             setState('listening', 'Esperando activación…');
             if (showBubble) {
                 addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
@@ -2163,12 +2177,7 @@
             if (!_conversationAwake) return;
             _inactivityTimeoutId = setTimeout(() => {
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
-                _conversationAwake = false;
-                _wakeDetected = false;
-                setState('listening', 'Esperando activación…');
-                clearServerHistory();
-                const container = document.getElementById('chat-container');
-                if (container) container.innerHTML = '';
+                sleepModel(true);
             }, INACTIVITY_TIMEOUT_MS);
         }
 
@@ -2499,6 +2508,14 @@
                 _wakeDetected = false;
                 clearTimeout(_inactivityTimeoutId);
                 cancelFollowUpTimers(false);
+
+                // Cerrar tabla de cuentas, carro, numpad y vaciar carro
+                hideAccountsPanel();
+                closeCart();
+                hideRutNumpad();
+                _cart = [];
+                updateCartUI();
+
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -2623,13 +2640,13 @@
         let _isPaying = false;
         let _payCountdownInterval = null;
 
-        async function loadAndShowAccounts(rut) {
+        async function loadAndShowAccounts(rut, showPanel = true) {
             if (!rut) return;
             const clean = String(rut).replace(/[^0-9kK]/g, '').toUpperCase();
             if (clean.length < 7) return;
 
             try {
-                LOG(`loadAndShowAccounts: Consultando cuentas para RUT ${clean}`);
+                LOG(`loadAndShowAccounts: Consultando cuentas para RUT ${clean} (showPanel=${showPanel})`);
                 const res = await fetch('/api/servipag/rut', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2647,10 +2664,12 @@
                     _pendingRutNumpadShow = false;
                     hideRutNumpad();
                     renderAccountsTable(resp.data);
-                    showAccountsPanel();
+                    if (showPanel) {
+                        showAccountsPanel();
+                    }
                     // Refrescar estado del botón del carro (se mostrará solo si ya tiene cuentas)
                     updateCartUI();
-                    if (_lastAvatarMessage) {
+                    if (showPanel && _lastAvatarMessage) {
                         autoSelectAccountFromAvatarResponse(_lastAvatarMessage);
                     }
                 } else {
@@ -3024,10 +3043,10 @@
                 renderAccountsTable(_currentClient);
             }
 
-            // 3. Sincronizar en segundo plano con el backend
+            // 3. Sincronizar en segundo plano con el backend sin reabrir el panel
             if (_currentRut) {
                 setTimeout(() => {
-                    loadAndShowAccounts(_currentRut);
+                    loadAndShowAccounts(_currentRut, false);
                 }, 1500);
             }
 
@@ -3087,13 +3106,11 @@
             if (overlay) overlay.classList.remove('open');
             _isPaying = false;
 
-            // Mostrar nuevamente la tabla de cuentas actualizada (con cuentas pagadas y carro vacío)
-            if (_currentAccounts && _currentAccounts.length > 0) {
-                showAccountsPanel();
-                if (_currentClient) {
-                    renderAccountsTable(_currentClient);
-                }
-            }
+            // Mantener la tabla de cuentas y el carro cerrados y limpios tras el pago
+            hideAccountsPanel();
+            closeCart();
+            _cart = [];
+            updateCartUI();
         }
 
         // Selección por comando de voz cuando la tabla está activa
@@ -3557,6 +3574,20 @@
                     // Cerrar carro
                     if (/(?:cerrar|ocultar)\s*(?:el\s+)?(?:carro|carrito)/i.test(normQ)) {
                         closeCart();
+                        return;
+                    }
+
+                    // Mostrar / ver cuentas
+                    if (/(?:mostrar|ver|abrir|ensename|enséñame)?\s*(?:las\s+)?cuentas/i.test(normQ) && !hasCompleteRut(question) && _currentClient) {
+                        showAccountsPanel();
+                        renderAccountsTable(_currentClient);
+                        sayViaAvatar("Aquí tienes tus cuentas disponibles.");
+                        return;
+                    }
+
+                    // Cerrar cuentas
+                    if (/(?:cerrar|ocultar)\s*(?:las\s+)?cuentas/i.test(normQ)) {
+                        hideAccountsPanel();
                         return;
                     }
 
