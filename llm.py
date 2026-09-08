@@ -296,9 +296,27 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
     norm_current = normalize_user_input(user_msg)
     user_turns = [h.get("content", "") for h in history if h.get("role") == "user"]
 
-    # 1. RUT (del mensaje actual prioritariamente; de turnos previos solo si el mensaje actual no es un número)
+    # 1. RUT (del mensaje actual prioritariamente; de turnos previos si el mensaje actual es opción o no es número)
     rut = extract_rut(norm_current)
     incomplete_num = extract_incomplete_number(norm_current)
+
+    option_words = {
+        '1': 1, 'uno': 1, 'un': 1, 'primera': 1, 'primero': 1,
+        '2': 2, 'dos': 2, 'segunda': 2, 'segundo': 2,
+        '3': 3, 'tres': 3, 'tercera': 3, 'tercero': 3,
+        '4': 4, 'cuatro': 4, 'cuarta': 4, 'cuarto': 4,
+        '5': 5, 'cinco': 5, 'quinta': 5, 'quinto': 5,
+    }
+    opt_match = re.search(r'\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|primero|segunda|segundo|tercera|tercero|cuarta|quinta)\b', norm_current.lower())
+
+    # Si el usuario dijo una opción numérica (ej: "la 1", "uno", "2") y hay un RUT previo, no es número incompleto
+    if opt_match and not rut:
+        for t in reversed(user_turns):
+            r = extract_rut(t)
+            if r:
+                rut = r
+                incomplete_num = None
+                break
 
     if not rut and not incomplete_num:
         for t in reversed(user_turns):
@@ -324,28 +342,41 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
         if extract_rut(t) or extract_identificador(t):
             last_rut_turn_idx = idx
 
-    if rut and last_rut_turn_idx >= 0:
+    if rut and last_rut_turn_idx >= 0 and not opt_match:
         relevant_user_turns = user_turns[last_rut_turn_idx + 1:] + [user_msg]
     else:
         relevant_user_turns = user_turns + [user_msg]
 
     user_text = " ".join([normalize_user_input(t) for t in relevant_user_turns]).lower()
 
-    # 3. Empresa (buscada ÚNICAMENTE en lo que dijo el usuario dentro del contexto relevante)
+    # 3. Empresa y Categoría (buscada ÚNICAMENTE en lo que dijo el usuario dentro del contexto relevante)
     empresa = None
-    for alias, emp in _EMPRESAS_BY_ALIAS.items():
-        if re.search(r'\b' + re.escape(alias) + r'\b', user_text):
-            empresa = emp.get("id")
-            break
-
-    # 4. Categoría de servicio (buscada ÚNICAMENTE en lo que dijo el usuario dentro del contexto relevante)
     categoria = None
-    for cat in _CATEGORIAS_SERVICIOS:
-        cat_id = cat.get("id", "")
-        sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
-        if any(re.search(r'\b' + re.escape(s) + r'\b', user_text) for s in sinonimos):
-            categoria = cat_id
-            break
+
+    if opt_match and rut:
+        matched_word = opt_match.group(1).lower()
+        if matched_word in option_words:
+            opt_idx = option_words[matched_word] - 1
+            cuentas_rut_lista = _CUENTAS_BY_CLEAN_RUT.get(clean_rut(rut), [])
+            if 0 <= opt_idx < len(cuentas_rut_lista):
+                target_acc = cuentas_rut_lista[opt_idx]
+                empresa = target_acc.get("empresa_id")
+                categoria = target_acc.get("categoria")
+                incomplete_num = None
+
+    if not empresa:
+        for alias, emp in _EMPRESAS_BY_ALIAS.items():
+            if re.search(r'\b' + re.escape(alias) + r'\b', user_text):
+                empresa = emp.get("id")
+                break
+
+    if not categoria:
+        for cat in _CATEGORIAS_SERVICIOS:
+            cat_id = cat.get("id", "")
+            sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
+            if any(re.search(r'\b' + re.escape(s) + r'\b', user_text) for s in sinonimos):
+                categoria = cat_id
+                break
 
     # 5. Intención afirmativa de pago
     intencion_pago = bool(re.search(
@@ -636,19 +667,19 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 }
         else:
             deudas_desc = [
-                f"tu cuenta de {c['empresa_nombre']} por ${c['monto']:,} pesos ({'vencida' if c.get('estado') == 'vencida' else 'pendiente'})".replace(",", ".")
-                for c in deudas
+                f"{i+1}. {c['empresa_nombre']} por ${c['monto']:,} pesos ({'vencida' if c.get('estado') == 'vencida' else 'pendiente'})".replace(",", ".")
+                for i, c in enumerate(deudas)
             ]
             deudas_txt = " y ".join(deudas_desc)
-            frase_sugerida = f"Hola {titular}, registras una deuda pendiente en {deudas_txt}. ¿Deseas pagarla ahora?"
+            frase_sugerida = f"Hola {titular}, encontré {len(deudas)} cuentas registradas: {deudas_txt}. ¿Cuál deseas pagar? Puedes decir el número, el nombre o seleccionarla en la pantalla."
             return {
                 "status": "rut_con_deuda",
                 "valido": True,
                 "titular": titular,
                 "cuentas_pendientes": deudas,
                 "mensaje": (
-                    f"INFORMACIÓN OFICIAL: {titular} tiene cuentas pendientes de pago.\n"
-                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo de forma fluida y natural: '{frase_sugerida}'."
+                    f"INFORMACIÓN OFICIAL: {titular} tiene {len(deudas)} cuentas registradas.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo con sus números para selección rápida: '{frase_sugerida}'."
                 )
             }
 
@@ -818,6 +849,32 @@ def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
                 "CONFIRMACIÓN DE PAGO: El usuario confirmó que desea pagar. "
                 "INSTRUCCIÓN OBLIGATORIA: Responde exactamente: "
                 "'Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector.'"
+            )
+        }
+
+    norm_msg = normalize_user_input(user_msg).lower()
+
+    # 2b. Caso Mostrar Carro
+    if re.search(r'\b(mostrar|ver|abrir|ensename|enséñame)\s+(el\s+)?(carro|carrito)\b|\b(el\s+)?(carro|carrito)\b', norm_msg) and not rut and not ident:
+        return {
+            "status": "mostrar_carro",
+            "valido": True,
+            "mensaje": (
+                "CONSULTA DE CARRO: El usuario desea ver su carro de cuentas. "
+                "INSTRUCCIÓN OBLIGATORIA: Responde con amabilidad: "
+                "'Aquí tienes tu carro de cuentas. ¿Deseas pagarlas ahora o agregar más?'"
+            )
+        }
+
+    # 2c. Caso Agregar Más
+    if re.search(r'\b(agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)\b', norm_msg):
+        return {
+            "status": "agregar_mas",
+            "valido": True,
+            "mensaje": (
+                "AGREGAR MÁS CUENTAS: El usuario desea agregar más cuentas al carro. "
+                "INSTRUCCIÓN OBLIGATORIA: Responde con calidez: "
+                "'De acuerdo, ¿qué otra cuenta deseas agregar? Puedes decir el número, la empresa o seleccionarla en pantalla.'"
             )
         }
 

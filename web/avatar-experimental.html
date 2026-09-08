@@ -863,11 +863,761 @@
             transform: scale(0.97);
         }
 
-        .numpad-btn-submit:disabled {
-            opacity: 0.45;
+        /* ══════════════════════════════════════════════════════════════════════════
+           SERVIPAG: PANEL DE CUENTAS, CARRO DE PAGOS Y ANIMACIÓN DE PAGO
+           ══════════════════════════════════════════════════════════════════════════ */
+
+        /* Panel de Cuentas Interactivo (Lateral derecho) */
+        #servipag-accounts-panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            width: 520px;
+            max-width: calc(100vw - 40px);
+            max-height: calc(100vh - 120px);
+            background: rgba(13, 19, 36, 0.88);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(99, 102, 241, 0.25);
+            border-radius: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.75), 0 0 35px rgba(79, 70, 229, 0.25);
+            z-index: 85;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            opacity: 0;
+            transform: translateX(40px) scale(0.96);
+            pointer-events: none;
+            transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #servipag-accounts-panel.open {
+            opacity: 1;
+            transform: translateX(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .accounts-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 18px 22px 14px 22px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .accounts-title-group {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .accounts-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .accounts-subtitle {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .accounts-close-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #94a3b8;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .accounts-close-btn:hover {
+            background: rgba(239, 68, 68, 0.2);
+            border-color: #ef4444;
+            color: #ffffff;
+            transform: scale(1.05);
+        }
+
+        .accounts-voice-hint {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 20px;
+            background: linear-gradient(90deg, rgba(79, 70, 229, 0.15), rgba(6, 182, 212, 0.15));
+            border-bottom: 1px solid rgba(99, 102, 241, 0.2);
+            font-size: 12px;
+            color: #a5b4fc;
+            font-weight: 500;
+        }
+
+        .accounts-body {
+            padding: 12px 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        /* Tabla de Cuentas */
+        .accounts-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0 8px;
+        }
+
+        .accounts-table th {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            padding: 4px 10px;
+            text-align: left;
+        }
+
+        .accounts-table th.th-num { width: 36px; text-align: center; }
+        .accounts-table th.th-amount { text-align: right; }
+        .accounts-table th.th-date { text-align: right; }
+        .accounts-table th.th-action { width: 50px; text-align: center; }
+
+        .account-row {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .account-row td {
+            padding: 10px 10px;
+            vertical-align: middle;
+        }
+
+        .account-row td:first-child {
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+        }
+
+        .account-row td:last-child {
+            border-top-right-radius: 12px;
+            border-bottom-right-radius: 12px;
+        }
+
+        .account-row:hover {
+            background: rgba(99, 102, 241, 0.14);
+            border-color: rgba(129, 140, 248, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .account-row.in-cart {
+            background: rgba(6, 182, 212, 0.12);
+            border-color: rgba(6, 182, 212, 0.45);
+        }
+
+        .account-row.row-paid {
+            opacity: 0.55;
+            background: rgba(34, 197, 94, 0.08);
+            border-color: rgba(34, 197, 94, 0.25);
+            cursor: default;
+        }
+
+        /* Badge numérico (ej: 1, 2) */
+        .acc-number-badge {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            color: #ffffff;
+            font-weight: 700;
+            font-size: 13px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.4);
+        }
+
+        .acc-service-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 12px;
+            color: #cbd5e1;
+            font-weight: 500;
+        }
+
+        .acc-company-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .acc-amount {
+            font-size: 13px;
+            font-weight: 700;
+            color: #f8fafc;
+            text-align: right;
+        }
+
+        /* FECHAS DE VENCIMIENTO: Blanco para fechas normales, Amarillo para vencidas */
+        .acc-date-normal {
+            color: #ffffff !important;
+            font-size: 12px;
+            font-weight: 500;
+            text-align: right;
+            display: block;
+        }
+
+        .acc-date-overdue {
+            color: #facc15 !important;
+            font-size: 12px;
+            font-weight: 700;
+            text-align: right;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(234, 179, 8, 0.15);
+            border: 1px solid rgba(234, 179, 8, 0.4);
+            padding: 2px 8px;
+            border-radius: 6px;
+            text-shadow: 0 0 8px rgba(250, 204, 21, 0.35);
+        }
+
+        .acc-btn-add {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .acc-btn-add:hover {
+            background: #4f46e5;
+            border-color: #818cf8;
+            transform: scale(1.1);
+        }
+
+        .acc-btn-add.added {
+            background: #10b981;
+            border-color: #34d399;
+            color: #ffffff;
+        }
+
+        /* Botón Flotante del Carrito */
+        #btn-floating-cart {
+            position: fixed;
+            bottom: 24px;
+            right: 28px;
+            height: 52px;
+            padding: 0 20px;
+            border-radius: 26px;
+            background: linear-gradient(135deg, #4f46e5, #06b6d4);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            color: #ffffff;
+            font-size: 14px;
+            font-weight: 700;
+            font-family: inherit;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            box-shadow: 0 10px 30px rgba(79, 70, 229, 0.45);
+            z-index: 90;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        #btn-floating-cart:hover {
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 14px 35px rgba(79, 70, 229, 0.6);
+            filter: brightness(1.1);
+        }
+
+        #btn-floating-cart:active {
+            transform: scale(0.96);
+        }
+
+        .cart-badge {
+            background: #ef4444;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 800;
+            min-width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 5px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            animation: badgePop 0.3s ease-out;
+        }
+
+        @keyframes badgePop {
+            0% { transform: scale(0.5); }
+            80% { transform: scale(1.25); }
+            100% { transform: scale(1); }
+        }
+
+        /* Overlay / Modal del Carro de Pagos */
+        #servipag-cart-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            z-index: 95;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.25s ease;
+        }
+
+        #servipag-cart-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .cart-modal-card {
+            width: 440px;
+            max-width: 100%;
+            background: rgba(15, 23, 42, 0.95);
+            backdrop-filter: blur(28px);
+            -webkit-backdrop-filter: blur(28px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 24px;
+            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(79, 70, 229, 0.3);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            transform: scale(0.92);
+            transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #servipag-cart-overlay.open .cart-modal-card {
+            transform: scale(1);
+        }
+
+        .cart-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .cart-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .cart-items-list {
+            padding: 16px 20px;
+            max-height: 280px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .cart-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 14px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 14px;
+        }
+
+        .cart-item-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .cart-item-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        .cart-item-sub {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+
+        .cart-item-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cart-item-price {
+            font-size: 14px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+
+        .cart-item-remove {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: #f87171;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.2s;
+        }
+
+        .cart-item-remove:hover {
+            background: #ef4444;
+            color: #ffffff;
+            transform: scale(1.1);
+        }
+
+        .cart-empty-msg {
+            text-align: center;
+            padding: 35px 20px;
+            color: #94a3b8;
+            font-size: 14px;
+        }
+
+        .cart-summary {
+            padding: 16px 24px;
+            background: rgba(0, 0, 0, 0.25);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .cart-summary-label {
+            font-size: 14px;
+            color: #94a3b8;
+            font-weight: 500;
+        }
+
+        .cart-summary-total {
+            font-size: 20px;
+            font-weight: 800;
+            color: #38bdf8;
+            text-shadow: 0 0 12px rgba(56, 189, 248, 0.4);
+        }
+
+        .cart-actions {
+            padding: 16px 24px 22px 24px;
+            display: flex;
+            gap: 12px;
+        }
+
+        .cart-btn-add-more {
+            flex: 1;
+            height: 48px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .cart-btn-add-more:hover {
+            background: rgba(255, 255, 255, 0.14);
+            color: #ffffff;
+        }
+
+        .cart-btn-pay {
+            flex: 1.3;
+            height: 48px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #10b981, #06b6d4);
+            border: none;
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s;
+        }
+
+        .cart-btn-pay:hover:not(:disabled) {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 30px rgba(16, 185, 129, 0.55);
+        }
+
+        .cart-btn-pay:disabled {
+            opacity: 0.4;
             cursor: not-allowed;
             filter: grayscale(0.5);
             box-shadow: none;
+        }
+
+        /* Modal de Animación de Pago (3 Fases) */
+        #payment-animation-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.82);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        #payment-animation-overlay.open {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .payment-modal-card {
+            width: 460px;
+            max-width: 100%;
+            background: rgba(15, 23, 42, 0.96);
+            backdrop-filter: blur(32px);
+            -webkit-backdrop-filter: blur(32px);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            border-radius: 28px;
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 50px rgba(99, 102, 241, 0.35);
+            padding: 36px 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            transform: scale(0.9);
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #payment-animation-overlay.open .payment-modal-card {
+            transform: scale(1);
+        }
+
+        /* Contenedor de Fases */
+        .payment-phase {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            animation: fadeInPhase 0.35s ease-out;
+        }
+
+        .payment-phase.active {
+            display: flex;
+        }
+
+        @keyframes fadeInPhase {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* FASE 1: ESPERANDO */
+        .pay-icon-circle-waiting {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(79, 70, 229, 0.25), rgba(6, 182, 212, 0.25));
+            border: 2px solid #818cf8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 24px;
+            position: relative;
+            box-shadow: 0 0 35px rgba(99, 102, 241, 0.4);
+            animation: pulseWave 2s infinite ease-in-out;
+        }
+
+        @keyframes pulseWave {
+            0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.6); }
+            70% { box-shadow: 0 0 0 25px rgba(99, 102, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+        }
+
+        .pay-icon-circle-waiting svg {
+            width: 44px;
+            height: 44px;
+            fill: #38bdf8;
+        }
+
+        /* FASE 2: CARGANDO / VALIDANDO */
+        .pay-spinner-wrap {
+            position: relative;
+            width: 90px;
+            height: 90px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .pay-spinner-ring {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #06b6d4;
+            border-right-color: #6366f1;
+            animation: spinRing 0.9s linear infinite;
+        }
+
+        @keyframes spinRing {
+            to { transform: rotate(360deg); }
+        }
+
+        .pay-progress-bar {
+            width: 240px;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            margin-top: 16px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pay-progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #6366f1, #06b6d4);
+            border-radius: 3px;
+            transition: width 1.8s ease-in-out;
+        }
+
+        /* FASE 3: ¡PAGADO! */
+        .pay-icon-circle-success {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(52, 211, 153, 0.35));
+            border: 2px solid #34d399;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.5);
+            animation: successPop 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        @keyframes successPop {
+            0% { transform: scale(0.3); opacity: 0; }
+            70% { transform: scale(1.15); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pay-checkmark-svg {
+            width: 48px;
+            height: 48px;
+            stroke: #34d399;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            fill: none;
+            stroke-dasharray: 50;
+            stroke-dashoffset: 50;
+            animation: checkDraw 0.6s 0.2s ease-out forwards;
+        }
+
+        @keyframes checkDraw {
+            to { stroke-dashoffset: 0; }
+        }
+
+        .pay-phase-title {
+            font-size: 22px;
+            font-weight: 800;
+            color: #ffffff;
+            margin-bottom: 8px;
+        }
+
+        .pay-phase-subtitle {
+            font-size: 14px;
+            color: #94a3b8;
+            margin-bottom: 12px;
+        }
+
+        .pay-receipt-card {
+            width: 100%;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 16px;
+            margin-top: 14px;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            text-align: left;
+            font-size: 13px;
+        }
+
+        .pay-receipt-row {
+            display: flex;
+            justify-content: space-between;
+            color: #94a3b8;
+        }
+
+        .pay-receipt-val {
+            color: #ffffff;
+            font-weight: 600;
+        }
+
+        .pay-btn-done {
+            width: 100%;
+            height: 50px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: none;
+            color: #ffffff;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+        }
+
+        .pay-btn-done:hover {
+            filter: brightness(1.1);
+            transform: translateY(-1px);
         }
     </style>
 </head>
@@ -926,6 +1676,134 @@
                         <path fill-rule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clip-rule="evenodd" />
                     </svg>
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Botón flotante para abrir el Carro de Cuentas -->
+    <button id="btn-floating-cart" onclick="toggleCart()" style="display:none;" title="Ver carro de cuentas">
+        <span style="font-size: 20px;">🛒</span>
+        <span id="cart-floating-text">Carro</span>
+        <span id="cart-floating-badge" class="cart-badge">0</span>
+    </button>
+
+    <!-- Panel Lateral de Cuentas Servipag -->
+    <div id="servipag-accounts-panel" role="region" aria-label="Cuentas del Cliente">
+        <div class="accounts-header">
+            <div class="accounts-title-group">
+                <div class="accounts-title">
+                    <span>💳</span>
+                    <span id="accounts-client-name">Cuentas Registradas</span>
+                </div>
+                <div class="accounts-subtitle" id="accounts-client-rut">RUT: --</div>
+            </div>
+            <button type="button" class="accounts-close-btn" onclick="hideAccountsPanel()" title="Cerrar panel">✕</button>
+        </div>
+        <div class="accounts-voice-hint">
+            <span>🎙</span>
+            <span>Di el número (ej: <em>"la 1"</em>), la empresa o toca la cuenta</span>
+        </div>
+        <div class="accounts-body">
+            <table class="accounts-table">
+                <thead>
+                    <tr>
+                        <th class="th-num">#</th>
+                        <th>Servicio</th>
+                        <th>Empresa</th>
+                        <th class="th-amount">Monto</th>
+                        <th class="th-date">Vencimiento</th>
+                        <th class="th-action"></th>
+                    </tr>
+                </thead>
+                <tbody id="accounts-table-body">
+                    <!-- Filas dinámicas -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal / Drawer del Carro de Pagos -->
+    <div id="servipag-cart-overlay" role="dialog" aria-label="Carro de Pagos">
+        <div class="cart-modal-card">
+            <div class="cart-header">
+                <div class="cart-title">
+                    <span>🛒</span>
+                    <span>Carro de Pagos</span>
+                </div>
+                <button type="button" class="accounts-close-btn" onclick="closeCart()" title="Cerrar carro">✕</button>
+            </div>
+            <div id="cart-items-container" class="cart-items-list">
+                <!-- Items del carro dinámicos -->
+            </div>
+            <div class="cart-summary">
+                <span class="cart-summary-label">Total a Pagar:</span>
+                <span id="cart-total-amount" class="cart-summary-total">$0</span>
+            </div>
+            <div class="cart-actions">
+                <button type="button" class="cart-btn-add-more" onclick="agregarMasCuentas(false)">
+                    <span>➕</span>
+                    <span>Agregar Más</span>
+                </button>
+                <button type="button" id="cart-btn-submit-pay" class="cart-btn-pay" onclick="iniciarPago(false)">
+                    <span>💳</span>
+                    <span>Pagar Carro</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Animación de Pago (3 Fases) -->
+    <div id="payment-animation-overlay" role="dialog" aria-label="Animación de Pago">
+        <div class="payment-modal-card">
+            <!-- FASE 1: Esperando -->
+            <div id="pay-phase-waiting" class="payment-phase active">
+                <div class="pay-icon-circle-waiting">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/>
+                    </svg>
+                </div>
+                <div class="pay-phase-title">Esperando medio de pago...</div>
+                <div class="pay-phase-subtitle">Por favor acerca o inserta tu tarjeta en el lector</div>
+            </div>
+
+            <!-- FASE 2: Cargando / Validando -->
+            <div id="pay-phase-validating" class="payment-phase">
+                <div class="pay-spinner-wrap">
+                    <div class="pay-spinner-ring"></div>
+                </div>
+                <div class="pay-phase-title">Cargando y validando...</div>
+                <div class="pay-phase-subtitle">Procesando pago seguro con Servipag Transbank</div>
+                <div class="pay-progress-bar">
+                    <div id="pay-progress-fill-el" class="pay-progress-fill"></div>
+                </div>
+            </div>
+
+            <!-- FASE 3: ¡Pagado! -->
+            <div id="pay-phase-paid" class="payment-phase">
+                <div class="pay-icon-circle-success">
+                    <svg class="pay-checkmark-svg" viewBox="0 0 52 52">
+                        <path d="M14 27 l10 10 l20 -20"/>
+                    </svg>
+                </div>
+                <div class="pay-phase-title">¡Pagado!</div>
+                <div class="pay-phase-subtitle" style="color: #34d399; font-weight: 600;">Su cuenta ha sido pagada exitosamente.</div>
+
+                <div class="pay-receipt-card">
+                    <div class="pay-receipt-row">
+                        <span>N° Comprobante:</span>
+                        <span id="pay-receipt-num" class="pay-receipt-val">#SP-894120</span>
+                    </div>
+                    <div class="pay-receipt-row">
+                        <span>Total Pagado:</span>
+                        <span id="pay-receipt-total" class="pay-receipt-val" style="color:#38bdf8;">$0</span>
+                    </div>
+                    <div class="pay-receipt-row">
+                        <span>Fecha y Hora:</span>
+                        <span id="pay-receipt-date" class="pay-receipt-val">--</span>
+                    </div>
+                </div>
+
+                <button type="button" class="pay-btn-done" onclick="cerrarAnimacionPago()">Aceptar</button>
             </div>
         </div>
     </div>
@@ -1613,6 +2491,426 @@
             }
         }
 
+        // ══════════════════════════════════════════════════════════════════════════
+        // GESTOR VISUAL DE CUENTAS, CARRO DE PAGOS Y ANIMACIÓN DE PAGO (SERVIPAG)
+        // ══════════════════════════════════════════════════════════════════════════
+        let _currentRut = '';
+        let _currentClient = null;
+        let _currentAccounts = [];
+        let _cart = [];
+        let _servipagPanelOpen = false;
+        let _cartOpen = false;
+        let _isPaying = false;
+
+        async function loadAndShowAccounts(rut) {
+            if (!rut) return;
+            const clean = String(rut).replace(/[^0-9kK]/g, '').toUpperCase();
+            if (clean.length < 7) return;
+
+            try {
+                LOG(`loadAndShowAccounts: Consultando cuentas para RUT ${clean}`);
+                const res = await fetch('/api/servipag/rut', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rut: clean })
+                });
+                const resp = await res.json();
+                if (resp.code === 0 && resp.data && resp.data.cuentas) {
+                    _currentRut = clean;
+                    _currentClient = resp.data;
+                    _currentAccounts = resp.data.cuentas;
+                    renderAccountsTable(resp.data);
+                    showAccountsPanel();
+                    // Mostrar botón flotante de carro si hay cuentas
+                    const btnCart = document.getElementById('btn-floating-cart');
+                    if (btnCart) btnCart.style.display = 'flex';
+                } else {
+                    LOG('loadAndShowAccounts: No se encontraron cuentas o error:', resp.msg);
+                }
+            } catch (e) {
+                ERR('loadAndShowAccounts error:', e);
+            }
+        }
+
+        function showAccountsPanel() {
+            const panel = document.getElementById('servipag-accounts-panel');
+            if (panel) {
+                panel.classList.add('open');
+                _servipagPanelOpen = true;
+                LOG('showAccountsPanel: Panel de cuentas abierto');
+            }
+        }
+
+        function hideAccountsPanel() {
+            const panel = document.getElementById('servipag-accounts-panel');
+            if (panel) {
+                panel.classList.remove('open');
+                _servipagPanelOpen = false;
+                LOG('hideAccountsPanel: Panel de cuentas cerrado');
+            }
+        }
+
+        function renderAccountsTable(clientData) {
+            const nameEl = document.getElementById('accounts-client-name');
+            const rutEl = document.getElementById('accounts-client-rut');
+            const tbody = document.getElementById('accounts-table-body');
+            if (!tbody) return;
+
+            if (nameEl) nameEl.textContent = clientData.titular || 'Cuentas Registradas';
+            if (rutEl) rutEl.textContent = `RUT: ${clientData.rut_formateado || clientData.rut}`;
+
+            tbody.innerHTML = '';
+
+            const getCategoryIcon = (cat) => {
+                const c = String(cat).toLowerCase();
+                if (c.includes('luz') || c.includes('electr')) return '💡';
+                if (c.includes('agua')) return '💧';
+                if (c.includes('internet') || c.includes('telecom') || c.includes('movil') || c.includes('celular') || c.includes('cable') || c.includes('wifi')) return '🌐';
+                if (c.includes('gas')) return '🔥';
+                if (c.includes('autopista') || c.includes('tag')) return '🚗';
+                return '📄';
+            };
+
+            clientData.cuentas.forEach((acc, idx) => {
+                const row = document.createElement('tr');
+                const isInCart = _cart.some(item => item.id_cuenta === acc.id_cuenta);
+                const isPaid = acc.es_pagada || acc.monto === 0;
+
+                row.className = 'account-row' + (isInCart ? ' in-cart' : '') + (isPaid ? ' row-paid' : '');
+                row.id = `account-row-${acc.id_cuenta}`;
+
+                // Color blanco para fechas normales, Amarillo para vencidas
+                let dateHtml = '';
+                if (isPaid) {
+                    dateHtml = '<span style="color: #4ade80; font-size:12px; font-weight:600;">✓ Al día</span>';
+                } else if (acc.es_vencida) {
+                    dateHtml = `<span class="acc-date-overdue">⚠️ ${acc.fecha_vencimiento}</span>`;
+                } else {
+                    dateHtml = `<span class="acc-date-normal">${acc.fecha_vencimiento || acc.fecha_vencimiento_natural || 'Sin vencimiento'}</span>`;
+                }
+
+                row.innerHTML = `
+                    <td style="text-align:center;">
+                        <div class="acc-number-badge">${acc.numero || (idx + 1)}</div>
+                    </td>
+                    <td>
+                        <div class="acc-service-badge">
+                            <span>${getCategoryIcon(acc.categoria)}</span>
+                            <span>${acc.categoria ? (acc.categoria.charAt(0).toUpperCase() + acc.categoria.slice(1)) : 'Servicio'}</span>
+                        </div>
+                    </td>
+                    <td>
+                        <div class="acc-company-title">${acc.empresa_nombre || acc.empresa_id}</div>
+                    </td>
+                    <td class="acc-amount">
+                        ${acc.monto_formateado || ('$' + acc.monto)}
+                    </td>
+                    <td style="text-align:right;">
+                        ${dateHtml}
+                    </td>
+                    <td style="text-align:center;">
+                        <button type="button" class="acc-btn-add ${isInCart ? 'added' : ''}" title="${isInCart ? 'En el carro' : 'Agregar al carro'}">
+                            ${isInCart ? '✓' : '＋'}
+                        </button>
+                    </td>
+                `;
+
+                // Clic en la fila agrega o quita la cuenta del carro
+                row.onclick = () => {
+                    if (isPaid) return;
+                    toggleAccountInCart(acc, true);
+                };
+
+                tbody.appendChild(row);
+            });
+        }
+
+        async function toggleAccountInCart(acc, announceAvatar = false) {
+            const existingIdx = _cart.findIndex(item => item.id_cuenta === acc.id_cuenta);
+            if (existingIdx >= 0) {
+                _cart.splice(existingIdx, 1);
+                LOG(`Cuenta removida del carro: ${acc.empresa_nombre}`);
+            } else {
+                _cart.push(acc);
+                LOG(`Cuenta agregada al carro: ${acc.empresa_nombre} (${acc.monto_formateado})`);
+                if (announceAvatar) {
+                    const promptText = `Agregué tu cuenta de ${acc.empresa_nombre} por ${acc.monto_formateado} al carro. ¿Deseas pagarla ahora o agregar más cuentas?`;
+                    sayViaAvatar(promptText);
+                }
+            }
+            updateCartUI();
+            if (_currentClient) {
+                renderAccountsTable(_currentClient);
+            }
+        }
+
+        function updateCartUI() {
+            const count = _cart.length;
+            const total = _cart.reduce((sum, item) => sum + (item.monto || 0), 0);
+            const totalFmt = `$${total.toLocaleString('es-CL')}`;
+
+            // Actualizar botón flotante
+            const badge = document.getElementById('cart-floating-badge');
+            const textEl = document.getElementById('cart-floating-text');
+            if (badge) badge.textContent = count;
+            if (textEl) textEl.textContent = count > 0 ? `Carro (${totalFmt})` : 'Carro';
+
+            // Actualizar modal del carro
+            const totalEl = document.getElementById('cart-total-amount');
+            if (totalEl) totalEl.textContent = totalFmt;
+
+            const itemsContainer = document.getElementById('cart-items-container');
+            const btnPay = document.getElementById('cart-btn-submit-pay');
+            if (btnPay) btnPay.disabled = (count === 0);
+
+            if (itemsContainer) {
+                if (count === 0) {
+                    itemsContainer.innerHTML = '<div class="cart-empty-msg">Tu carro de pagos está vacío.<br>Selecciona una cuenta de la tabla para agregar.</div>';
+                } else {
+                    itemsContainer.innerHTML = '';
+                    _cart.forEach((item, idx) => {
+                        const div = document.createElement('div');
+                        div.className = 'cart-item';
+                        div.innerHTML = `
+                            <div class="cart-item-info">
+                                <span class="cart-item-name">${item.empresa_nombre}</span>
+                                <span class="cart-item-sub">Cuenta N° ${item.identificador || item.id_cuenta}</span>
+                            </div>
+                            <div class="cart-item-right">
+                                <span class="cart-item-price">${item.monto_formateado}</span>
+                                <button type="button" class="cart-item-remove" onclick="event.stopPropagation(); removeCartItem(${idx});" title="Eliminar">✕</button>
+                            </div>
+                        `;
+                        itemsContainer.appendChild(div);
+                    });
+                }
+            }
+        }
+
+        function removeCartItem(idx) {
+            if (idx >= 0 && idx < _cart.length) {
+                _cart.splice(idx, 1);
+                updateCartUI();
+                if (_currentClient) renderAccountsTable(_currentClient);
+            }
+        }
+
+        function toggleCart() {
+            const overlay = document.getElementById('servipag-cart-overlay');
+            if (!overlay) return;
+            if (overlay.classList.contains('open')) {
+                closeCart();
+            } else {
+                openCart();
+            }
+        }
+
+        function openCart() {
+            const overlay = document.getElementById('servipag-cart-overlay');
+            if (overlay) {
+                updateCartUI();
+                overlay.classList.add('open');
+                _cartOpen = true;
+                LOG('openCart: Carro abierto');
+            }
+        }
+
+        function closeCart() {
+            const overlay = document.getElementById('servipag-cart-overlay');
+            if (overlay) {
+                overlay.classList.remove('open');
+                _cartOpen = false;
+                LOG('closeCart: Carro cerrado');
+            }
+        }
+
+        function agregarMasCuentas(fromVoice = false) {
+            closeCart();
+            showAccountsPanel();
+            if (fromVoice) {
+                sayViaAvatar("De acuerdo. Puedes seleccionar otra cuenta diciendo su número, el nombre o tocándola en pantalla.");
+            }
+        }
+
+        async function sayViaAvatar(text) {
+            if (!text) return;
+            LOG(`sayViaAvatar: "${text}"`);
+            queueAvatarBubble(text);
+            stopAlwaysOnListening();
+
+            const sessionid = document.getElementById('sessionid').value;
+            try {
+                await fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                });
+            } catch (e) {
+                WARN('sayViaAvatar network error:', e);
+            }
+        }
+
+        // ─── Animación de Pago en 3 Fases ──────────────────────────────────────────
+        async function iniciarPago(fromVoice = false) {
+            if (_isPaying) return;
+            if (_cart.length === 0) {
+                sayViaAvatar("Tu carro de pagos está vacío. Selecciona primero una cuenta de la tabla.");
+                return;
+            }
+
+            _isPaying = true;
+            closeCart();
+            hideAccountsPanel();
+            stopAlwaysOnListening();
+
+            const overlay = document.getElementById('payment-animation-overlay');
+            const phase1 = document.getElementById('pay-phase-waiting');
+            const phase2 = document.getElementById('pay-phase-validating');
+            const phase3 = document.getElementById('pay-phase-paid');
+            const progressFill = document.getElementById('pay-progress-fill-el');
+
+            if (overlay) overlay.classList.add('open');
+
+            // FASE 1: Esperando medio de pago (1.5s)
+            if (phase1) phase1.classList.add('active');
+            if (phase2) phase2.classList.remove('active');
+            if (phase3) phase3.classList.remove('active');
+            if (progressFill) progressFill.style.width = '0%';
+
+            LOG('[Pago] FASE 1: Esperando tarjeta / medio de pago...');
+
+            await new Promise(r => setTimeout(r, 1600));
+
+            // FASE 2: Cargando / Validando Transacción (1.8s)
+            if (phase1) phase1.classList.remove('active');
+            if (phase2) phase2.classList.add('active');
+            if (progressFill) {
+                setTimeout(() => { progressFill.style.width = '100%'; }, 50);
+            }
+
+            LOG('[Pago] FASE 2: Cargando y validando con Servipag Transbank...');
+
+            // Llamada al backend para procesar el pago y obtener comprobante
+            const cuentasIds = _cart.map(c => c.id_cuenta);
+            let comprobanteData = null;
+            try {
+                const res = await fetch('/api/servipag/pagar', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        rut: _currentRut,
+                        cuentas_ids: cuentasIds
+                    })
+                });
+                const resp = await res.json();
+                if (resp.code === 0 && resp.data) {
+                    comprobanteData = resp.data;
+                }
+            } catch (err) {
+                WARN('Error en llamada a /api/servipag/pagar:', err);
+            }
+
+            await new Promise(r => setTimeout(r, 1900));
+
+            // FASE 3: ¡Pagado! Su cuenta ha sido pagada exitosamente
+            if (phase2) phase2.classList.remove('active');
+            if (phase3) phase3.classList.add('active');
+
+            const receiptNum = document.getElementById('pay-receipt-num');
+            const receiptTotal = document.getElementById('pay-receipt-total');
+            const receiptDate = document.getElementById('pay-receipt-date');
+
+            const totalPagado = _cart.reduce((s, i) => s + (i.monto || 0), 0);
+            if (receiptNum) receiptNum.textContent = comprobanteData ? comprobanteData.comprobante : `#SP-${Math.floor(100000 + Math.random() * 900000)}`;
+            if (receiptTotal) receiptTotal.textContent = `$${totalPagado.toLocaleString('es-CL')}`;
+            if (receiptDate) receiptDate.textContent = comprobanteData ? comprobanteData.fecha : new Date().toLocaleString('es-CL');
+
+            LOG('[Pago] FASE 3: ¡Pagado! Su cuenta ha sido pagada exitosamente.');
+
+            // El avatar vocaliza el éxito del pago
+            const successSpeech = "¡Excelente! Tu pago ha sido procesado exitosamente. Se ha enviado el comprobante a tu correo.";
+            sayViaAvatar(successSpeech);
+
+            // Vaciar el carrito y marcar cuentas en la tabla
+            _cart = [];
+            updateCartUI();
+
+            if (_currentRut) {
+                // Recargar cuentas para que se muestren como pagadas / al día
+                setTimeout(() => {
+                    loadAndShowAccounts(_currentRut);
+                }, 2000);
+            }
+
+            _isPaying = false;
+
+            // Cierre automático tras 6.5 segundos si no toca "Aceptar"
+            setTimeout(() => {
+                cerrarAnimacionPago();
+            }, 6500);
+        }
+
+        function cerrarAnimacionPago() {
+            const overlay = document.getElementById('payment-animation-overlay');
+            if (overlay) overlay.classList.remove('open');
+            _isPaying = false;
+        }
+
+        // Selección por comando de voz cuando la tabla está activa
+        function selectAccountByVoice(voiceText) {
+            if (!_currentAccounts || _currentAccounts.length === 0) return false;
+            const norm = normalizeUserInput(voiceText).toLowerCase();
+
+            // 1. Detección por número (ej: "la 1", "uno", "cuenta 2", "el dos")
+            const numWords = {
+                '1': 1, 'uno': 1, 'primera': 1, 'primero': 1,
+                '2': 2, 'dos': 2, 'segunda': 2, 'segundo': 2,
+                '3': 3, 'tres': 3, 'tercera': 3, 'tercero': 3,
+                '4': 4, 'cuatro': 4, 'cuarta': 4, 'cuarto': 4,
+                '5': 5, 'cinco': 5, 'quinta': 5, 'quinto': 5
+            };
+            const matchNum = norm.match(/\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|segunda|tercera|cuarta|quinta)\b/i);
+            if (matchNum) {
+                const w = matchNum[1].toLowerCase();
+                const targetIdx = (numWords[w] || parseInt(w, 10)) - 1;
+                if (targetIdx >= 0 && targetIdx < _currentAccounts.length) {
+                    const acc = _currentAccounts[targetIdx];
+                    LOG(`[Voz] Selección por número: opción ${targetIdx + 1} -> ${acc.empresa_nombre}`);
+                    toggleAccountInCart(acc, true);
+                    return true;
+                }
+            }
+
+            // 2. Detección por nombre de empresa (ej: "enel", "chilectra", "aguas andinas", "vtr", "cge", "costanera norte")
+            for (let i = 0; i < _currentAccounts.length; i++) {
+                const acc = _currentAccounts[i];
+                const empName = (acc.empresa_nombre || '').toLowerCase();
+                const empId = (acc.empresa_id || '').toLowerCase();
+                if (norm.includes(empName) || norm.includes(empId) || (empId === 'enel' && norm.includes('chilectra'))) {
+                    LOG(`[Voz] Selección por nombre de empresa: ${acc.empresa_nombre}`);
+                    toggleAccountInCart(acc, true);
+                    return true;
+                }
+            }
+
+            // 3. Detección por categoría (ej: "la luz", "el agua", "el gas", "el tag", "internet")
+            for (let i = 0; i < _currentAccounts.length; i++) {
+                const acc = _currentAccounts[i];
+                const cat = (acc.categoria || '').toLowerCase();
+                if (cat && norm.includes(cat)) {
+                    LOG(`[Voz] Selección por categoría de servicio: ${cat} (${acc.empresa_nombre})`);
+                    toggleAccountInCart(acc, true);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         async function numpadSubmit() {
             if (_rutBuffer.length < 7) return;
             const finalRut = formatRutDisplay(_rutBuffer);
@@ -1626,6 +2924,9 @@
 
             // Despertar modelo / conversación
             wakeUpModel();
+
+            // Cargar y desplegar tabla de cuentas del cliente de inmediato
+            loadAndShowAccounts(finalRut);
 
             // Enviar el RUT al LLM
             await sendToLLM(finalRut);
@@ -1928,6 +3229,49 @@
 
                 if (hasCompleteRut(question)) {
                     _isWaitingRut = false;
+                    // Cargar y mostrar cuentas del RUT dictado
+                    const rutMatch = question.match(/(?:(?:[1-9]\d?\.?\d{3}\.?\d{3}|[1-9]\d{6,7})[-–—][0-9kK]|\b\d{7,8}[0-9kK]\b)/i);
+                    if (rutMatch) {
+                        loadAndShowAccounts(rutMatch[0]);
+                    }
+                }
+
+                // ── Control por voz interactivo de Cuentas, Carro y Pago ──
+                const normQ = question.toLowerCase();
+                const isAccountsOrCartActive = _servipagPanelOpen || _cartOpen || (_currentAccounts && _currentAccounts.length > 0);
+
+                if (isAccountsOrCartActive) {
+                    // Mostrar / ver carro
+                    if (/(?:mostrar|ver|abrir|ensename|enséñame)?\s*(?:el\s+)?(?:carro|carrito)/i.test(normQ) && !hasCompleteRut(question)) {
+                        openCart();
+                        sayViaAvatar("Aquí tienes tu carro de cuentas. ¿Deseas pagarlas ahora o agregar más?");
+                        return;
+                    }
+
+                    // Cerrar carro
+                    if (/(?:cerrar|ocultar)\s*(?:el\s+)?(?:carro|carrito)/i.test(normQ)) {
+                        closeCart();
+                        return;
+                    }
+
+                    // Pagar cuentas / carro
+                    if (/^(?:pagar|pagar\s+ahora|quiero\s+pagar|pagar\s+el\s+carro|pagar\s+las\s+cuentas|proceder|s[ií]\s+pagar)$/i.test(normQ)) {
+                        if (_cart.length > 0) {
+                            iniciarPago(true);
+                            return;
+                        }
+                    }
+
+                    // Agregar más cuentas
+                    if (/^(?:agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)$/i.test(normQ)) {
+                        agregarMasCuentas(true);
+                        return;
+                    }
+
+                    // Selección por número (1, 2, 3...) o empresa de la tabla
+                    if (!_cartOpen && selectAccountByVoice(question)) {
+                        return;
+                    }
                 }
 
                 if (_isSleepWord(question)) {
@@ -2553,6 +3897,7 @@
                     _rutBuffer = clean;
                     updateNumpadDisplay();
                     LOG('RUT pegado exitosamente desde portapapeles:', _rutBuffer);
+                    loadAndShowAccounts(_rutBuffer);
                 }
             });
         });

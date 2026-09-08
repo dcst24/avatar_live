@@ -3,9 +3,12 @@
 ###############################################################################
 
 import os
+import re
 import json
+import random
 import numpy as np
 import asyncio
+from datetime import datetime
 from aiohttp import web
 
 from utils.logger import logger
@@ -319,26 +322,123 @@ async def get_servipag_cuentas(request):
 
 
 async def get_servipag_rut(request):
-    """Obtener todas las cuentas asociadas a un RUT"""
-    raw_rut = request.match_info.get('rut', '')
-    target_rut = re.sub(r'[^0-9kK]', '', str(raw_rut)).upper()
+    """Obtener todas las cuentas asociadas a un RUT con formato y numeración interactiva"""
+    from llm import clean_rut, formatear_fecha_natural
     try:
+        raw_rut = ''
+        if request.method == 'POST':
+            try:
+                body = await request.json()
+                raw_rut = body.get('rut', '')
+            except Exception:
+                raw_rut = ''
+        if not raw_rut:
+            raw_rut = request.match_info.get('rut', '')
+
+        target_rut = clean_rut(raw_rut)
+        if not target_rut:
+            return json_error("Debe proporcionar un RUT válido", code=400)
+
         path = 'web/data/servipag_bdd.json'
         if not os.path.exists(path):
             return json_error("Base de datos Servipag no encontrada", code=404)
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
-        cuentas = [c for c in data.get('cuentas_clientes', []) if re.sub(r'[^0-9kK]', '', str(c.get('rut_titular', ''))).upper() == target_rut]
+
+        cuentas_raw = data.get('cuentas_clientes', [])
+        cuentas = []
+        num = 1
+        for c in cuentas_raw:
+            c_rut = clean_rut(c.get('rut_titular', ''))
+            if c_rut == target_rut:
+                c_copy = dict(c)
+                c_copy['numero'] = num
+                num += 1
+                monto = c_copy.get('monto', 0)
+                c_copy['monto_formateado'] = f"${monto:,}".replace(",", ".")
+                estado = str(c_copy.get('estado', '')).lower()
+                c_copy['es_vencida'] = (estado == 'vencida')
+                c_copy['es_pagada'] = (estado in ('pagada', 'sin_deuda') or monto == 0)
+                fecha_v = c_copy.get('fecha_vencimiento')
+                c_copy['fecha_vencimiento_natural'] = formatear_fecha_natural(fecha_v) if fecha_v else 'Sin vencimiento'
+                cuentas.append(c_copy)
+
         if not cuentas:
             return json_error(f"No se encontraron cuentas asociadas al RUT {raw_rut}", code=404)
+
         return json_ok(data={
             "rut": raw_rut,
+            "rut_formateado": cuentas[0].get('rut_titular', raw_rut),
             "titular": cuentas[0].get('nombre_titular', ''),
             "total_cuentas": len(cuentas),
             "cuentas": cuentas
         })
     except Exception as e:
         logger.exception('get_servipag_rut exception:')
+        return json_error(str(e))
+
+
+async def servipag_pagar(request):
+    """Procesar pago de cuentas Servipag (simulado con persistencia en sesión)"""
+    from llm import clean_rut
+    try:
+        body = await request.json()
+        raw_rut = body.get('rut', '')
+        cuentas_ids = body.get('cuentas_ids', [])  # Lista de id_cuenta ej: ["CTA-101", "CTA-102"]
+        target_rut = clean_rut(raw_rut)
+
+        path = 'web/data/servipag_bdd.json'
+        if not os.path.exists(path):
+            return json_error("Base de datos Servipag no encontrada", code=404)
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        cuentas_pagadas = []
+        total_pagado = 0
+
+        # Si no enviaron IDs específicos, pagar todas las pendientes del RUT
+        for c in data.get('cuentas_clientes', []):
+            c_rut = clean_rut(c.get('rut_titular', ''))
+            c_id = c.get('id_cuenta')
+            if c_rut == target_rut and (not cuentas_ids or c_id in cuentas_ids):
+                monto = c.get('monto', 0)
+                total_pagado += monto
+                # Marcar como pagada en memoria/BDD
+                c['estado'] = 'pagada'
+                c['monto'] = 0
+                c['detalle_estado'] = f"Cuenta pagada exitosamente el {datetime.now().strftime('%d-%m-%Y %H:%M')}"
+                cuentas_pagadas.append({
+                    "id_cuenta": c_id,
+                    "empresa_nombre": c.get('empresa_nombre'),
+                    "categoria": c.get('categoria'),
+                    "monto_pagado": monto,
+                    "monto_formateado": f"${monto:,}".replace(",", ".")
+                })
+
+        # Guardar persistencia en servipag_bdd.json
+        try:
+            with open(path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=2, ensure_ascii=False)
+            # Recargar catálogo en memoria del LLM
+            from llm import reload_catalog
+            reload_catalog()
+        except Exception as we:
+            logger.warning(f"No se pudo escribir en servipag_bdd.json: {we}")
+
+        num_comprobante = f"SP-{random.randint(100000, 999999)}"
+        fecha_str = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+
+        return json_ok(data={
+            "comprobante": num_comprobante,
+            "fecha": fecha_str,
+            "total_pagado": total_pagado,
+            "total_formateado": f"${total_pagado:,}".replace(",", "."),
+            "cantidad_cuentas": len(cuentas_pagadas),
+            "cuentas_pagadas": cuentas_pagadas,
+            "mensaje": "Su cuenta ha sido pagada exitosamente."
+        })
+    except Exception as e:
+        logger.exception('servipag_pagar exception:')
         return json_error(str(e))
 
 
@@ -410,6 +510,8 @@ def setup_routes(app):
     app.router.add_get("/api/servipag/servicios", get_servipag_servicios)
     app.router.add_get("/api/servipag/cuentas", get_servipag_cuentas)
     app.router.add_get("/api/servipag/rut/{rut}", get_servipag_rut)
+    app.router.add_post("/api/servipag/rut", get_servipag_rut)
+    app.router.add_post("/api/servipag/pagar", servipag_pagar)
     app.router.add_get("/api/servipag/cuenta/{empresa}/{identificador}", get_servipag_cuenta)
     app.router.add_post("/api/servipag/verificar", servipag_verificar)
     app.router.add_get("/api/servipag/verificar", servipag_verificar)
