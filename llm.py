@@ -296,8 +296,9 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
     norm_current = normalize_user_input(user_msg)
     user_turns = [h.get("content", "") for h in history if h.get("role") == "user"]
 
-    # 1. RUT (del mensaje actual prioritariamente; de turnos previos si el mensaje actual es opción o no es número)
+    # 1. RUT chileno
     rut = extract_rut(norm_current)
+    current_has_rut = bool(rut)
     incomplete_num = extract_incomplete_number(norm_current)
 
     option_words = {
@@ -307,7 +308,17 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
         '4': 4, 'cuatro': 4, 'cuarta': 4, 'cuarto': 4,
         '5': 5, 'cinco': 5, 'quinta': 5, 'quinto': 5,
     }
-    opt_match = re.search(r'\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|primero|segunda|segundo|tercera|tercero|cuarta|quinta)\b', norm_current.lower())
+
+    ident_in_current = extract_identificador(norm_current, rut)
+
+    # Solo buscar selección de opción (ej: "la 1", "el dos", "opción 2", "primera")
+    # si el turno actual NO es un RUT ni un identificador de cliente
+    opt_match = None
+    if not current_has_rut and not ident_in_current:
+        opt_match = re.search(
+            r'\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+|quiero\s+la\s+|quiero\s+el\s+|pagar\s+la\s+|pagar\s+el\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|primero|segunda|segundo|tercera|tercero|cuarta|quinta)\b',
+            norm_current.lower()
+        )
 
     # Si el usuario dijo una opción numérica (ej: "la 1", "uno", "2") y hay un RUT previo, no es número incompleto
     if opt_match and not rut:
@@ -326,7 +337,7 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
                 break
 
     # 2. Identificador numérico de cliente (6 a 9 dígitos)
-    ident = extract_identificador(norm_current, rut)
+    ident = ident_in_current
     if not ident and not incomplete_num:
         for t in reversed(user_turns):
             idt = extract_identificador(t, rut)
@@ -335,8 +346,6 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
                 break
 
     # Aislamiento de contexto entre consultas de RUTs:
-    # Si el mensaje actual trae un nuevo RUT o identificador y ya había uno previo en el historial,
-    # solo tomamos los turnos del usuario posteriores a ese último RUT para no arrastrar servicios antiguos.
     last_rut_turn_idx = -1
     for idx, t in enumerate(user_turns):
         if extract_rut(t) or extract_identificador(t):
@@ -347,13 +356,11 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
     else:
         relevant_user_turns = user_turns + [user_msg]
 
-    user_text = " ".join([normalize_user_input(t) for t in relevant_user_turns]).lower()
-
-    # 3. Empresa y Categoría (buscada ÚNICAMENTE en lo que dijo el usuario dentro del contexto relevante)
+    # 3. Empresa y Categoría (buscada prioritariamente en los turnos más recientes del usuario)
     empresa = None
     categoria = None
 
-    if opt_match and rut:
+    if opt_match and rut and not current_has_rut:
         matched_word = opt_match.group(1).lower()
         if matched_word in option_words:
             opt_idx = option_words[matched_word] - 1
@@ -365,17 +372,27 @@ def extract_user_entities(user_msg: str, history: list = []) -> tuple:
                 incomplete_num = None
 
     if not empresa:
-        for alias, emp in _EMPRESAS_BY_ALIAS.items():
-            if re.search(r'\b' + re.escape(alias) + r'\b', user_text):
-                empresa = emp.get("id")
+        for t in reversed(relevant_user_turns):
+            norm_t = normalize_user_input(t).lower()
+            for alias, emp in sorted(_EMPRESAS_BY_ALIAS.items(), key=lambda x: len(x[0]), reverse=True):
+                if re.search(r'\b' + re.escape(alias) + r'\b', norm_t):
+                    empresa = emp.get("id")
+                    if not categoria:
+                        categoria = emp.get("categoria")
+                    break
+            if empresa:
                 break
 
     if not categoria:
-        for cat in _CATEGORIAS_SERVICIOS:
-            cat_id = cat.get("id", "")
-            sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
-            if any(re.search(r'\b' + re.escape(s) + r'\b', user_text) for s in sinonimos):
-                categoria = cat_id
+        for t in reversed(relevant_user_turns):
+            norm_t = normalize_user_input(t).lower()
+            for cat in _CATEGORIAS_SERVICIOS:
+                cat_id = cat.get("id", "")
+                sinonimos = cat.get("sinonimos", []) + [cat_id, cat.get("nombre", "").lower()]
+                if any(re.search(r'\b' + re.escape(s) + r'\b', norm_t) for s in sinonimos):
+                    categoria = cat_id
+                    break
+            if categoria:
                 break
 
     # 5. Intención afirmativa de pago
