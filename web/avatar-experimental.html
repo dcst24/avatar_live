@@ -2337,24 +2337,73 @@
             }, 4000);
         }
 
+        function cancelFollowUpTimers(keepWaitingAck = false) {
+            if (_followUpTimeoutId) {
+                clearTimeout(_followUpTimeoutId);
+                _followUpTimeoutId = null;
+            }
+            if (_followUpAckTimeoutId) {
+                clearTimeout(_followUpAckTimeoutId);
+                _followUpAckTimeoutId = null;
+            }
+            if (!keepWaitingAck) {
+                _waitingFollowUpAck = false;
+            }
+        }
+
+        function notifyUserActivity(actionName = '') {
+            if (actionName) LOG(`[Actividad Usuario: ${actionName}] Cancelando/reiniciando timers de inactividad`);
+            cancelFollowUpTimers(false);
+            resetInactivityTimer();
+        }
+
         function scheduleFollowUp() {
-            // Si ya preguntamos "¿Necesitas algo más?" y esperamos respuesta,
-            // NO reprogramar — evita el bucle infinito de preguntas
-            if (_waitingFollowUpAck) {
-                LOG('scheduleFollowUp: ya esperando ACK del follow-up, no reprogramar.');
+            // Cancelar cualquier timer previo de follow-up
+            cancelFollowUpTimers(true);
+
+            // Si la conversación no está activa, o si el avatar está hablando, o si se procesa pago, NO programar
+            if (!_conversationAwake || isSpeaking || _isPaying) {
+                LOG(`scheduleFollowUp: omitido (awake=${_conversationAwake}, isSpeaking=${isSpeaking}, isPaying=${_isPaying})`);
                 return;
             }
-            clearTimeout(_followUpTimeoutId);
-            clearTimeout(_followUpAckTimeoutId);
-            if (!_conversationAwake) return;
+
+            // Si ya estamos esperando ACK del follow-up, reprogramar únicamente el timeout de despedida
+            if (_waitingFollowUpAck) {
+                LOG('scheduleFollowUp: esperando ACK del follow-up, armando timeout de despedida.');
+                scheduleFollowUpAckTimeout();
+                return;
+            }
+
+            LOG('scheduleFollowUp: programando pregunta "¿Necesitas algo más?" en 15s de silencio');
             _followUpTimeoutId = setTimeout(() => {
-                LOG("15 segundos de silencio → Preguntando si necesita algo más.");
+                // Verificaciones estrictas antes de disparar la pregunta:
+                if (!_conversationAwake || isSpeaking || _isPaying) {
+                    LOG('scheduleFollowUp: descartado en ejecución porque el avatar está hablando o pagando.');
+                    return;
+                }
+
+                // Si el usuario tiene el teclado numérico de RUT abierto o ha digitado dígitos, posponer
+                const numpadOverlay = document.getElementById('rut-numpad-overlay');
+                if ((numpadOverlay && numpadOverlay.classList.contains('open')) || (_rutBuffer && _rutBuffer.length > 0)) {
+                    LOG('scheduleFollowUp: pospuesto porque el usuario está interactuando con el RUT.');
+                    scheduleFollowUp();
+                    return;
+                }
+
+                // Si el carro está abierto
+                if (_cartOpen) {
+                    LOG('scheduleFollowUp: pospuesto porque el carro está abierto.');
+                    scheduleFollowUp();
+                    return;
+                }
+
+                LOG("15 segundos de silencio sin interacción → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
                 _waitingFollowUpAck = true;
-                
+
                 queueAvatarBubble(followUpText);
                 stopAlwaysOnListening();
-                
+
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -2369,11 +2418,26 @@
         }
 
         function scheduleFollowUpAckTimeout() {
-            clearTimeout(_followUpAckTimeoutId);
+            if (_followUpAckTimeoutId) {
+                clearTimeout(_followUpAckTimeoutId);
+                _followUpAckTimeoutId = null;
+            }
             if (!_waitingFollowUpAck || !_conversationAwake) return;
             LOG('scheduleFollowUpAckTimeout: esperando 15s respuesta al follow-up…');
             _followUpAckTimeoutId = setTimeout(() => {
-                if (!_waitingFollowUpAck) return;
+                if (!_waitingFollowUpAck || !_conversationAwake || isSpeaking || _isPaying) {
+                    LOG('scheduleFollowUpAckTimeout: descartado porque el estado cambió.');
+                    return;
+                }
+
+                const numpadOverlay = document.getElementById('rut-numpad-overlay');
+                if ((numpadOverlay && numpadOverlay.classList.contains('open')) || (_rutBuffer && _rutBuffer.length > 0) || _cartOpen) {
+                    LOG('scheduleFollowUpAckTimeout: usuario activo, cancelando despedida.');
+                    _waitingFollowUpAck = false;
+                    scheduleFollowUp();
+                    return;
+                }
+
                 LOG('15s sin respuesta al follow-up → enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
@@ -2383,7 +2447,7 @@
                 _conversationAwake = false;
                 _wakeDetected = false;
                 clearTimeout(_inactivityTimeoutId);
-                clearTimeout(_followUpTimeoutId);
+                cancelFollowUpTimers(false);
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -2439,6 +2503,7 @@
         }
 
         function numpadPress(char) {
+            notifyUserActivity('numpadPress');
             if (_rutBuffer.length >= 9) return;
             const upper = String(char).toUpperCase();
             if (upper === 'K') {
@@ -2452,6 +2517,7 @@
         }
 
         function numpadBackspace() {
+            notifyUserActivity('numpadBackspace');
             if (_rutBuffer.length > 0) {
                 _rutBuffer = _rutBuffer.slice(0, -1);
                 updateNumpadDisplay();
@@ -2459,11 +2525,13 @@
         }
 
         function numpadClear() {
+            notifyUserActivity('numpadClear');
             _rutBuffer = '';
             updateNumpadDisplay();
         }
 
         function showRutNumpad(clear = false) {
+            notifyUserActivity('showRutNumpad');
             const overlay = document.getElementById('rut-numpad-overlay');
             if (!overlay) return;
             if (clear) {
@@ -2627,6 +2695,7 @@
         }
 
         async function toggleAccountInCart(acc, announceAvatar = false) {
+            notifyUserActivity('toggleAccountInCart');
             const existingIdx = _cart.findIndex(item => item.id_cuenta === acc.id_cuenta);
             if (existingIdx >= 0) {
                 _cart.splice(existingIdx, 1);
@@ -2689,6 +2758,7 @@
         }
 
         function removeCartItem(idx) {
+            notifyUserActivity('removeCartItem');
             if (idx >= 0 && idx < _cart.length) {
                 _cart.splice(idx, 1);
                 updateCartUI();
@@ -2707,6 +2777,7 @@
         }
 
         function openCart() {
+            notifyUserActivity('openCart');
             const overlay = document.getElementById('servipag-cart-overlay');
             if (overlay) {
                 updateCartUI();
@@ -2726,6 +2797,7 @@
         }
 
         function agregarMasCuentas(fromVoice = false) {
+            notifyUserActivity('agregarMasCuentas');
             closeCart();
             showAccountsPanel();
             if (fromVoice) {
@@ -2757,6 +2829,7 @@
 
         // ─── Animación de Pago en 3 Fases ──────────────────────────────────────────
         async function iniciarPago(fromVoice = false) {
+            notifyUserActivity('iniciarPago');
             if (_isPaying) return;
             if (_cart.length === 0) {
                 sayViaAvatar("Tu carro de pagos está vacío. Selecciona primero una cuenta de la tabla.");
@@ -2916,6 +2989,9 @@
             if (_rutBuffer.length < 7) return;
             const finalRut = formatRutDisplay(_rutBuffer);
             LOG(`numpadSubmit: RUT ingresado desde teclado táctil: "${finalRut}"`);
+
+            // Notificar actividad para reiniciar timers de inactividad y cancelar follow-up
+            notifyUserActivity('numpadSubmit');
 
             // Ocultar teclado inmediatamente tras digitar
             hideRutNumpad();
@@ -3107,6 +3183,8 @@
                             if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
+                            // Cancelar CUALQUIER timer de follow-up / despedida mientras el avatar habla
+                            cancelFollowUpTimers(true);
                             // Pausar reconocimiento mientras el avatar habla para no captar su propia voz ni eco
                             stopAlwaysOnListening();
                             if (_pendingAvatarBubbleText) {
@@ -3209,6 +3287,7 @@
             clearTimeout(_pendingCommitTimeout);
             _pendingCommitTimeout = null;
             _voiceAccumulator = '';
+            notifyUserActivity('_dispatchQuestion');
 
             const normalizedText = normalizeUserInput(rawText);
             let question = _extractQuestion(normalizedText);
@@ -3339,6 +3418,8 @@
 
                 const rawText = (final || interim).trim();
                 if (!rawText) return;
+
+                notifyUserActivity('voz detectada');
 
                 if (!_conversationAwake) {
                     if (_containsWakeWord(rawText)) {
@@ -3656,6 +3737,7 @@
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
+            notifyUserActivity('sendToLLM');
             LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');
             setUserText(text, false);
