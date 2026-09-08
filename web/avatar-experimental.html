@@ -2881,6 +2881,10 @@
             hideAccountsPanel();
             stopAlwaysOnListening();
 
+            if (fromVoice) {
+                sayViaAvatar("Por favor acerca o inserta tu tarjeta en el lector.");
+            }
+
             const overlay = document.getElementById('payment-animation-overlay');
             const phase1 = document.getElementById('pay-phase-waiting');
             const phase2 = document.getElementById('pay-phase-validating');
@@ -3446,8 +3450,16 @@
                         return;
                     }
 
-                    // Pagar cuentas / carro / confirmación afirmativa
-                    const isPayIntent = /^(?:pagar|pagar\s+ahora|quiero\s+pagar|pagar\s+el\s+carro|pagar\s+las\s+cuentas|proceder|s[ií]\s+pagar|s[ií]|si|claro|por\s+favor|pag[eé]mosla|cancelo)$/i.test(normQ.trim());
+                    // Pagar cuentas / carro / confirmación afirmativa (ej: "si quiero pagar", "si quiero", "pagar", "si por favor")
+                    const cleanNorm = normQ
+                        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+                        .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, " ")
+                        .replace(/\s+/g, " ")
+                        .trim();
+
+                    const isPayIntent = /^(?:si|claro|por\s+favor|porfa|dale|ok|bueno|proceder)?\s*(?:quiero\s+pagar(?:la)?|pagar(?:la)?(?:\s+ahora)?|pagemosla|paguemos|pagar\s+el\s+carro|pagar\s+las?\s+cuentas?|proceder(?:\s+con\s+el\s+pago)?|procede|cancelo)$/i.test(cleanNorm)
+                        || /^(?:si|si\s+quiero|claro|claro\s+que\s+si|por\s+favor|porfa|dale|bueno|ok|proceder|si\s+por\s+favor|si\s+dale|si\s+claro|si\s+porfa|acepto|si\s+acepto)$/i.test(cleanNorm)
+                        || /\b(?:quiero\s+pagar|pagar\s+ahora|pagar\s+la\s+cuenta|pagar\s+el\s+carro)\b/i.test(cleanNorm);
                     if (isPayIntent) {
                         if (_cart.length > 0) {
                             iniciarPago(true);
@@ -3974,6 +3986,23 @@
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
                 autoSelectAccountFromAvatarResponse(fullText);
+
+                // Si la respuesta del avatar instruye pagar o acercar tarjeta al lector, y hay cuentas en el carro/cargadas, iniciar la animación de pago
+                const isRedirectToPayment = /(?:plataforma\s+de\s+pago|tarjeta\s+en\s+el\s+lector|acerca.*tarjeta|inserta.*tarjeta|acerque.*tarjeta|inserte.*tarjeta)/i.test(fullText);
+                if (isRedirectToPayment && !_isPaying) {
+                    if (_cart.length === 0 && _currentAccounts && _currentAccounts.length > 0) {
+                        const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0);
+                        if (debtAccounts.length === 1) {
+                            _cart.push(debtAccounts[0]);
+                            updateCartUI();
+                            if (_currentClient) renderAccountsTable(_currentClient);
+                        }
+                    }
+                    if (_cart.length > 0) {
+                        LOG('[sendToLLM] Avatar confirmó transición a pago → iniciando animación de pago');
+                        iniciarPago(false);
+                    }
+                }
 
                 // Una vez que el LLM termina de generar, el TTS ya procesa en el backend.
                 // Aseguramos que la escucha permanezca detenida para no captar la voz del avatar.
