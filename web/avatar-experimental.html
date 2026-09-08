@@ -2604,6 +2604,9 @@
                 });
                 const resp = await res.json();
                 if (resp.code === 0 && resp.data && resp.data.cuentas) {
+                    if (_currentRut && clean !== _currentRut) {
+                        _cart = [];
+                    }
                     _currentRut = clean;
                     _currentClient = resp.data;
                     _currentAccounts = resp.data.cuentas;
@@ -2988,9 +2991,38 @@
         // Selección por comando de voz cuando la tabla está activa
         function selectAccountByVoice(voiceText) {
             if (!_currentAccounts || _currentAccounts.length === 0) return false;
+            // Si el texto contiene un RUT o identificador largo, no procesarlo como selección de cuenta
+            if (hasCompleteRut(voiceText) || /\b\d{6,}\b/.test(voiceText)) {
+                return false;
+            }
+
             const norm = normalizeUserInput(voiceText).toLowerCase();
 
-            // 1. Detección por número (ej: "la 1", "uno", "cuenta 2", "el dos")
+            // 1. Detección prioritaria por nombre de empresa (ej: "enel", "chilectra", "aguas andinas", "vtr", "cge", "costanera norte")
+            for (let i = 0; i < _currentAccounts.length; i++) {
+                const acc = _currentAccounts[i];
+                const empName = (acc.empresa_nombre || '').toLowerCase();
+                const empId = (acc.empresa_id || '').toLowerCase();
+                if (norm.includes(empName) || (empId && norm.includes(empId)) || (empId === 'enel' && norm.includes('chilectra'))) {
+                    LOG(`[Voz] Selección por nombre de empresa: ${acc.empresa_nombre}`);
+                    toggleAccountInCart(acc, true);
+                    return true;
+                }
+            }
+
+            // 2. Detección prioritaria por categoría (ej: "la luz", "el agua", "el gas", "el tag", "internet")
+            for (let i = 0; i < _currentAccounts.length; i++) {
+                const acc = _currentAccounts[i];
+                const cat = (acc.categoria || '').toLowerCase();
+                if (cat && (norm.includes(cat) || (cat === 'agua' && norm.includes('aguas')) || (cat === 'luz' && (norm.includes('electricidad') || norm.includes('eléctrica'))))) {
+                    LOG(`[Voz] Selección por categoría de servicio: ${cat} (${acc.empresa_nombre})`);
+                    toggleAccountInCart(acc, true);
+                    return true;
+                }
+            }
+
+            // 3. Detección por número (ej: "la 1", "uno", "cuenta 2", "el dos", "opción 2")
+            // Solo coincide con selector explícito o término numérico aislado
             const numWords = {
                 '1': 1, 'uno': 1, 'primera': 1, 'primero': 1,
                 '2': 2, 'dos': 2, 'segunda': 2, 'segundo': 2,
@@ -2998,36 +3030,18 @@
                 '4': 4, 'cuatro': 4, 'cuarta': 4, 'cuarto': 4,
                 '5': 5, 'cinco': 5, 'quinta': 5, 'quinto': 5
             };
-            const matchNum = norm.match(/\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|segunda|tercera|cuarta|quinta)\b/i);
+            const matchNum = norm.match(
+                /^(?:(?:la|el|opci[oó]n|cuenta|n[uú]mero)\s+)?(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|primero|segunda|segundo|tercera|tercero|cuarta|quinta)$/i
+            ) || norm.match(
+                /\b(?:la\s+|el\s+|opci[oó]n\s+|cuenta\s+|n[uú]mero\s+|fila\s+|quiero\s+la\s+|quiero\s+el\s+|pagar\s+la\s+|pagar\s+el\s+)(1|2|3|4|5|uno|dos|tres|cuatro|cinco|primera|primero|segunda|segundo|tercera|tercero|cuarta|quinta)\b/i
+            );
+
             if (matchNum) {
                 const w = matchNum[1].toLowerCase();
                 const targetIdx = (numWords[w] || parseInt(w, 10)) - 1;
                 if (targetIdx >= 0 && targetIdx < _currentAccounts.length) {
                     const acc = _currentAccounts[targetIdx];
                     LOG(`[Voz] Selección por número: opción ${targetIdx + 1} -> ${acc.empresa_nombre}`);
-                    toggleAccountInCart(acc, true);
-                    return true;
-                }
-            }
-
-            // 2. Detección por nombre de empresa (ej: "enel", "chilectra", "aguas andinas", "vtr", "cge", "costanera norte")
-            for (let i = 0; i < _currentAccounts.length; i++) {
-                const acc = _currentAccounts[i];
-                const empName = (acc.empresa_nombre || '').toLowerCase();
-                const empId = (acc.empresa_id || '').toLowerCase();
-                if (norm.includes(empName) || norm.includes(empId) || (empId === 'enel' && norm.includes('chilectra'))) {
-                    LOG(`[Voz] Selección por nombre de empresa: ${acc.empresa_nombre}`);
-                    toggleAccountInCart(acc, true);
-                    return true;
-                }
-            }
-
-            // 3. Detección por categoría (ej: "la luz", "el agua", "el gas", "el tag", "internet")
-            for (let i = 0; i < _currentAccounts.length; i++) {
-                const acc = _currentAccounts[i];
-                const cat = (acc.categoria || '').toLowerCase();
-                if (cat && norm.includes(cat)) {
-                    LOG(`[Voz] Selección por categoría de servicio: ${cat} (${acc.empresa_nombre})`);
                     toggleAccountInCart(acc, true);
                     return true;
                 }
@@ -3052,7 +3066,7 @@
                 const empId = (acc.empresa_id || '').toLowerCase();
                 const cat = (acc.categoria || '').toLowerCase();
 
-                const mentionsCompany = norm.includes(empName) || (empId && norm.includes(empId)) || (empId === 'enel' && norm.includes('chilectra'));
+                const mentionsCompany = norm.includes(empName) || (empId && norm.includes(empId)) || (empId === 'enel' && norm.includes('chilectra')) || (cat && norm.includes(cat));
                 const isDebtOffer = norm.includes('deuda') || norm.includes('pagarla') || norm.includes('cobro');
 
                 if (mentionsCompany && isDebtOffer) {
@@ -3429,11 +3443,14 @@
                                 autoSelectAccountFromAvatarResponse(_lastAvatarMessage);
                             }
                             if (_cart.length === 0) {
-                                const debtAcc = _currentAccounts.find(a => (a.monto || 0) > 0) || _currentAccounts[0];
-                                if (debtAcc) {
-                                    _cart.push(debtAcc);
+                                const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0);
+                                if (debtAccounts.length === 1) {
+                                    _cart.push(debtAccounts[0]);
                                     updateCartUI();
                                     if (_currentClient) renderAccountsTable(_currentClient);
+                                } else if (debtAccounts.length > 1) {
+                                    sayViaAvatar("Tienes varias cuentas con deuda disponibles. Por favor indícame cuál deseas pagar: di el número, el nombre o tócala en la pantalla.");
+                                    return;
                                 }
                             }
                             if (_cart.length > 0) {
@@ -3450,7 +3467,7 @@
                     }
 
                     // Selección por número (1, 2, 3...) o empresa de la tabla
-                    if (!_cartOpen && selectAccountByVoice(question)) {
+                    if (!_cartOpen && !hasCompleteRut(question) && selectAccountByVoice(question)) {
                         return;
                     }
                 }
