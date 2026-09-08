@@ -489,15 +489,15 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
             # Subcaso A2: Cuenta al día o pagada (saldo 0)
             elif monto == 0 or estado in ("pagada", "al dia", "al día"):
                 frase_sugerida = (
-                    f"Hola {titular}, tu cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                    f"Hola {titular}, tu cuenta de {emp_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente."
                     if titular else
-                    f"Esa cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                    f"Tu cuenta de {emp_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente."
                 )
                 mensaje = (
-                    f"INFORMACIÓN OFICIAL: La cuenta de {emp_nombre} de {titular or 'el cliente'} no tiene deuda pendiente (saldo 0 pesos, cuenta al día).\n"
-                    f"INSTRUCCIÓN OBLIGATORIA DE RESPUESTA: Comunícalo con naturalidad y calidez. Di algo como:\n"
+                    f"INFORMACIÓN OFICIAL: La cuenta de {emp_nombre} de {titular or 'el cliente'} ya se encuentra pagada y al día (saldo 0 pesos, sin deuda pendiente).\n"
+                    f"INSTRUCCIÓN OBLIGATORIA DE RESPUESTA: Comunícalo con naturalidad y calidez diciendo claramente que la cuenta ya se encuentra pagada y al día. Di exactamente:\n"
                     f"'{frase_sugerida}'.\n"
-                    "PROHIBIDO sonar robótico o leer etiquetas de base de datos como saldos o fechas de vencimiento cuando la cuenta está al día."
+                    "PROHIBIDO sonar robótico o pedir pagar una cuenta que ya está pagada."
                 )
             # Subcaso A3: Deuda vencida
             elif estado == "vencida":
@@ -599,10 +599,14 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                 )
             # Subcaso B2: pagada / al día
             elif monto == 0 or estado in ("pagada", "al dia", "al día"):
-                frase_sugerida = f"Hola {titular}, tu cuenta de {emp_nombre} no presenta deuda al día de hoy. ¿Deseas consultar o pagar otra cuenta?"
+                frase_sugerida = (
+                    f"Hola {titular}, tu cuenta de {emp_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente."
+                    if titular else
+                    f"Tu cuenta de {emp_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente."
+                )
                 mensaje = (
-                    f"INFORMACIÓN OFICIAL: Para el servicio consultado, la cuenta de {titular} es en {emp_nombre} y no tiene deuda pendiente (saldo 0 pesos, al día).\n"
-                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo con naturalidad: '{frase_sugerida}'."
+                    f"INFORMACIÓN OFICIAL: Para el servicio consultado, la cuenta de {titular} en {emp_nombre} ya se encuentra pagada y al día (saldo 0 pesos, al día).\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo con naturalidad diciendo que la cuenta ya se encuentra pagada y al día: '{frase_sugerida}'."
                 )
             # Subcaso B3: vencida
             elif estado == "vencida":

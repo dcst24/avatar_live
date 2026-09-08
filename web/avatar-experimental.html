@@ -1033,10 +1033,15 @@
         }
 
         .account-row.row-paid {
-            opacity: 0.55;
+            opacity: 0.65;
             background: rgba(34, 197, 94, 0.08);
             border-color: rgba(34, 197, 94, 0.25);
-            cursor: default;
+            cursor: pointer;
+        }
+
+        .account-row.row-paid .acc-number-badge {
+            background: #22c55e;
+            box-shadow: none;
         }
 
         /* Badge numérico (ej: 1, 2) */
@@ -2722,12 +2727,12 @@
             clientData.cuentas.forEach((acc, idx) => {
                 const row = document.createElement('tr');
                 const isInCart = _cart.some(item => item.id_cuenta === acc.id_cuenta);
-                const isPaid = acc.es_pagada || acc.monto === 0;
+                const isPaid = Boolean(acc.es_pagada || acc.monto === 0 || acc.estado === 'pagada' || acc.estado === 'sin_deuda');
 
                 row.className = 'account-row' + (isInCart ? ' in-cart' : '') + (isPaid ? ' row-paid' : '');
                 row.id = `account-row-${acc.id_cuenta}`;
 
-                // Color blanco para fechas normales, Amarillo para vencidas
+                // Color verde para cuentas al día/pagadas, Blanco para normales, Amarillo para vencidas
                 let dateHtml = '';
                 if (isPaid) {
                     dateHtml = '<span style="color: #4ade80; font-size:12px; font-weight:600;">✓ Al día</span>';
@@ -2736,6 +2741,10 @@
                 } else {
                     dateHtml = `<span class="acc-date-normal">${acc.fecha_vencimiento || acc.fecha_vencimiento_natural || 'Sin vencimiento'}</span>`;
                 }
+
+                const actionBtnHtml = isPaid
+                    ? `<button type="button" class="acc-btn-add paid-btn" title="Cuenta pagada y al día" style="background: rgba(74, 222, 128, 0.12); color: #4ade80; border: 1px solid rgba(74, 222, 128, 0.3); cursor: pointer;" onclick="event.stopPropagation(); sayViaAvatar('Tu cuenta de ${acc.empresa_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente.');">✓</button>`
+                    : `<button type="button" class="acc-btn-add ${isInCart ? 'added' : ''}" title="${isInCart ? 'En el carro' : 'Agregar al carro'}">${isInCart ? '✓' : '＋'}</button>`;
 
                 row.innerHTML = `
                     <td style="text-align:center;">
@@ -2751,21 +2760,22 @@
                         <div class="acc-company-title">${acc.empresa_nombre || acc.empresa_id}</div>
                     </td>
                     <td class="acc-amount">
-                        ${acc.monto_formateado || ('$' + acc.monto)}
+                        ${isPaid ? '$0' : (acc.monto_formateado || ('$' + acc.monto))}
                     </td>
                     <td style="text-align:right;">
                         ${dateHtml}
                     </td>
                     <td style="text-align:center;">
-                        <button type="button" class="acc-btn-add ${isInCart ? 'added' : ''}" title="${isInCart ? 'En el carro' : 'Agregar al carro'}">
-                            ${isInCart ? '✓' : '＋'}
-                        </button>
+                        ${actionBtnHtml}
                     </td>
                 `;
 
-                // Clic en la fila agrega o quita la cuenta del carro
+                // Clic en la fila o botón: si está pagada, el avatar informa que ya está pagada; si no, agrega o quita del carro
                 row.onclick = () => {
-                    if (isPaid) return;
+                    if (isPaid) {
+                        sayViaAvatar(`Tu cuenta de ${acc.empresa_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente.`);
+                        return;
+                    }
                     toggleAccountInCart(acc, true);
                 };
 
@@ -2775,6 +2785,20 @@
 
         async function toggleAccountInCart(acc, announceAvatar = false) {
             notifyUserActivity('toggleAccountInCart');
+            const isPaid = Boolean(acc.es_pagada || acc.monto === 0 || acc.estado === 'pagada' || acc.estado === 'sin_deuda');
+            if (isPaid) {
+                LOG(`[Carro] Bloqueado: intento de agregar cuenta pagada (${acc.empresa_nombre})`);
+                const existingIdx = _cart.findIndex(item => item.id_cuenta === acc.id_cuenta);
+                if (existingIdx >= 0) {
+                    _cart.splice(existingIdx, 1);
+                    updateCartUI();
+                }
+                if (announceAvatar) {
+                    sayViaAvatar(`Tu cuenta de ${acc.empresa_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente.`);
+                }
+                return false;
+            }
+
             const existingIdx = _cart.findIndex(item => item.id_cuenta === acc.id_cuenta);
             if (existingIdx >= 0) {
                 _cart.splice(existingIdx, 1);
@@ -2791,6 +2815,7 @@
             if (_currentClient) {
                 renderAccountsTable(_currentClient);
             }
+            return true;
         }
 
         function updateCartUI() {
@@ -3026,6 +3051,7 @@
                     if (cuentasIds.includes(acc.id_cuenta)) {
                         acc.es_pagada = true;
                         acc.monto = 0;
+                        acc.estado = 'pagada';
                         acc.monto_formateado = '$0';
                     }
                 });
@@ -3036,6 +3062,7 @@
                         if (cuentasIds.includes(acc.id_cuenta)) {
                             acc.es_pagada = true;
                             acc.monto = 0;
+                            acc.estado = 'pagada';
                             acc.monto_formateado = '$0';
                         }
                     });
@@ -3123,6 +3150,17 @@
 
             const norm = normalizeUserInput(voiceText).toLowerCase();
 
+            const handleAccountSelected = (acc) => {
+                const isPaid = Boolean(acc.es_pagada || acc.monto === 0 || acc.estado === 'pagada' || acc.estado === 'sin_deuda');
+                if (isPaid) {
+                    LOG(`[Voz] Cuenta pagada seleccionada: ${acc.empresa_nombre}`);
+                    sayViaAvatar(`Tu cuenta de ${acc.empresa_nombre} ya se encuentra pagada y al día. No tiene deuda pendiente.`);
+                    return true;
+                }
+                toggleAccountInCart(acc, true);
+                return true;
+            };
+
             // 1. Detección prioritaria por nombre de empresa (ej: "enel", "chilectra", "aguas andinas", "vtr", "cge", "costanera norte")
             for (let i = 0; i < _currentAccounts.length; i++) {
                 const acc = _currentAccounts[i];
@@ -3130,8 +3168,7 @@
                 const empId = (acc.empresa_id || '').toLowerCase();
                 if (norm.includes(empName) || (empId && norm.includes(empId)) || (empId === 'enel' && norm.includes('chilectra'))) {
                     LOG(`[Voz] Selección por nombre de empresa: ${acc.empresa_nombre}`);
-                    toggleAccountInCart(acc, true);
-                    return true;
+                    return handleAccountSelected(acc);
                 }
             }
 
@@ -3141,8 +3178,7 @@
                 const cat = (acc.categoria || '').toLowerCase();
                 if (cat && (norm.includes(cat) || (cat === 'agua' && norm.includes('aguas')) || (cat === 'luz' && (norm.includes('electricidad') || norm.includes('eléctrica'))))) {
                     LOG(`[Voz] Selección por categoría de servicio: ${cat} (${acc.empresa_nombre})`);
-                    toggleAccountInCart(acc, true);
-                    return true;
+                    return handleAccountSelected(acc);
                 }
             }
 
@@ -3167,8 +3203,7 @@
                 if (targetIdx >= 0 && targetIdx < _currentAccounts.length) {
                     const acc = _currentAccounts[targetIdx];
                     LOG(`[Voz] Selección por número: opción ${targetIdx + 1} -> ${acc.empresa_nombre}`);
-                    toggleAccountInCart(acc, true);
-                    return true;
+                    return handleAccountSelected(acc);
                 }
             }
 
@@ -3187,6 +3222,9 @@
 
             for (let i = 0; i < _currentAccounts.length; i++) {
                 const acc = _currentAccounts[i];
+                const isPaid = Boolean(acc.es_pagada || acc.monto === 0 || acc.estado === 'pagada' || acc.estado === 'sin_deuda');
+                if (isPaid) continue;
+
                 const empName = (acc.empresa_nombre || '').toLowerCase();
                 const empId = (acc.empresa_id || '').toLowerCase();
                 const cat = (acc.categoria || '').toLowerCase();
@@ -3591,6 +3629,17 @@
                         return;
                     }
 
+                    // Agregar más cuentas
+                    if (/^(?:agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)$/i.test(normQ)) {
+                        agregarMasCuentas(true);
+                        return;
+                    }
+
+                    // Selección por número (1, 2, 3...), empresa o categoría de la tabla (evaluada antes de pago genérico)
+                    if (!hasCompleteRut(question) && selectAccountByVoice(question)) {
+                        return;
+                    }
+
                     // Pagar cuentas / carro / confirmación afirmativa (ej: "si quiero pagar", "si quiero", "pagar", "si por favor")
                     const cleanNorm = normQ
                         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -3613,8 +3662,11 @@
                                 autoSelectAccountFromAvatarResponse(_lastAvatarMessage);
                             }
                             if (_cart.length === 0) {
-                                const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0);
-                                if (debtAccounts.length === 1) {
+                                const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0 && !a.es_pagada && a.estado !== 'pagada' && a.estado !== 'sin_deuda');
+                                if (debtAccounts.length === 0) {
+                                    sayViaAvatar("Todas tus cuentas se encuentran pagadas y al día. No tienes cuentas pendientes de pago.");
+                                    return;
+                                } else if (debtAccounts.length === 1) {
                                     _cart.push(debtAccounts[0]);
                                     updateCartUI();
                                     if (_currentClient) renderAccountsTable(_currentClient);
@@ -3628,17 +3680,6 @@
                                 return;
                             }
                         }
-                    }
-
-                    // Agregar más cuentas
-                    if (/^(?:agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)$/i.test(normQ)) {
-                        agregarMasCuentas(true);
-                        return;
-                    }
-
-                    // Selección por número (1, 2, 3...) o empresa de la tabla
-                    if (!_cartOpen && !hasCompleteRut(question) && selectAccountByVoice(question)) {
-                        return;
                     }
                 }
 
@@ -4136,7 +4177,7 @@
                 const isRedirectToPayment = /(?:plataforma\s+de\s+pago|tarjeta\s+en\s+el\s+lector|acerca.*tarjeta|inserta.*tarjeta|acerque.*tarjeta|inserte.*tarjeta)/i.test(fullText);
                 if (isRedirectToPayment && !_isPaying) {
                     if (_cart.length === 0 && _currentAccounts && _currentAccounts.length > 0) {
-                        const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0);
+                        const debtAccounts = _currentAccounts.filter(a => (a.monto || 0) > 0 && !a.es_pagada && a.estado !== 'pagada' && a.estado !== 'sin_deuda');
                         if (debtAccounts.length === 1) {
                             _cart.push(debtAccounts[0]);
                             updateCartUI();
