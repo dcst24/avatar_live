@@ -131,9 +131,9 @@ class KokoroTTS(BaseTTS):
 
     def txt_to_audio(self, msg: tuple[str, dict]):
         """
-        Genera audio a partir de texto usando Kokoro.
-        Sintetiza el audio COMPLETO primero (como EdgeTTS) para evitar que el pipeline
-        ASR descarte los primeros frames mientras calienta su ventana de contexto.
+        Genera audio a partir de texto usando Kokoro y lo envía al avatar
+        en chunks de 20ms para que empiece a hablar lo antes posible
+        (streaming progresivo).
         """
         text, textevent = msg
 
@@ -147,22 +147,37 @@ class KokoroTTS(BaseTTS):
             clean_text = normalize_text_for_tts(text)
 
             # Kokoro devuelve un generador: (graphemes, phonemes, audio_np_float32)
+            # El audio ya viene en float32 a 24kHz, listo para resampling.
             generator = self.pipeline(clean_text, voice=voice, speed=self.speed)
 
-            # ── Fase 1: recolectar TODO el audio sintetizado ──────────────────
-            # (igual que EdgeTTS: sintetizar completo antes de enviar frames)
-            # Esto evita que el ASR (MelASR) descarte los primeros chunks por falta
-            # de contexto de ventana (stride_left_size), que causaba corte inicial.
-            all_audio_chunks = []
+            leftover = np.array([], dtype=np.float32)
+            first_chunk_sent = False
+            segment_idx = 0
+
+            # Fix jitter buffer: pre-llenar con silencio para que el navegador
+            # tenga el buffer listo cuando llegue el primer audio real.
+            # Sin esto, el video empieza a animar labios ~200-400ms antes
+            # de que el jitter buffer de audio tenga suficientes paquetes
+            # para empezar a reproducir.
+            JITTER_PREFILL_CHUNKS = 10  # 10 × 20ms = 200ms de silencio
+            for _ in range(JITTER_PREFILL_CHUNKS):
+                self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), {})
+
             for _gs, _ps, audio_segment in generator:
                 if self.state != State.RUNNING:
                     logger.info("[Kokoro TTS] Síntesis cancelada por flush_talk.")
-                    return
+                    break
 
                 if audio_segment is None or len(audio_segment) == 0:
                     continue
 
-                # Convertir a numpy float32
+                segment_idx += 1
+                logger.info(
+                    f"[Kokoro TTS] Segmento {segment_idx} generado en "
+                    f"{time.time() - t:.3f}s ({len(audio_segment)} samples @ 24kHz)"
+                )
+
+                # Convertir a numpy float32 si es un Tensor de PyTorch
                 if hasattr(audio_segment, 'detach'):
                     audio_np = audio_segment.detach().cpu().numpy().astype(np.float32)
                 else:
@@ -171,41 +186,46 @@ class KokoroTTS(BaseTTS):
                 if audio_np.ndim > 1:
                     audio_np = audio_np.squeeze()
 
-                # Resamplear de 24kHz → 16kHz
+                # Resamplear de 24kHz → 16kHz (sample_rate del sistema)
                 audio_16k = resampy.resample(
                     audio_np,
                     sr_orig=self.KOKORO_SAMPLE_RATE,
                     sr_new=self.sample_rate
                 )
-                all_audio_chunks.append(audio_16k)
 
-            if not all_audio_chunks:
-                logger.warning("[Kokoro TTS] No se generó audio.")
-                return
+                # Concatenar con el sobrante del segmento anterior
+                stream = np.concatenate((leftover, audio_16k))
 
-            logger.info(f"[Kokoro TTS] Síntesis completa en {time.time() - t:.3f}s — enviando al avatar...")
+                idx = 0
+                streamlen = stream.shape[0]
 
-            # ── Fase 2: concatenar y enviar al pipeline ───────────────────────
-            stream = np.concatenate(all_audio_chunks)
-            streamlen = stream.shape[0]
-            idx = 0
-            first_chunk_sent = False
+                while streamlen >= self.chunk and self.state == State.RUNNING:
+                    eventpoint = {}
 
-            while streamlen >= self.chunk and self.state == State.RUNNING:
-                eventpoint = {}
-                if not first_chunk_sent:
-                    eventpoint = {'status': 'start', 'text': text}
-                    first_chunk_sent = True
-                    logger.info(f"[Kokoro TTS] Primer chunk enviado al avatar en {time.time() - t:.3f}s total")
-                elif streamlen < self.chunk * 2:
-                    eventpoint = {'status': 'end', 'text': text}
+                    if not first_chunk_sent:
+                        # Primer chunk: señalizar inicio de habla al avatar
+                        eventpoint = {'status': 'start', 'text': text}
+                        first_chunk_sent = True
+                        logger.info(
+                            f"[Kokoro TTS] Primer chunk enviado al avatar "
+                            f"en {time.time() - t:.3f}s"
+                        )
 
+                    eventpoint.update(**textevent)
+                    self.parent.put_audio_frame(stream[idx:idx + self.chunk], eventpoint)
+                    idx += self.chunk
+                    streamlen -= self.chunk
+
+                # Guardar sobrante para el próximo segmento
+                leftover = stream[idx:]
+
+            # Señalizar fin de habla (aunque no queden chunks completos)
+            if self.state == State.RUNNING:
+                eventpoint = {'status': 'end', 'text': text}
                 eventpoint.update(**textevent)
-                self.parent.put_audio_frame(stream[idx:idx + self.chunk], eventpoint)
-                idx += self.chunk
-                streamlen -= self.chunk
+                self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), eventpoint)
 
-            logger.info(f"[Kokoro TTS] Envío al avatar completado en {time.time() - t:.3f}s total")
+            logger.info(f"[Kokoro TTS] Síntesis completada en {time.time() - t:.3f}s total")
 
         except Exception as e:
             logger.exception(f"[Kokoro TTS] Error en txt_to_audio: {e}")

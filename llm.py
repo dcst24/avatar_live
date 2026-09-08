@@ -1196,25 +1196,13 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar el texto completo al avatar TTS en fragmentos de oración
-        # (después de que el LLM terminó, para evitar race condition con flush_talk)
+        # Enviar el texto consolidado y normalizado al avatar en un solo bloque
+        # Kokoro genera y transmite cada oración progresivamente en un único stream continuo
         if full_text.strip():
             clean_full = normalizar(full_text.strip())
             if clean_full:
-                # Dividir en fragmentos por puntuación, respetando MIN_CHUNK_LEN
-                chunk_buf = ""
-                for char in clean_full:
-                    chunk_buf += char
-                    if char in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
-                        fragment = chunk_buf.strip()
-                        if fragment:
-                            logger.info(f"[LLM Stream] -> avatar: {fragment}")
-                            avatar_session.put_msg_txt(fragment, datainfo)
-                        chunk_buf = ""
-                # Enviar resto final
-                if chunk_buf.strip():
-                    logger.info(f"[LLM Stream] -> avatar (final): {chunk_buf.strip()}")
-                    avatar_session.put_msg_txt(chunk_buf.strip(), datainfo)
+                logger.info(f"[LLM Stream] -> avatar: {clean_full}")
+                avatar_session.put_msg_txt(clean_full, datainfo)
 
         # Guardar turno completo en historial (normalizado)
         _append_to_history(sessionid, message, normalizar(full_text))

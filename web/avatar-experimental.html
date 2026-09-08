@@ -304,30 +304,31 @@
             display: none;
         }
 
-        /* ── Debug log panel ────────────────────────────────── */
+        /* ── Debug log panel (esquina superior derecha, compacto) ────────── */
         #dbg-btn {
             position: fixed;
-            bottom: 52px;
-            right: 20px;
-            z-index: 200;
-            width: 40px;
-            height: 40px;
+            top: 12px;
+            right: 12px;
+            z-index: 205;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(9, 9, 11, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            background: rgba(9, 9, 11, 0.65);
             backdrop-filter: blur(10px);
             color: #f4f4f5;
-            font-size: 18px;
+            font-size: 13px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: background 0.2s, transform 0.2s;
             -webkit-tap-highlight-color: transparent;
         }
 
         #dbg-btn:hover {
             background: rgba(39, 39, 42, 0.9);
+            transform: scale(1.08);
         }
 
         #dbg-panel {
@@ -618,25 +619,25 @@
         /* ─── Teclado Numérico Táctil Servipag (RUT / Identificador) ────────────── */
         #btn-floating-numpad {
             position: fixed;
-            bottom: 24px;
-            right: 24px;
+            bottom: 20px;
+            right: 20px;
             z-index: 55;
-            height: 48px;
-            padding: 0 20px;
+            height: 38px;
+            padding: 0 14px;
             border-radius: 999px;
-            background: linear-gradient(135deg, rgba(30, 27, 75, 0.9), rgba(15, 23, 42, 0.95));
+            background: linear-gradient(135deg, rgba(30, 27, 75, 0.92), rgba(15, 23, 42, 0.95));
             border: 1px solid rgba(99, 102, 241, 0.5);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 16px rgba(99, 102, 241, 0.25);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(99, 102, 241, 0.2);
             backdrop-filter: blur(14px);
             -webkit-backdrop-filter: blur(14px);
             color: #e0e7ff;
             font-family: inherit;
-            font-size: 14px;
+            font-size: 12.5px;
             font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 7px;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             user-select: none;
             -webkit-tap-highlight-color: transparent;
@@ -645,12 +646,12 @@
         #btn-floating-numpad:hover, #btn-floating-numpad:active {
             transform: scale(1.04);
             border-color: #818cf8;
-            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6), 0 0 24px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.55), 0 0 20px rgba(99, 102, 241, 0.35);
             color: #ffffff;
         }
 
         .floating-icon {
-            font-size: 18px;
+            font-size: 15px;
         }
 
         /* Modal / Overlay del Teclado Numérico */
@@ -3107,9 +3108,7 @@
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
                             // Pausar reconocimiento mientras el avatar habla para no captar su propia voz ni eco
-                            if (isListening || _alwaysOnActive) {
-                                stopAlwaysOnListening();
-                            }
+                            stopAlwaysOnListening();
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -3139,18 +3138,18 @@
                             }
 
                             setTimeout(() => {
-                                if (!isSpeaking) {
+                                if (!isSpeaking && !_pendingRutNumpadShow) {
                                     _alwaysOnActive = false;
                                     isListening = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 400);
+                            }, 600);
                         }
                     }
                 } catch (e) {
                     WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
                 }
-            }, 400);
+            }, 700);
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
@@ -3437,14 +3436,13 @@
 
             rec.onerror = (e) => {
                 const elapsed = Date.now() - _recStartMs;
-                ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
-
                 if (e.error === 'aborted' || e.error === 'no-speech') {
-                    // Eventos normales: 'aborted' ocurre cuando se detiene el reconocimiento
-                    // mientras el avatar habla (esperado), 'no-speech' es timeout normal sin voz.
-                    LOG(`onerror "${e.error}" ignorado silenciosamente (evento normal).`);
-                    // No cambiar estado de UI — el speaking monitor maneja la transición.
+                    // Eventos normales: 'aborted' ocurre al detener la escucha (esperado),
+                    // 'no-speech' es timeout normal de silencio.
+                    LOG(`SpeechRecognition.onerror — evento "${e.error}" (normal, omitido) elapsed=${elapsed}ms`);
                     return;
+                }
+                ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
                 } else if (e.error === 'audio-capture') {
                     _audioCaptureErrors++;
                     ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
@@ -3741,16 +3739,12 @@
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
 
-                // Una vez que el LLM termina de generar, el TTS ya está procesando.
-                // Marcar proactivamente isSpeaking=true para que el speaking monitor
-                // no reactive el micrófono durante la latencia de síntesis de Kokoro (1-3s).
+                // Una vez que el LLM termina de generar, el TTS ya procesa en el backend.
+                // Aseguramos que la escucha permanezca detenida para no captar la voz del avatar.
+                // El speaking monitor activará 'Hablando…' en cuanto el audio empiece a salir.
                 if (fullText.trim()) {
-                    isSpeaking = true;
-                    setState('speaking', 'Hablando…');
+                    setState('thinking', 'Pensando…');
                     stopAlwaysOnListening();
-                    _armSpeakingWatchdog();
-                    const wrap = document.getElementById('avatar-wrap');
-                    if (wrap) wrap.classList.add('avatar-speaking');
                 }
 
                 // Detectar si el avatar está pidiendo el RUT o reportando error / número incompleto / no existencia
