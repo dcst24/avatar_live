@@ -2055,10 +2055,10 @@
         let _wakeBufferTimeout = null;
 
         const WAKE_ONLY_GREETINGS = [
-            '¡Hola! Bienvenido a Servipag. ¿Qué cuenta deseas pagar hoy: luz, agua, internet, gas o autopista?',
-            '¡Hola! ¿Qué servicio o cuenta deseas pagar hoy: luz, agua o internet?',
-            '¡Hola! ¿En qué cuenta o servicio te puedo ayudar hoy?',
-            'Aquí estoy. ¿Qué cuenta deseas consultar o pagar hoy?'
+            '¡Hola! Bienvenido a Servipag. ¿Qué cuenta deseas pagar hoy?',
+            '¡Hola! ¿En qué cuenta o servicio te puedo ayudar?',
+            'Aquí estoy. ¿Qué cuenta deseas consultar o pagar hoy?',
+            '¡Hola! Dime qué servicio o cuenta necesitas pagar.'
         ];
 
         function _randomGreeting() {
@@ -2071,6 +2071,7 @@
         }
 
         function _extractQuestion(text) {
+            if (!text) return '';
             const lower = text.toLowerCase();
             let best = { idx: -1, word: '' };
             for (const w of WAKE_WORDS) {
@@ -2080,7 +2081,20 @@
                 }
             }
             if (best.idx === -1) return text.trim();
-            return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+            return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡!?]+|[,\.\s¿¡!?]+$/g, '').trim();
+        }
+
+        function isWakeOnlyGreeting(text) {
+            if (!text) return false;
+            const clean = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "").trim();
+            const commonGreetings = [
+                'hola', 'buenas', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches',
+                'hola buenas', 'hola buenos dias', 'hola buen dia', 'oye', 'disculpa', 'permiso', 'asistente'
+            ];
+            if (commonGreetings.includes(clean)) return true;
+            const q = _extractQuestion(text);
+            const cleanQ = q.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "").trim();
+            return !cleanQ || commonGreetings.includes(cleanQ);
         }
 
         function _isSleepWord(text) {
@@ -3387,13 +3401,16 @@
             notifyUserActivity('_dispatchQuestion');
 
             const normalizedText = normalizeUserInput(rawText);
-            let question = _extractQuestion(normalizedText);
-            if (!question && _containsWakeWord(normalizedText)) {
+            if (isWakeOnlyGreeting(normalizedText)) {
                 clearTimeout(_wakeBufferTimeout);
                 _alwaysOnActive = false;
-                sendGreetingAsAvatar();
+                wakeUpModel();
+                sendGreetingAsAvatar(normalizedText);
                 return;
-            } else if (!question) {
+            }
+
+            let question = _extractQuestion(normalizedText);
+            if (!question) {
                 question = normalizedText.trim();
             }
 
@@ -3572,6 +3589,16 @@
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
                     _voiceAccumulator = currentCombined.trim();
+
+                    // Si es un saludo aislado ("Hola", "Buenas", etc.), enviar de inmediato sin esperar delayMs
+                    if (isWakeOnlyGreeting(_voiceAccumulator)) {
+                        LOG(`[Wake Saludo Inmediato] Saludo detectado ("${_voiceAccumulator}") → enviando echo directo sin delay ni LLM`);
+                        const txt = _voiceAccumulator;
+                        _voiceAccumulator = '';
+                        try { rec.stop(); } catch (e) {}
+                        _dispatchQuestion(txt);
+                        return;
+                    }
 
                     const dictatingRut = isDictatingRutOrNumber(_voiceAccumulator);
                     const completeRut = hasCompleteRut(_voiceAccumulator);
@@ -3824,10 +3851,14 @@
         }
 
         // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
-        async function sendGreetingAsAvatar() {
+        async function sendGreetingAsAvatar(userGreetingText = '') {
             const greetingText = _randomGreeting();
-            LOG(`sendGreetingAsAvatar: "${greetingText}"`);
+            LOG(`sendGreetingAsAvatar: "${greetingText}" (user: "${userGreetingText}")`);
             setState('thinking', 'Pensando…');
+            if (userGreetingText) {
+                setUserText(userGreetingText, false);
+                addChatBubble('user', userGreetingText);
+            }
             queueAvatarBubble(greetingText);
             stopAlwaysOnListening();
 
@@ -3839,6 +3870,7 @@
                     body: JSON.stringify({
                         text: greetingText,
                         type: 'echo',
+                        interrupt: true,
                         sessionid: String(sessionid)
                     })
                 });
