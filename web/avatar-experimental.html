@@ -2889,6 +2889,30 @@
             }
         }
 
+        let _pendingReceiptFollowUp = false;
+        let _postPaymentFollowUpSafetyTimeout = null;
+
+        function triggerPostPaymentFollowUp() {
+            if (!_conversationAwake || isSpeaking) return;
+            LOG('[Post-Pago Follow-Up] Preguntando si necesita algo más tras el pago...');
+            const followUpText = "¿Necesitas algo más?";
+            _waitingFollowUpAck = true;
+
+            queueAvatarBubble(followUpText);
+            stopAlwaysOnListening();
+
+            const sessionid = document.getElementById('sessionid').value;
+            fetch('/human', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: followUpText,
+                    type: 'echo',
+                    sessionid: String(sessionid)
+                })
+            }).catch(e => WARN('Error al enviar post-payment follow-up:', e));
+        }
+
         // ─── Animación de Pago en 3 Fases ──────────────────────────────────────────
         async function iniciarPago(fromVoice = false) {
             notifyUserActivity('iniciarPago');
@@ -2903,9 +2927,11 @@
             hideAccountsPanel();
             stopAlwaysOnListening();
 
-            if (fromVoice) {
-                sayViaAvatar("Por favor acerca o inserta tu tarjeta en el lector.");
-            }
+            // Instrucción vocal del avatar
+            sayViaAvatar("Por favor acerca o inserta tu tarjeta en el lector.");
+
+            // 1 segundo de delay tras la instrucción antes de mostrar la animación del lector
+            await new Promise(r => setTimeout(r, 1000));
 
             const overlay = document.getElementById('payment-animation-overlay');
             const phase1 = document.getElementById('pay-phase-waiting');
@@ -2915,7 +2941,7 @@
 
             if (overlay) overlay.classList.add('open');
 
-            // FASE 1: Esperando medio de pago (1.5s)
+            // FASE 1: Esperando medio de pago (1.6s)
             if (phase1) phase1.classList.add('active');
             if (phase2) phase2.classList.remove('active');
             if (phase3) phase3.classList.remove('active');
@@ -2925,7 +2951,7 @@
 
             await new Promise(r => setTimeout(r, 1600));
 
-            // FASE 2: Cargando / Validando Transacción (1.8s)
+            // FASE 2: Cargando / Validando Transacción (1.9s)
             if (phase1) phase1.classList.remove('active');
             if (phase2) phase2.classList.add('active');
             if (progressFill) {
@@ -2934,7 +2960,7 @@
 
             LOG('[Pago] FASE 2: Cargando y validando con Servipag Transbank...');
 
-            // Llamada al backend para procesar el pago y obtener comprobante
+            // Guardar IDs pagados antes de limpiar el carro
             const cuentasIds = _cart.map(c => c.id_cuenta);
             let comprobanteData = null;
             try {
@@ -2971,22 +2997,56 @@
 
             LOG('[Pago] FASE 3: ¡Pagado! Su cuenta ha sido pagada exitosamente.');
 
-            // El avatar vocaliza el éxito del pago
-            const successSpeech = "¡Excelente! Tu pago ha sido procesado exitosamente. Se ha enviado el comprobante a tu correo.";
-            sayViaAvatar(successSpeech);
-
-            // Vaciar el carrito y marcar cuentas en la tabla
+            // 1. Vaciar el carrito de inmediato y deseleccionar cuentas
             _cart = [];
             updateCartUI();
 
-            if (_currentRut) {
-                // Recargar cuentas para que se muestren como pagadas / al día
-                setTimeout(() => {
-                    loadAndShowAccounts(_currentRut);
-                }, 2000);
+            // 2. Marcar de inmediato las cuentas pagadas en la tabla como 'es_pagada = true', monto = 0, y deseleccionarlas
+            if (_currentAccounts && _currentAccounts.length > 0) {
+                _currentAccounts.forEach(acc => {
+                    if (cuentasIds.includes(acc.id_cuenta)) {
+                        acc.es_pagada = true;
+                        acc.monto = 0;
+                        acc.monto_formateado = '$0';
+                    }
+                });
+            }
+            if (_currentClient) {
+                if (_currentClient.cuentas) {
+                    _currentClient.cuentas.forEach(acc => {
+                        if (cuentasIds.includes(acc.id_cuenta)) {
+                            acc.es_pagada = true;
+                            acc.monto = 0;
+                            acc.monto_formateado = '$0';
+                        }
+                    });
+                }
+                renderAccountsTable(_currentClient);
             }
 
-            _isPaying = false;
+            // 3. Sincronizar en segundo plano con el backend
+            if (_currentRut) {
+                setTimeout(() => {
+                    loadAndShowAccounts(_currentRut);
+                }, 1500);
+            }
+
+            // 4. El avatar vocaliza el comprobante y programa la pregunta de seguimiento (inactividad)
+            const successSpeech = "¡Excelente! Tu pago ha sido procesado exitosamente. Se ha enviado el comprobante a tu correo.";
+            _pendingReceiptFollowUp = true;
+            sayViaAvatar(successSpeech);
+
+            // Fallback de seguridad: si tras 7.5s no se detectó el fin de habla, forzar el follow-up
+            clearTimeout(_postPaymentFollowUpSafetyTimeout);
+            _postPaymentFollowUpSafetyTimeout = setTimeout(() => {
+                if (_pendingReceiptFollowUp) {
+                    _pendingReceiptFollowUp = false;
+                    if (_conversationAwake && !isSpeaking) {
+                        cerrarAnimacionPago();
+                        triggerPostPaymentFollowUp();
+                    }
+                }
+            }, 7500);
 
             // Timer visible de 5 segundos para el botón "Aceptar" tras terminar el pago
             const btnAccept = document.getElementById('pay-btn-accept');
@@ -3026,6 +3086,14 @@
             const overlay = document.getElementById('payment-animation-overlay');
             if (overlay) overlay.classList.remove('open');
             _isPaying = false;
+
+            // Mostrar nuevamente la tabla de cuentas actualizada (con cuentas pagadas y carro vacío)
+            if (_currentAccounts && _currentAccounts.length > 0) {
+                showAccountsPanel();
+                if (_currentClient) {
+                    renderAccountsTable(_currentClient);
+                }
+            }
         }
 
         // Selección por comando de voz cuando la tabla está activa
@@ -3345,6 +3413,21 @@
                                 setTimeout(() => {
                                     showRutNumpad(!_isRutError);
                                 }, 350);
+                            }
+
+                            // Si acababa de confirmar el comprobante de pago, esperar 1s y preguntar si necesita algo más
+                            if (_pendingReceiptFollowUp) {
+                                _pendingReceiptFollowUp = false;
+                                clearTimeout(_postPaymentFollowUpSafetyTimeout);
+                                _postPaymentFollowUpSafetyTimeout = null;
+                                LOG('[Post-Pago] Avatar terminó de confirmar comprobante. Esperando 1s para preguntar si necesita algo más...');
+                                setTimeout(() => {
+                                    if (_conversationAwake && !isSpeaking) {
+                                        cerrarAnimacionPago();
+                                        triggerPostPaymentFollowUp();
+                                    }
+                                }, 1000);
+                                return;
                             }
 
                             if (_conversationAwake) {
