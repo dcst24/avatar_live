@@ -1822,7 +1822,7 @@
                     </div>
                 </div>
 
-                <button type="button" class="pay-btn-done" onclick="cerrarAnimacionPago()">Aceptar</button>
+                <button type="button" id="pay-btn-accept" class="pay-btn-done" onclick="cerrarAnimacionPago()">Aceptar</button>
             </div>
         </div>
     </div>
@@ -2588,6 +2588,7 @@
         let _servipagPanelOpen = false;
         let _cartOpen = false;
         let _isPaying = false;
+        let _payCountdownInterval = null;
 
         async function loadAndShowAccounts(rut) {
             if (!rut) return;
@@ -2610,6 +2611,9 @@
                     showAccountsPanel();
                     // Refrescar estado del botón del carro (se mostrará solo si ya tiene cuentas)
                     updateCartUI();
+                    if (_lastAvatarMessage) {
+                        autoSelectAccountFromAvatarResponse(_lastAvatarMessage);
+                    }
                 } else {
                     LOG('loadAndShowAccounts: No se encontraron cuentas o error:', resp.msg);
                 }
@@ -2941,13 +2945,41 @@
 
             _isPaying = false;
 
-            // Cierre automático tras 6.5 segundos si no toca "Aceptar"
-            setTimeout(() => {
-                cerrarAnimacionPago();
-            }, 6500);
+            // Timer visible de 5 segundos para el botón "Aceptar" tras terminar el pago
+            const btnAccept = document.getElementById('pay-btn-accept');
+            let countdown = 5;
+            if (btnAccept) {
+                btnAccept.textContent = `Aceptar (${countdown}s)`;
+            }
+
+            if (_payCountdownInterval) {
+                clearInterval(_payCountdownInterval);
+                _payCountdownInterval = null;
+            }
+
+            _payCountdownInterval = setInterval(() => {
+                countdown--;
+                if (btnAccept) {
+                    btnAccept.textContent = countdown > 0 ? `Aceptar (${countdown}s)` : 'Aceptar';
+                }
+                if (countdown <= 0) {
+                    clearInterval(_payCountdownInterval);
+                    _payCountdownInterval = null;
+                    cerrarAnimacionPago();
+                }
+            }, 1000);
         }
 
         function cerrarAnimacionPago() {
+            if (_payCountdownInterval) {
+                clearInterval(_payCountdownInterval);
+                _payCountdownInterval = null;
+            }
+            const btnAccept = document.getElementById('pay-btn-accept');
+            if (btnAccept) {
+                btnAccept.textContent = 'Aceptar';
+            }
+
             const overlay = document.getElementById('payment-animation-overlay');
             if (overlay) overlay.classList.remove('open');
             _isPaying = false;
@@ -3002,6 +3034,38 @@
             }
 
             return false;
+        }
+
+        // Auto-seleccionar cuenta al carro cuando el avatar responde sobre una cuenta específica con deuda a pagar
+        function autoSelectAccountFromAvatarResponse(avatarMsg) {
+            if (!avatarMsg || !_currentAccounts || _currentAccounts.length === 0) return;
+            const norm = normalizeUserInput(avatarMsg).toLowerCase();
+
+            // Si el mensaje es el saludo general ("las cuentas disponibles se muestran en pantalla"), no auto-seleccionar ninguna
+            if (norm.includes('las cuentas disponibles se muestran en pantalla')) {
+                return;
+            }
+
+            for (let i = 0; i < _currentAccounts.length; i++) {
+                const acc = _currentAccounts[i];
+                const empName = (acc.empresa_nombre || '').toLowerCase();
+                const empId = (acc.empresa_id || '').toLowerCase();
+                const cat = (acc.categoria || '').toLowerCase();
+
+                const mentionsCompany = norm.includes(empName) || (empId && norm.includes(empId)) || (empId === 'enel' && norm.includes('chilectra'));
+                const isDebtOffer = norm.includes('deuda') || norm.includes('pagarla') || norm.includes('cobro');
+
+                if (mentionsCompany && isDebtOffer) {
+                    const alreadyInCart = _cart.some(item => item.id_cuenta === acc.id_cuenta);
+                    if (!alreadyInCart) {
+                        _cart.push(acc);
+                        updateCartUI();
+                        if (_currentClient) renderAccountsTable(_currentClient);
+                        LOG(`[AutoSelect] Cuenta detectada y agregada al carro tras respuesta del avatar: ${acc.empresa_nombre}`);
+                    }
+                    break;
+                }
+            }
         }
 
         async function numpadSubmit() {
@@ -3351,11 +3415,31 @@
                         return;
                     }
 
-                    // Pagar cuentas / carro
-                    if (/^(?:pagar|pagar\s+ahora|quiero\s+pagar|pagar\s+el\s+carro|pagar\s+las\s+cuentas|proceder|s[ií]\s+pagar)$/i.test(normQ)) {
+                    // Pagar cuentas / carro / confirmación afirmativa
+                    const isPayIntent = /^(?:pagar|pagar\s+ahora|quiero\s+pagar|pagar\s+el\s+carro|pagar\s+las\s+cuentas|proceder|s[ií]\s+pagar|s[ií]|si|claro|por\s+favor|pag[eé]mosla|cancelo)$/i.test(normQ.trim());
+                    if (isPayIntent) {
                         if (_cart.length > 0) {
                             iniciarPago(true);
                             return;
+                        }
+
+                        // Si el carro no tenía items pero hay cuentas cargadas
+                        if (_currentAccounts && _currentAccounts.length > 0) {
+                            if (_lastAvatarMessage) {
+                                autoSelectAccountFromAvatarResponse(_lastAvatarMessage);
+                            }
+                            if (_cart.length === 0) {
+                                const debtAcc = _currentAccounts.find(a => (a.monto || 0) > 0) || _currentAccounts[0];
+                                if (debtAcc) {
+                                    _cart.push(debtAcc);
+                                    updateCartUI();
+                                    if (_currentClient) renderAccountsTable(_currentClient);
+                                }
+                            }
+                            if (_cart.length > 0) {
+                                iniciarPago(true);
+                                return;
+                            }
                         }
                     }
 
@@ -3840,6 +3924,7 @@
 
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
+                autoSelectAccountFromAvatarResponse(fullText);
 
                 // Una vez que el LLM termina de generar, el TTS ya procesa en el backend.
                 // Aseguramos que la escucha permanezca detenida para no captar la voz del avatar.
