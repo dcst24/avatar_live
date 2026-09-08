@@ -3443,7 +3443,8 @@
                     return;
                 }
                 ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
-                } else if (e.error === 'audio-capture') {
+
+                if (e.error === 'audio-capture') {
                     _audioCaptureErrors++;
                     ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
                     setState('ready', '⚠ Error captura de audio — intenta de nuevo');
