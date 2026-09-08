@@ -546,6 +546,14 @@
             #dbg-list {
                 font-size: 12px;
             }
+
+            /* Botón flotante de carro en móviles */
+            #btn-floating-cart {
+                bottom: 16px;
+                left: 16px;
+                width: 40px;
+                height: 40px;
+            }
         }
 
         /* ── Burbujas de chat sobrepuestas ── */
@@ -1119,54 +1127,65 @@
             color: #ffffff;
         }
 
-        /* Botón Flotante del Carrito */
+        /* Botón Flotante del Carrito (Esquina inferior izquierda) */
         #btn-floating-cart {
             position: fixed;
-            bottom: 24px;
-            right: 28px;
-            height: 52px;
-            padding: 0 20px;
-            border-radius: 26px;
+            bottom: 20px;
+            left: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
             background: linear-gradient(135deg, #4f46e5, #06b6d4);
-            border: 1px solid rgba(255, 255, 255, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             color: #ffffff;
-            font-size: 14px;
-            font-weight: 700;
-            font-family: inherit;
-            display: flex;
+            display: none; /* Se muestra solo cuando _cart.length > 0 */
             align-items: center;
-            gap: 10px;
+            justify-content: center;
             cursor: pointer;
-            box-shadow: 0 10px 30px rgba(79, 70, 229, 0.45);
+            box-shadow: 0 8px 24px rgba(79, 70, 229, 0.45);
             z-index: 90;
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
             -webkit-tap-highlight-color: transparent;
+            user-select: none;
         }
 
         #btn-floating-cart:hover {
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 14px 35px rgba(79, 70, 229, 0.6);
+            transform: translateY(-2px) scale(1.08);
+            box-shadow: 0 12px 30px rgba(79, 70, 229, 0.6);
             filter: brightness(1.1);
         }
 
         #btn-floating-cart:active {
-            transform: scale(0.96);
+            transform: scale(0.94);
+        }
+
+        .cart-floating-icon {
+            font-size: 20px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         .cart-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
             background: #ef4444;
             color: #ffffff;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 800;
-            min-width: 20px;
-            height: 20px;
+            min-width: 19px;
+            height: 19px;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 0 5px;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            padding: 0 4px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            border: 2px solid #0b0f19;
             animation: badgePop 0.3s ease-out;
+            pointer-events: none;
         }
 
         @keyframes badgePop {
@@ -1681,10 +1700,9 @@
         </div>
     </div>
 
-    <!-- Botón flotante para abrir el Carro de Cuentas -->
+    <!-- Botón flotante para abrir el Carro de Cuentas (esquina inferior izquierda) -->
     <button id="btn-floating-cart" onclick="toggleCart()" style="display:none;" title="Ver carro de cuentas">
-        <span style="font-size: 20px;">🛒</span>
-        <span id="cart-floating-text">Carro</span>
+        <span class="cart-floating-icon">🛒</span>
         <span id="cart-floating-badge" class="cart-badge">0</span>
     </button>
 
@@ -2590,9 +2608,8 @@
                     _currentAccounts = resp.data.cuentas;
                     renderAccountsTable(resp.data);
                     showAccountsPanel();
-                    // Mostrar botón flotante de carro si hay cuentas
-                    const btnCart = document.getElementById('btn-floating-cart');
-                    if (btnCart) btnCart.style.display = 'flex';
+                    // Refrescar estado del botón del carro (se mostrará solo si ya tiene cuentas)
+                    updateCartUI();
                 } else {
                     LOG('loadAndShowAccounts: No se encontraron cuentas o error:', resp.msg);
                 }
@@ -2719,11 +2736,13 @@
             const total = _cart.reduce((sum, item) => sum + (item.monto || 0), 0);
             const totalFmt = `$${total.toLocaleString('es-CL')}`;
 
-            // Actualizar botón flotante
+            // Actualizar botón flotante (mostrar solo si hay elementos en el carro)
+            const btnCart = document.getElementById('btn-floating-cart');
             const badge = document.getElementById('cart-floating-badge');
-            const textEl = document.getElementById('cart-floating-text');
             if (badge) badge.textContent = count;
-            if (textEl) textEl.textContent = count > 0 ? `Carro (${totalFmt})` : 'Carro';
+            if (btnCart) {
+                btnCart.style.display = count > 0 ? 'flex' : 'none';
+            }
 
             // Actualizar modal del carro
             const totalEl = document.getElementById('cart-total-amount');
