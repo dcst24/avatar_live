@@ -95,13 +95,10 @@ class KokoroTTS(BaseTTS):
         # Si se pasa --REF_FILE diferente (ej: em_santa, ef_dora), se respeta.
         self.voice = getattr(opt, 'REF_FILE', 'em_alex') or 'em_alex'
 
-        # Velocidad de habla (por defecto 1.10 = 10% más rápido para cadencia más viva y fluida)
-        self.speed = float(getattr(opt, 'tts_speed', 1.10))
-
         # Determinar dispositivo de inferencia (GPU CUDA preferido)
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-        logger.info(f"[Kokoro TTS] Inicializando pipeline español (lang_code='e') en device={self.device} con voz '{self.voice}' (speed={self.speed})...")
+        logger.info(f"[Kokoro TTS] Inicializando pipeline español (lang_code='e') en device={self.device} con voz '{self.voice}'...")
         t = time.time()
         try:
             from kokoro import KPipeline
@@ -110,14 +107,14 @@ class KokoroTTS(BaseTTS):
             # Warmup inicial en GPU/CPU para que la primera consulta sea instantánea
             try:
                 logger.info("[Kokoro TTS] Ejecutando warmup inicial...")
-                _ = list(self.pipeline("Hola", voice=self.voice, speed=self.speed))
+                _ = list(self.pipeline("Hola", voice=self.voice))
                 logger.info("[Kokoro TTS] Warmup completado con éxito.")
             except Exception as e:
                 logger.warning(f"[Kokoro TTS] Error en warmup inicial: {e}")
 
             logger.info(
                 f"[Kokoro TTS] Listo en {time.time() - t:.2f}s | "
-                f"Voz: {self.voice} | Device: {self.device} | Speed: {self.speed} | Sample rate out: {self.sample_rate}Hz"
+                f"Voz: {self.voice} | Device: {self.device} | Sample rate out: {self.sample_rate}Hz"
             )
         except ImportError:
             logger.error(
@@ -139,7 +136,7 @@ class KokoroTTS(BaseTTS):
 
         voice = textevent.get('tts', {}).get('ref_file', self.voice)
 
-        logger.info(f"[Kokoro TTS] Sintetizando ({len(text)} chars, speed={self.speed}): \"{text[:60]}{'…' if len(text) > 60 else ''}\"")
+        logger.info(f"[Kokoro TTS] Sintetizando ({len(text)} chars): \"{text[:60]}{'…' if len(text) > 60 else ''}\"")
         t = time.time()
 
         try:
@@ -148,20 +145,11 @@ class KokoroTTS(BaseTTS):
 
             # Kokoro devuelve un generador: (graphemes, phonemes, audio_np_float32)
             # El audio ya viene en float32 a 24kHz, listo para resampling.
-            generator = self.pipeline(clean_text, voice=voice, speed=self.speed)
+            generator = self.pipeline(clean_text, voice=voice)
 
             leftover = np.array([], dtype=np.float32)
             first_chunk_sent = False
             segment_idx = 0
-
-            # Fix jitter buffer: pre-llenar con silencio para que el navegador
-            # tenga el buffer listo cuando llegue el primer audio real.
-            # Sin esto, el video empieza a animar labios ~200-400ms antes
-            # de que el jitter buffer de audio tenga suficientes paquetes
-            # para empezar a reproducir.
-            JITTER_PREFILL_CHUNKS = 10  # 10 × 20ms = 200ms de silencio
-            for _ in range(JITTER_PREFILL_CHUNKS):
-                self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), {})
 
             for _gs, _ps, audio_segment in generator:
                 if self.state != State.RUNNING:

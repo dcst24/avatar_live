@@ -683,20 +683,15 @@ def verificar_cuenta_servipag(empresa: str = None, rut: str = None, identificado
                     )
                 }
         else:
-            deudas_desc = [
-                f"{i+1}. {c['empresa_nombre']} por ${c['monto']:,} pesos ({'vencida' if c.get('estado') == 'vencida' else 'pendiente'})".replace(",", ".")
-                for i, c in enumerate(deudas)
-            ]
-            deudas_txt = " y ".join(deudas_desc)
-            frase_sugerida = f"Hola {titular}, encontré {len(deudas)} cuentas registradas: {deudas_txt}. ¿Cuál deseas pagar? Puedes decir el número, el nombre o seleccionarla en la pantalla."
+            frase_sugerida = f"Hola {titular}, las cuentas disponibles se muestran en pantalla. ¿Cuál deseas pagar? Puedes decir el número, el nombre o tocarla directamente."
             return {
                 "status": "rut_con_deuda",
                 "valido": True,
                 "titular": titular,
                 "cuentas_pendientes": deudas,
                 "mensaje": (
-                    f"INFORMACIÓN OFICIAL: {titular} tiene {len(deudas)} cuentas registradas.\n"
-                    f"INSTRUCCIÓN OBLIGATORIA: Comunícalo con sus números para selección rápida: '{frase_sugerida}'."
+                    f"INFORMACIÓN OFICIAL: {titular} tiene {len(deudas)} cuentas activas cargadas en pantalla.\n"
+                    f"INSTRUCCIÓN OBLIGATORIA: Como las cuentas ya se muestran en la tabla de la pantalla, NO las enumeres ni leas montos uno por uno. Responde exactamente: '{frase_sugerida}'."
                 )
             }
 
@@ -809,9 +804,10 @@ FLUJO CONVERSACIONAL PASO A PASO:
    Responde EXACTAMENTE con la instrucción de pago en el lector de tarjeta:
    "Entendido, serás redirigido a la plataforma de pago. Por favor acerca o inserta tu tarjeta en el lector."
 
-CONSULTA DIRECTA POR RUT:
-- Si el usuario proporciona directamente su rut (ej: "18.765.432-1"):
-  Consulta sus cuentas asociadas y dale un resumen conciso indicando las que tienen deuda activa o vencida, o que no presentan deuda si están al día.
+CONSULTA DIRECTA POR RUT O DESPLIEGUE DE CUENTAS:
+- Si el usuario proporciona directamente su rut o se despliegan sus cuentas:
+  Como la tabla interactiva en pantalla ya muestra todas las cuentas y sus montos, NO las enumeres ni las leas una por una.
+  Di de forma concisa y cercana: "Hola [Nombre], las cuentas disponibles se muestran en pantalla. ¿Cuál deseas pagar? Puedes decir el número, el nombre o tocarla directamente."
 
 REGLA ABSOLUTA DE TEMÁTICA:
 - Solo atiendes consultas sobre Servipag, empresas proveedoras y pago de servicios básicos en Chile.
@@ -1013,42 +1009,12 @@ reload_catalog()
 
 
 
-# ─── Detección inteligente de oraciones para streaming de voz ultra-rápido ───
-MIN_CHUNK_LEN = 15  # caracteres mínimos antes de enviar un fragmento al TTS/avatar
-
-# Caracteres de fin de frase que disparan el envío de fragmento al avatar
-SENTENCE_ENDINGS = set(',.!?;:\n，。！？：；')
-
-def _is_sentence_boundary(chunk_buf: str) -> bool:
-    """
-    Determina si el buffer actual ha alcanzado un límite de oración natural para enviar al avatar.
-    Soporta '.', ',', '?', '!' y signos orientales, pero evita cortar en medio de precios
-    chilenos como '599.990' o '1.069.990'.
-    """
-    if len(chunk_buf) < MIN_CHUNK_LEN:
-        return False
-
-    trimmed = chunk_buf.rstrip()
-    if not trimmed:
-        return False
-
-    last_char = trimmed[-1]
-
-    # Coma: corte natural para fluidez (evita acumular oraciones largas)
-    if last_char == ',':
-        return True
-
-    # Signos inequívocos de fin de frase
-    if last_char in ('?', '!', ';', ':', '\n', '？', '！', '；', '：'):
-        return True
-
-    # Punto: verificar que no sea separador de miles en un número/precio (ej: '599.')
-    if last_char in ('.', '。'):
-        if re.search(r'\d\.$', trimmed):
-            return False
-        return True
-
-    return False
+# Caracteres de puntuación donde se cortará el texto para enviar al avatar
+# (el avatar empieza a hablar por fragmentos, sin esperar la respuesta completa)
+# NOTA: se excluyen '.' y ',' deliberadamente para evitar cortes en precios
+# del tipo "1.190" (separador de miles en español) y pausas no deseadas.
+SENTENCE_ENDINGS = set("!;:\n，。！？：；")
+MIN_CHUNK_LEN = 12  # caracteres mínimos antes de enviar un fragmento
 
 
 # ─── Warmup en segundo plano de Ollama para respuestas instantáneas ─────────
@@ -1141,14 +1107,27 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         full_text: str = data["message"]["content"]
         logger.info(f"[LLM] Respuesta en {elapsed:.2f}s: {full_text[:120]}...")
 
-        # Texto completamente normalizado para el chat e historial
+        # Guardar en historial
         clean_text = normalizar(full_text)
         _append_to_history(sessionid, message, clean_text)
 
-        # Enviar respuesta completa al avatar en un solo bloque para máxima fluidez y perfecta sincronización
-        if clean_text:
-            logger.info(f"[LLM] -> avatar: {clean_text}")
-            avatar_session.put_msg_txt(clean_text, datainfo)
+        # Dividir en fragmentos por puntuación para alimentar al avatar progresivamente (como walmart-demo)
+        chunk = ""
+        for char in full_text:
+            chunk += char
+            if char in SENTENCE_ENDINGS and len(chunk) >= MIN_CHUNK_LEN:
+                fragment = normalizar(chunk.strip())
+                if fragment:
+                    logger.info(f"[LLM] -> avatar: {fragment}")
+                    avatar_session.put_msg_txt(fragment, datainfo)
+                chunk = ""
+
+        # Enviar cualquier texto restante al final
+        if chunk.strip():
+            fragment = normalizar(chunk.strip())
+            if fragment:
+                logger.info(f"[LLM] -> avatar (ultimo): {fragment}")
+                avatar_session.put_msg_txt(fragment, datainfo)
 
         return clean_text
 
@@ -1156,10 +1135,10 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         logger.error("[LLM] Timeout al conectar con Ollama (>120s)")
         return "Disculpa, el servidor de lenguaje tardó demasiado en responder."
     except requests.exceptions.ConnectionError as e:
-        logger.error("[LLM] No se pudo conectar a Ollama: {e}")
+        logger.error(f"[LLM] No se pudo conectar a Ollama: {e}")
         return "Disculpa, no me pude conectar al servidor de lenguaje."
     except KeyError as e:
-        logger.error("[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
+        logger.error(f"[LLM] Respuesta inesperada de Ollama, clave faltante: {e}")
         return "Disculpa, recibí una respuesta inesperada."
     except Exception as e:
         logger.exception("[LLM] Error inesperado:")
@@ -1169,10 +1148,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
     Envía `message` al LLM y rinde los fragmentos de respuesta a medida que van llegando
-    de Ollama para el streaming HTTP (chat en tiempo real).
-    El audio del avatar se envía al TTS en fragmentos de oración completos una vez que
-    el LLM termina de generar, evitando la pérdida del primer fragmento por race condition
-    con flush_talk/PAUSE.
+    de Ollama, alimentando al avatar en tiempo real y rindiendo para el streaming HTTP (como walmart-demo).
     Mantiene historial de conversación por sesión.
     """
     message = normalize_user_input(message)
@@ -1193,6 +1169,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         response = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=120)
         response.raise_for_status()
 
+        chunk_buf = ""
         full_text = ""
 
         for line in response.iter_lines():
@@ -1205,21 +1182,27 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 if not content:
                     continue
 
-                full_text += content
-
-                # Rinde el token de inmediato para la interfaz de chat en tiempo real
                 yield content
+                full_text += content
+                chunk_buf += content
+
+                # Dividir en fragmentos por puntuación para alimentar al avatar en tiempo real
+                if content[-1] in SENTENCE_ENDINGS and len(chunk_buf) >= MIN_CHUNK_LEN:
+                    fragment = normalizar(chunk_buf.strip())
+                    if fragment:
+                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
+                        avatar_session.put_msg_txt(fragment, datainfo)
+                    chunk_buf = ""
 
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar el texto consolidado y normalizado al avatar en un solo bloque
-        # Kokoro genera y transmite cada oración progresivamente en un único stream continuo
-        if full_text.strip():
-            clean_full = normalizar(full_text.strip())
-            if clean_full:
-                logger.info(f"[LLM Stream] -> avatar: {clean_full}")
-                avatar_session.put_msg_txt(clean_full, datainfo)
+        # Enviar cualquier texto restante al avatar
+        if chunk_buf.strip():
+            fragment = normalizar(chunk_buf.strip())
+            if fragment:
+                logger.info(f"[LLM Stream] -> avatar (ultimo): {fragment}")
+                avatar_session.put_msg_txt(fragment, datainfo)
 
         # Guardar turno completo en historial (normalizado)
         _append_to_history(sessionid, message, normalizar(full_text))
