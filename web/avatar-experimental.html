@@ -2296,19 +2296,38 @@
             return s;
         }
 
-        function isDictatingRutOrNumber(text) {
-            if (_isWaitingRut) return true;
+        const _RUT_NUM_ALLOWED_TOKENS = new Set([
+            '0','1','2','3','4','5','6','7','8','9','-','k','ka',
+            'cero','un','uno','una','dos','tres','cuatro','cinco','seis','siete','ocho','nueve',
+            'diez','once','doce','trece','catorce','quince','dieciseis','dieciséis','diecisiete',
+            'dieciocho','diecinueve','veinte','veintiuno','veintidos','veintidós','veintitres',
+            'veintitrés','veinticuatro','veinticinco','veintiseis','veintiséis','veintisiete',
+            'veintiocho','veintinueve','treinta','cuarenta','cincuenta','sesenta','setenta',
+            'ochenta','noventa','cien','ciento','cientos','doscientos','trescientos','cuatrocientos',
+            'quinientos','seiscientos','setecientos','ochocientos','novecientos','mil','millon',
+            'millones','y','con','guion','guión','raya','menos','barra','rut','el','mi','es'
+        ]);
+
+        function isPureNumberOrRutDictation(text) {
             if (!text) return false;
-            const clean = text.toLowerCase();
-            // Detecta explícitamente palabras de identificación
-            if (/\b(rut|cliente|cuenta|numero|número|identificador)\b/i.test(clean)) return true;
-            // Si contiene dígitos
-            if (/\d/.test(clean)) return true;
-            // Palabras de números dictados en español (incluso una sola palabra como 'doce', 'treinta', 'dos', 'once')
-            if (/\b(uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|cero|diez|once|doce|trece|catorce|quince|dieciseis|dieciséis|diecisiete|dieciocho|diecinueve|veinte|veintiuno|veintidos|veintidós|veintitres|veintitrés|veinticuatro|veinticinco|veintiseis|veintiséis|veintisiete|veintiocho|veintinueve|treinta|cuarenta|cincuenta|sesenta|setenta|ochenta|noventa|cien|ciento|quinientos|mil|millon|millones|guion|guión|raya|menos|k|ka)\b/i.test(clean)) {
-                return true;
+            const clean = text.toLowerCase()
+                .replace(/[\.,\/#!$%\^&\*;:{}=_`~()¿?¡!]/g, ' ')
+                .replace(/-/g, ' - ')
+                .trim();
+            const words = clean.split(/\s+/).filter(Boolean);
+            if (words.length === 0) return false;
+
+            let hasNumberOrRut = false;
+            for (const w of words) {
+                if (/^\d+$/.test(w) || _RUT_NUM_ALLOWED_TOKENS.has(w)) {
+                    if (/^\d+$/.test(w) || (w !== 'el' && w !== 'mi' && w !== 'es' && w !== 'y' && w !== 'con')) {
+                        hasNumberOrRut = true;
+                    }
+                } else {
+                    return false; // Contiene palabras no numéricas / conversacionales
+                }
             }
-            return false;
+            return hasNumberOrRut;
         }
 
         function hasCompleteRut(text) {
@@ -2624,6 +2643,9 @@
                     _currentRut = clean;
                     _currentClient = resp.data;
                     _currentAccounts = resp.data.cuentas;
+                    _isWaitingRut = false;
+                    _pendingRutNumpadShow = false;
+                    hideRutNumpad();
                     renderAccountsTable(resp.data);
                     showAccountsPanel();
                     // Refrescar estado del botón del carro (se mostrará solo si ya tiene cuentas)
@@ -3104,6 +3126,11 @@
             if (_rutBuffer.length < 7) return;
             const finalRut = formatRutDisplay(_rutBuffer);
             LOG(`numpadSubmit: RUT ingresado desde teclado táctil: "${finalRut}"`);
+
+            _isWaitingRut = false;
+            clearTimeout(_pendingCommitTimeout);
+            _pendingCommitTimeout = null;
+            _voiceAccumulator = '';
 
             // Notificar actividad para reiniciar timers de inactividad y cancelar follow-up
             notifyUserActivity('numpadSubmit');
@@ -3593,85 +3620,81 @@
                     _waitingFollowUpAck = false;
                 }
 
-                // Construir frase combinando con lo acumulado previamente
-                const currentCombined = _voiceAccumulator ? (_voiceAccumulator + ' ' + rawText) : rawText;
-                const cleanDisplay = normalizeUserInput(currentCombined);
-                setUserText(cleanDisplay, !final);
+                // ── RESULTADOS INTERMEDIOS (INTERIM): el usuario sigue hablando ──
+                if (!final) {
+                    const display = _voiceAccumulator ? (_voiceAccumulator + ' ' + rawText) : rawText;
+                    setUserText(normalizeUserInput(display), true);
+                    return;
+                }
 
-                if (final) {
-                    clearTimeout(_pendingCommitTimeout);
-                    _voiceAccumulator = currentCombined.trim();
+                // ── RESULTADO FINAL DE VOZ ──
+                clearTimeout(_pendingCommitTimeout);
+                _pendingCommitTimeout = null;
 
-                    // Si es un saludo aislado ("Hola", "Buenas", etc.), enviar de inmediato sin esperar delayMs
-                    if (isWakeOnlyGreeting(_voiceAccumulator)) {
-                        LOG(`[Wake Saludo Inmediato] Saludo detectado ("${_voiceAccumulator}") → enviando echo directo sin delay ni LLM`);
-                        const txt = _voiceAccumulator;
+                // 1. Saludo aislado ("Hola", "Buenas"): enviar de inmediato sin demora ni LLM
+                if (isWakeOnlyGreeting(rawText)) {
+                    LOG(`[Wake Saludo Inmediato] Saludo detectado ("${rawText}") → enviando echo directo`);
+                    _voiceAccumulator = '';
+                    setUserText(normalizeUserInput(rawText), false);
+                    try { rec.stop(); } catch (e) {}
+                    _dispatchQuestion(rawText);
+                    return;
+                }
+
+                // 2. RUT completo en la frase actual: enviar de inmediato
+                if (hasCompleteRut(rawText)) {
+                    LOG(`[RUT Completo Directo] RUT válido detectado en frase: "${rawText}" → enviando de inmediato`);
+                    _voiceAccumulator = '';
+                    setUserText(normalizeUserInput(rawText), false);
+                    try { rec.stop(); } catch (e) {}
+                    _dispatchQuestion(rawText);
+                    return;
+                }
+
+                // 3. Dictado por pausas de RUT o números:
+                // Solo se activa si:
+                // - NO hay cuentas activas ni carro en pantalla (evita confundir opciones de cuentas con RUT)
+                // - Se está esperando el RUT (_isWaitingRut) o el usuario dijo "rut" / "mi rut es"
+                // - La frase contiene ÚNICAMENTE números/dígitos (isPureNumberOrRutDictation)
+                const isAccountsActive = _servipagPanelOpen || _cartOpen || (_currentAccounts && _currentAccounts.length > 0);
+                const isPureNumber = isPureNumberOrRutDictation(rawText);
+                const isRutContext = _isWaitingRut || /\brut\b/i.test(rawText);
+
+                if (!isAccountsActive && isRutContext && isPureNumber) {
+                    const combined = _voiceAccumulator ? (_voiceAccumulator + ' ' + rawText) : rawText;
+                    if (hasCompleteRut(combined)) {
+                        LOG(`[RUT Dictation Acumulado] RUT completo alcanzado ("${combined}") → enviando de inmediato`);
                         _voiceAccumulator = '';
+                        setUserText(normalizeUserInput(combined), false);
                         try { rec.stop(); } catch (e) {}
-                        _dispatchQuestion(txt);
+                        _dispatchQuestion(combined);
                         return;
                     }
 
-                    const dictatingRut = isDictatingRutOrNumber(_voiceAccumulator);
-                    const completeRut = hasCompleteRut(_voiceAccumulator);
-
-                    if (dictatingRut && !completeRut) {
-                        // Dictado de RUT o números en progreso: esperar 4000ms de silencio real para permitir pausas
-                        LOG(`[RUT Dictation Buffer] Fragmento detectado ("${_voiceAccumulator}") → esperando 4000ms para siguiente tramo...`);
-                        _pendingCommitTimeout = setTimeout(() => {
-                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
-                                LOG(`[RUT Commit tras 4s de silencio] Enviando acumulado: "${_voiceAccumulator}"`);
-                                const txt = _voiceAccumulator;
-                                _voiceAccumulator = '';
-                                try { rec.stop(); } catch (e) {}
-                                _dispatchQuestion(txt);
-                            }
-                        }, 4000);
-                    } else if (completeRut) {
-                        // RUT completo identificado (ej: 12.345.678-5 o 12345678-5) -> commit rápido (1200ms)
-                        LOG(`[RUT Completo] RUT válido completado ("${_voiceAccumulator}") → enviando en 1200ms`);
-                        _pendingCommitTimeout = setTimeout(() => {
-                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
-                                const txt = _voiceAccumulator;
-                                _voiceAccumulator = '';
-                                try { rec.stop(); } catch (e) {}
-                                _dispatchQuestion(txt);
-                            }
-                        }, 1200);
-                    } else {
-                        // Frase estándar (no RUT): commit según longitud
-                        const words = _voiceAccumulator.split(/\s+/).length;
-                        const delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
-                        _pendingCommitTimeout = setTimeout(() => {
-                            if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
-                                const txt = _voiceAccumulator;
-                                _voiceAccumulator = '';
-                                try { rec.stop(); } catch (e) {}
-                                _dispatchQuestion(txt);
-                            }
-                        }, delayMs);
-                    }
-                } else if (_conversationAwake && interim && !_questionDispatched) {
-                    clearTimeout(_pendingCommitTimeout);
-                    const dictatingRut = isDictatingRutOrNumber(currentCombined);
-                    const completeRut = hasCompleteRut(currentCombined);
-                    const words = currentCombined.split(/\s+/).length;
-                    let delayMs;
-                    if (dictatingRut) {
-                        delayMs = completeRut ? 1400 : 3500;
-                    } else {
-                        delayMs = (words <= 2) ? 500 : ((words <= 4) ? 750 : 1000);
-                    }
+                    // Aún incompleto: guardar fragmento y esperar 1500ms de pausa
+                    _voiceAccumulator = combined;
+                    setUserText(normalizeUserInput(_voiceAccumulator), false);
+                    LOG(`[RUT Dictation Fragmento] Acumulado: "${_voiceAccumulator}" → esperando 1500ms para siguiente tramo...`);
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && currentCombined && !_questionDispatched) {
-                            LOG(`[Interim Auto-Commit] Silencio detectado tras "${currentCombined}" (${delayMs}ms) → enviando`);
-                            const txt = currentCombined;
+                        if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
+                            LOG(`[RUT Commit tras 1.5s de silencio] Enviando acumulado: "${_voiceAccumulator}"`);
+                            const txt = _voiceAccumulator;
                             _voiceAccumulator = '';
+                            _pendingCommitTimeout = null;
                             try { rec.stop(); } catch (e) {}
                             _dispatchQuestion(txt);
                         }
-                    }, delayMs);
+                    }, 1500);
+                    return;
                 }
+
+                // 4. Cualquier otra interacción normal (preguntas, "quiero pagar el agua", "si quiero", selección de cuentas, etc.)
+                // ¡Despachar DE INMEDIATO y asegurar buffer completamente limpio!
+                _voiceAccumulator = '';
+                setUserText(normalizeUserInput(rawText), false);
+                LOG(`[Conversación Inmediata] Despachando frase final: "${rawText}"`);
+                try { rec.stop(); } catch (e) {}
+                _dispatchQuestion(rawText);
             };
 
             rec.onerror = (e) => {
@@ -3706,31 +3729,36 @@
                 const elapsed = Date.now() - _recStartMs;
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, pendingTimeout=${!!_pendingCommitTimeout}, acumulado="${_voiceAccumulator}"`);
 
-                // Si hay un timeout de commit pendiente (ej: el usuario dijo "12" y pausó esperando continuar),
-                // NO DISPARAR envío prematuro en onend. Dejar correr el timer de 4000ms y reiniciar reconocimiento de inmediato.
-                if (_pendingCommitTimeout) {
-                    LOG(`[onend] Silencio detectado pero commit pendiente activo para "${_voiceAccumulator}". Manteniendo buffer.`);
+                // Si hay un timeout de commit pendiente de dictado de RUT (fragmento incompleto esperando pausa):
+                // Reiniciar escucha para capturar el siguiente tramo antes de que expire el temporizador de 1.5s
+                if (_pendingCommitTimeout && _voiceAccumulator) {
+                    LOG(`[onend] Fragmento de RUT esperando más dígitos ("${_voiceAccumulator}"). Reiniciando escucha.`);
                     stopListening();
                     if (_alwaysOnActive) {
                         setTimeout(() => {
                             if (_alwaysOnActive && !isListening && !isSpeaking) {
-                                LOG('Reiniciando reconocimiento de inmediato para continuar capturando dictado...');
                                 startAlwaysOnListening();
                             }
-                        }, 250);
+                        }, 100);
                     }
                     return;
                 }
 
+                // Si por alguna razón el recognizer terminó y quedó texto acumulado sin timeout ni despacho:
                 if (_conversationAwake && _voiceAccumulator && !_questionDispatched) {
                     clearTimeout(_pendingCommitTimeout);
-                    LOG(`[onend Auto-Commit] Enviando buffer pendiente: "${_voiceAccumulator}"`);
+                    _pendingCommitTimeout = null;
+                    LOG(`[onend Auto-Commit] Enviando buffer remanente: "${_voiceAccumulator}"`);
                     const txt = _voiceAccumulator;
                     _voiceAccumulator = '';
                     _dispatchQuestion(txt);
                     stopListening();
                     return;
                 }
+
+                _voiceAccumulator = '';
+                clearTimeout(_pendingCommitTimeout);
+                _pendingCommitTimeout = null;
 
                 if (!_gotAnyResult && elapsed < 1500) {
                     WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 600ms`);
@@ -3856,6 +3884,9 @@
             LOG('stopAlwaysOnListening: deteniendo escucha continua');
             _alwaysOnActive = false;
             clearTimeout(_wakeBufferTimeout);
+            clearTimeout(_pendingCommitTimeout);
+            _pendingCommitTimeout = null;
+            _voiceAccumulator = '';
             if (recognition) {
                 try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
             }
