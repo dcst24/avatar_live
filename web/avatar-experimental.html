@@ -957,6 +957,27 @@
             transform: scale(1.05);
         }
 
+        .accounts-select-all-btn {
+            background: linear-gradient(135deg, rgba(235, 30, 40, 0.25) 0%, rgba(190, 20, 30, 0.35) 100%);
+            border: 1px solid rgba(235, 30, 40, 0.4);
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 6px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            transition: all 0.2s ease;
+        }
+
+        .accounts-select-all-btn:hover {
+            background: linear-gradient(135deg, rgba(235, 30, 40, 0.45) 0%, rgba(190, 20, 30, 0.55) 100%);
+            border-color: rgba(235, 30, 40, 0.7);
+            transform: translateY(-1px);
+        }
+
         .accounts-voice-hint {
             display: flex;
             align-items: center;
@@ -1721,11 +1742,16 @@
                 </div>
                 <div class="accounts-subtitle" id="accounts-client-rut">RUT: --</div>
             </div>
-            <button type="button" class="accounts-close-btn" onclick="hideAccountsPanel()" title="Cerrar panel">✕</button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <button type="button" id="btn-select-all-accounts" class="accounts-select-all-btn" onclick="addAllAccountsToCart(true)" title="Agregar todas las cuentas con deuda al carro">
+                    <span>➕ Todas</span>
+                </button>
+                <button type="button" class="accounts-close-btn" onclick="hideAccountsPanel()" title="Cerrar panel">✕</button>
+            </div>
         </div>
         <div class="accounts-voice-hint">
             <span>🎙</span>
-            <span>Di el número (ej: <em>"la 1"</em>), la empresa o toca la cuenta</span>
+            <span>Di el número (ej: <em>"la 1"</em>), la empresa o <em>"agrégalas todas"</em></span>
         </div>
         <div class="accounts-body">
             <table class="accounts-table">
@@ -2955,6 +2981,60 @@
             }
         }
 
+        function addAllAccountsToCart(announceAvatar = true) {
+            notifyUserActivity('addAllAccountsToCart');
+            if (!_currentAccounts || _currentAccounts.length === 0) {
+                if (announceAvatar) {
+                    sayViaAvatar("No tienes cuentas cargadas en este momento. Por favor ingresa o dicta tu RUT primero.");
+                }
+                return false;
+            }
+
+            // Filtrar únicamente cuentas que tienen deuda activa/pendiente y no están pagadas
+            const payableAccounts = _currentAccounts.filter(acc => {
+                const isPaid = Boolean(acc.es_pagada || acc.monto === 0 || acc.estado === 'pagada' || acc.estado === 'sin_deuda');
+                return !isPaid;
+            });
+
+            if (payableAccounts.length === 0) {
+                LOG('[Carro] Intento de agregar todas, pero todas las cuentas están al día o pagadas.');
+                if (announceAvatar) {
+                    sayViaAvatar("Todas tus cuentas se encuentran pagadas y al día. No tienes cuentas pendientes de pago.");
+                }
+                return false;
+            }
+
+            // Agregar todas las cuentas con deuda que aún no estén en el carro
+            let newlyAddedCount = 0;
+            payableAccounts.forEach(acc => {
+                const alreadyInCart = _cart.some(item => item.id_cuenta === acc.id_cuenta);
+                if (!alreadyInCart) {
+                    _cart.push(acc);
+                    newlyAddedCount++;
+                }
+            });
+
+            LOG(`[Carro] addAllAccountsToCart: ${newlyAddedCount} nuevas cuentas añadidas. Total en carro: ${_cart.length}`);
+            updateCartUI();
+            if (_currentClient) {
+                renderAccountsTable(_currentClient);
+            }
+            showAccountsPanel();
+
+            if (announceAvatar) {
+                const totalMonto = _cart.reduce((sum, item) => sum + (item.monto || 0), 0);
+                const totalFmt = `$${totalMonto.toLocaleString('es-CL')}`;
+                let msg = '';
+                if (_cart.length === 1) {
+                    msg = `Agregué tu cuenta de ${_cart[0].empresa_nombre} por ${_cart[0].monto_formateado} al carro. ¿Deseas pagarla ahora o ver el carro?`;
+                } else {
+                    msg = `He agregado todas tus cuentas con deuda al carro, por un total de ${totalFmt} pesos. ¿Deseas pagarlas ahora o revisar el carro?`;
+                }
+                sayViaAvatar(msg);
+            }
+            return true;
+        }
+
         async function sayViaAvatar(text) {
             if (!text) return;
             LOG(`sayViaAvatar: "${text}"`);
@@ -3673,6 +3753,29 @@
                         return;
                     }
 
+                    // Agregar todas las cuentas al carro (ej: "Quiero agregar todas las cuentas", "agregalas todas", "agrega todas", "todas")
+                    const isAddAll = /(?:agregar|agrega|agregalas|agrégalas|sumar|suma|sumalas|súmalas|poner|pon|ponlas|seleccionar|selecciona|marcar|marca)\s+(?:a\s+)?todas(?:\s+las\s+cuentas)?/i.test(normQ)
+                        || /(?:quiero|deseo|voy\s+a)?\s*(?:agregar|sumar|poner|seleccionar|marcar)\s+todas(?:\s+las\s+cuentas)?/i.test(normQ)
+                        || /^(?:todas|todas\s+las\s+cuentas|agregalas\s+todas|agrégalas\s+todas|agrega\s+todas|agregar\s+todas|sumar\s+todas|poner\s+todas|seleccionar\s+todas)$/i.test(normQ)
+                        || /\b(?:agregalas\s+todas|agrégalas\s+todas|agrega\s+todas|agregar\s+todas|todas\s+las\s+cuentas)\b/i.test(normQ);
+
+                    if (isAddAll && !hasCompleteRut(question)) {
+                        LOG('[Voz] Intención de agregar todas las cuentas detectada');
+                        addAllAccountsToCart(true);
+                        return;
+                    }
+
+                    // Pagar todas las cuentas directamente (ej: "pagar todas", "quiero pagar todas", "pagarlas todas")
+                    const isPayAll = /\b(?:pagar\s+todas|pagarlas\s+todas|pagar\s+todas\s+las\s+cuentas|quiero\s+pagar\s+todas|quiero\s+pagarlas\s+todas)\b/i.test(normQ);
+                    if (isPayAll && !hasCompleteRut(question)) {
+                        LOG('[Voz] Intención de pagar todas las cuentas directamente');
+                        const added = addAllAccountsToCart(false);
+                        if (added && _cart.length > 0) {
+                            iniciarPago(true);
+                            return;
+                        }
+                    }
+
                     // Agregar más cuentas
                     if (/^(?:agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)$/i.test(normQ)) {
                         agregarMasCuentas(true);
@@ -4216,6 +4319,12 @@
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
                 _lastAvatarMessage = fullText;
                 autoSelectAccountFromAvatarResponse(fullText);
+
+                // Si la respuesta del LLM confirma que agregó todas las cuentas, sincronizar carro y UI
+                const isAddAllResponse = /(?:agregado\s+todas\s+tus\s+cuentas|todas\s+tus\s+cuentas.*al\s+carro)/i.test(fullText);
+                if (isAddAllResponse && _currentAccounts && _currentAccounts.length > 0) {
+                    addAllAccountsToCart(false);
+                }
 
                 // Si la respuesta del LLM es de despedida (ej: "¡Que tengas un excelente día!"), cerrar sesión y dormir modelo
                 const isAssistantFarewell = /(?:que tengas un excelente d[ií]a|aqu[ií] estar[eé]|hasta luego|nos vemos|que est[eé]s bien|hasta la pr[oó]xima|un placer ayudarte)/i.test(fullText);

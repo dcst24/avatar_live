@@ -884,7 +884,7 @@ def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
         }
 
     # 2b-2. Caso Consulta o Muestra de Cuentas (sin RUT ni Identificador)
-    if re.search(r'\b(mostrar|muestra|ver|abrir|ensename|enséñame|cuales\s+son|mis|consultar)\s+(las\s+|mis\s+)?cuentas\b|\b(las\s+|mis\s+)?cuentas\b', norm_msg) and not rut and not ident and not empresa and not categoria:
+    if re.search(r'\b(mostrar|muestra|ver|abrir|ensename|enséñame|cuales\s+son|consultar)\s+(las\s+|mis\s+)?cuentas\b|^(?:las\s+cuentas|mis\s+cuentas|cuentas)$', norm_msg) and not rut and not ident and not empresa and not categoria:
         return {
             "status": "solicitar_rut_para_cuentas",
             "valido": False,
@@ -903,6 +903,18 @@ def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
                 "AGREGAR MÁS CUENTAS: El usuario desea agregar más cuentas al carro. "
                 "INSTRUCCIÓN OBLIGATORIA: Responde con calidez: "
                 "'De acuerdo, ¿qué otra cuenta deseas agregar? Puedes decir el número, la empresa o seleccionarla en pantalla.'"
+            )
+        }
+
+    # 2c-2. Caso Agregar Todas las Cuentas
+    if re.search(r'\b(agregar|agrega|agregalas|agrégalas|sumar|suma|sumalas|súmalas|poner|pon|ponlas|seleccionar|selecciona|marcar|marca)\s+(a\s+)?todas(?:\s+las\s+cuentas)?\b|\b(todas\s+las\s+cuentas|agregalas\s+todas|agrégalas\s+todas|agrega\s+todas|agregar\s+todas)\b', norm_msg):
+        return {
+            "status": "agregar_todas",
+            "valido": True,
+            "mensaje": (
+                "SELECCIONAR TODAS LAS CUENTAS: El usuario solicitó agregar todas sus cuentas disponibles al carro de pagos. "
+                "INSTRUCCIÓN OBLIGATORIA: Responde con amabilidad: "
+                "'He agregado todas tus cuentas con deuda al carro. ¿Deseas pagarlas ahora o revisar el carro?'"
             )
         }
 
