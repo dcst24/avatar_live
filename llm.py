@@ -883,6 +883,17 @@ def consultar_api_servipag(user_msg: str, history: list = []) -> dict:
             )
         }
 
+    # 2b-2. Caso Consulta o Muestra de Cuentas (sin RUT ni Identificador)
+    if re.search(r'\b(mostrar|muestra|ver|abrir|ensename|enséñame|cuales\s+son|mis|consultar)\s+(las\s+|mis\s+)?cuentas\b|\b(las\s+|mis\s+)?cuentas\b', norm_msg) and not rut and not ident and not empresa and not categoria:
+        return {
+            "status": "solicitar_rut_para_cuentas",
+            "valido": False,
+            "mensaje": (
+                "CONSULTA DE CUENTAS SIN IDENTIFICACIÓN: El usuario solicitó ver o consultar sus cuentas pero aún no ha indicado su RUT ni número de cliente. "
+                "INSTRUCCIÓN OBLIGATORIA: Pídele con amabilidad y calidez que dicte o digite su RUT para consultar y mostrar sus cuentas en pantalla."
+            )
+        }
+
     # 2c. Caso Agregar Más
     if re.search(r'\b(agregar\s+m[aá]s|otra\s+cuenta|agregar\s+otra|sumar\s+otra)\b', norm_msg):
         return {
@@ -1047,10 +1058,21 @@ def _warmup_ollama():
 threading.Thread(target=_warmup_ollama, daemon=True).start()
 
 
-def clear_conversation(sessionid: str) -> None:
-    """Elimina el historial de conversación de la sesión indicada."""
-    if sessionid in _histories:
-        del _histories[sessionid]
+def clear_conversation(sessionid: str = "") -> None:
+    """Elimina el historial de conversación de la sesión indicada o de todas si no se especifica."""
+    if not sessionid or sessionid == "all":
+        _histories.clear()
+        logger.info("[LLM] Historial borrado para todas las sesiones.")
+        return
+
+    sid_str = str(sessionid).strip()
+    cleared = False
+    for k in list(_histories.keys()):
+        if str(k).strip() == sid_str or (sid_str == "0" and (k == 0 or k == "0")):
+            del _histories[k]
+            cleared = True
+
+    if cleared:
         logger.info(f"[LLM] Historial borrado para sesión: {sessionid}")
     else:
         logger.info(f"[LLM] clear_conversation: no había historial para {sessionid}")
@@ -1058,7 +1080,8 @@ def clear_conversation(sessionid: str) -> None:
 
 def _get_messages_with_history(sessionid: str, user_message: str) -> list:
     """Construye la lista completa de mensajes para el LLM incluyendo el historial."""
-    history = _histories.get(sessionid, [])
+    sid_str = str(sessionid).strip() if sessionid is not None else ""
+    history = _histories.get(sid_str, [])
     dynamic_prompt = _get_dynamic_system_prompt(user_message, history)
     messages = [{"role": "system", "content": dynamic_prompt}]
     messages.extend(history)
@@ -1068,16 +1091,17 @@ def _get_messages_with_history(sessionid: str, user_message: str) -> list:
 
 def _append_to_history(sessionid: str, user_message: str, assistant_reply: str) -> None:
     """Agrega el turno actual al historial y recorta si supera MAX_HISTORY_TURNS."""
-    if not sessionid:
+    sid_str = str(sessionid).strip() if sessionid is not None else ""
+    if not sid_str:
         return
-    history = _histories.setdefault(sessionid, [])
+    history = _histories.setdefault(sid_str, [])
     history.append({"role": "user",      "content": user_message})
     history.append({"role": "assistant", "content": assistant_reply})
     # Recortar: conservar sólo los últimos MAX_HISTORY_TURNS turnos (2 mensajes por turno)
     max_msgs = MAX_HISTORY_TURNS * 2
     if len(history) > max_msgs:
-        _histories[sessionid] = history[-max_msgs:]
-        logger.debug(f"[LLM] Historial recortado a {MAX_HISTORY_TURNS} turnos para sesión {sessionid}")
+        _histories[sid_str] = history[-max_msgs:]
+        logger.debug(f"[LLM] Historial recortado a {MAX_HISTORY_TURNS} turnos para sesión {sid_str}")
 
 
 def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):

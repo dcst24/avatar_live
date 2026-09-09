@@ -74,7 +74,7 @@ async def human(request):
     try:
         params: dict = await request.json()
 
-        sessionid: str = params.get('sessionid', '')
+        sessionid: str = str(params.get('sessionid', '')).strip()
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
             return json_error("session not found")
@@ -148,7 +148,7 @@ async def clear_history(request):
     """Borra el historial de conversación del LLM para la sesión indicada."""
     try:
         params = await request.json()
-        sessionid = params.get('sessionid', '')
+        sessionid = str(params.get('sessionid', '')).strip()
         clear_conv = request.app.get("clear_conversation")
         if clear_conv:
             clear_conv(sessionid)
