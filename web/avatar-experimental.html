@@ -1294,7 +1294,11 @@
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
             clearServerHistory();
-            setState('listening', 'Esperando activación…');
+            if (isListening) {
+                setState('listening', 'Esperando activación…');
+            } else {
+                setState('ready', 'Esperando activación…');
+            }
             if (showBubble) {
                 addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
             }
@@ -1317,7 +1321,11 @@
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
                 _conversationAwake = false;
                 _wakeDetected = false;
-                setState('listening', 'Esperando activación…');
+                if (isListening) {
+                    setState('listening', 'Esperando activación…');
+                } else {
+                    setState('ready', 'Esperando activación…');
+                }
                 clearServerHistory();
                 const container = document.getElementById('chat-container');
                 if (container) container.innerHTML = '';
@@ -1450,7 +1458,7 @@
                     })
                 }).then(() => {
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('listening', 'Esperando activación…');
+                    setState('ready', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
             }, 30000);
         }
@@ -1815,26 +1823,29 @@
                     isSpeaking = false;
                     const wrap = document.getElementById('avatar-wrap');
                     if (wrap) wrap.classList.remove('avatar-speaking');
+                    setState('ready', 'Preparando micrófono…');
                     if (_conversationAwake) {
-                        setState('listening', 'Escuchando pregunta…');
                         scheduleFollowUp();
-                    } else {
-                        setState('listening', 'Esperando activación…');
                     }
                     setTimeout(() => {
-                        if (!isListening) {
+                        if (!isListening && isConnected) {
                             _alwaysOnActive = false;
                             startAlwaysOnListening();
                         }
-                    }, 500);
+                    }, 80);
                 }
             }, MAX_SPEAKING_MS);
         }
 
+        let _speakingMonitorTimer = null;
+
         function startSpeakingMonitor() {
             LOG('startSpeakingMonitor iniciado');
-            speakCheckInterval = setInterval(async () => {
-                if (!isConnected) return;
+            const checkSpeaking = async () => {
+                if (!isConnected) {
+                    _speakingMonitorTimer = setTimeout(checkSpeaking, 400);
+                    return;
+                }
                 try {
                     const sessionid = document.getElementById('sessionid').value;
                     const res = await fetch('/is_speaking', {
@@ -1852,7 +1863,7 @@
                             if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
-                            // Pausar reconocimiento mientras el avatar habla para evitar retroalimentación
+                            // Pausar reconocimiento de inmediato para evitar eco acústico
                             if (isListening || _alwaysOnActive) {
                                 LOG('[Speaking Monitor] Avatar comenzó a hablar → pausando micrófono');
                                 stopAlwaysOnListening();
@@ -1865,33 +1876,40 @@
                         } else {
                             if (wrap) wrap.classList.remove('avatar-speaking');
                             _clearSpeakingWatchdog();
-                            LOG('Avatar terminó de hablar → reiniciando escucha (awake: ' + _conversationAwake + ')');
+                            LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
                             
+                            // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
+                            setState('ready', 'Preparando micrófono…');
                             if (_conversationAwake) {
-                                setState('listening', 'Escuchando pregunta…');
                                 scheduleFollowUp();
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
                                 }
-                            } else {
-                                setState('listening', 'Esperando activación…');
                             }
 
                             setTimeout(() => {
-                                if (!isListening) {
+                                if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 500);
+                            }, 80);
                         }
                     }
                 } catch (e) {
                     WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
                 }
-            }, 400);
+                // Sondeo adaptativo: 180ms durante habla para corte instantáneo, 380ms en reposo
+                const nextInterval = isSpeaking ? 180 : 380;
+                _speakingMonitorTimer = setTimeout(checkSpeaking, nextInterval);
+            };
+
+            clearTimeout(_speakingMonitorTimer);
+            checkSpeaking();
         }
 
         // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
+        let _micPermissionGranted = false;
+
         async function requestMicPermission() {
             LOG('requestMicPermission: verificando micrófono...');
             if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
@@ -1911,16 +1929,13 @@
                     t.stop(); // Liberar track para no bloquear SpeechRecognition
                 });
 
-                if (_conversationAwake) {
-                    setState('listening', `Escuchando pregunta…`);
-                } else {
-                    setState('listening', `Esperando activación…`);
-                }
+                _micPermissionGranted = true;
                 await dbgLoadDevices();
 
                 LOG('Permiso de micrófono OK — Hardware libre para SpeechRecognition');
                 return true;
             } catch (e) {
+                _micPermissionGranted = false;
                 ERR('requestMicPermission falló:', e.name, e.message);
                 if (e.name === 'NotAllowedError') {
                     setState('ready', '⚠ Permiso de micrófono denegado');
@@ -2053,8 +2068,23 @@
                 } else if (_conversationAwake && interim && !_questionDispatched) {
                     _lastInterimText = interim.trim();
                     clearTimeout(_pendingCommitTimeout);
-                    const words = _lastInterimText.split(/\s+/).length;
-                    const delayMs = (words <= 2) ? 450 : ((words <= 4) ? 700 : 950);
+
+                    const tokens = _lastInterimText.toLowerCase().split(/\s+/);
+                    const words = tokens.length;
+                    const lastWord = tokens[tokens.length - 1];
+                    const connectors = [
+                        'de', 'del', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
+                        'para', 'por', 'con', 'sin', 'sobre', 'y', 'e', 'o', 'u', 'que', 'a', 'al',
+                        'mi', 'su', 'este', 'esta', 'estos', 'estas', 'es', 'son', 'hay', 'tiene', 'tienen'
+                    ];
+                    const isConnector = connectors.includes(lastWord);
+                    // Calibración natural de pausas de voz:
+                    // Frases cortas (1-2 palabras): 850ms
+                    // Frases medias (3-5 palabras): 1150ms
+                    // Frases largas (6+ palabras): 1400ms
+                    let delayMs = (words <= 2) ? 850 : ((words <= 5) ? 1150 : 1400);
+                    if (isConnector) delayMs += 700; // Dar más margen si el usuario terminó en conector
+
                     _pendingCommitTimeout = setTimeout(() => {
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
                             LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
@@ -2103,30 +2133,26 @@
                 }
 
                 if (!_gotAnyResult && elapsed < 1500) {
-                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 700ms`);
+                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 300ms`);
                     stopListening();
                     setTimeout(() => {
-                        if (!isListening && _alwaysOnActive) {
+                        if (!isListening && _alwaysOnActive && !isSpeaking) {
                             LOG('Reintento de SpeechRecognition (always-on)...');
-                            recognition = setupRecognition();
-                            if (recognition) {
-                                try { recognition.start(); }
-                                catch (ex) { ERR('reintento falló:', ex.name); }
-                            }
+                            startAlwaysOnListening();
                         }
-                    }, 700);
+                    }, 300);
                     return;
                 }
 
                 stopListening();
 
-                if (_alwaysOnActive) {
-                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 600ms');
+                if (_alwaysOnActive && !isSpeaking) {
+                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 250ms');
                     setTimeout(() => {
-                        if (_alwaysOnActive && !isListening) {
+                        if (_alwaysOnActive && !isListening && !isSpeaking) {
                             startAlwaysOnListening();
                         }
-                    }, 600);
+                    }, 250);
                 }
             };
 
@@ -2177,31 +2203,17 @@
             _alwaysOnActive = true;
             LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
 
+            // Transición suave: estado 'ready' hasta que rec.onstart confirme hardware activo
+            setState('ready', _conversationAwake ? 'Preparando micrófono…' : 'Esperando activación…');
             if (_conversationAwake) {
-                setState('listening', 'Escuchando pregunta…');
                 resetInactivityTimer();
-            } else {
-                setState('listening', 'Esperando activación…');
             }
 
-            requestMicPermission().then(ok => {
-                if (!ok) {
-                    LOG('startAlwaysOnListening: sin permiso de micrófono');
-                    _alwaysOnActive = false;
-                    setState('ready', '⚠ Sin permiso de micrófono');
+            const launchRecognition = () => {
+                if (!isConnected || isSpeaking) {
+                    LOG('launchRecognition: abortado (desconectado o avatar hablando)');
                     return;
                 }
-
-                if (!_audioUnlocked) {
-                    const videoEl = document.getElementById('video');
-                    videoEl.muted = false;
-                    _audioUnlocked = true;
-                    if (videoEl.srcObject) {
-                        videoEl.play().catch(e => WARN('play() audio unlock error:', e.name));
-                    }
-                    LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
-                }
-
                 LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
                 _audioCaptureErrors = 0;
                 _networkSpeechErrors = 0;
@@ -2220,7 +2232,34 @@
                     _alwaysOnActive = false;
                     setState('ready', '⚠ SpeechRecognition no disponible');
                 }
-            });
+            };
+
+            // Si el permiso ya fue concedido previamente, evitamos llamar getUserMedia()
+            // en cada ciclo de habla, ahorrando 300-500ms de latencia y evitando bloqueos de audio
+            if (_micPermissionGranted) {
+                launchRecognition();
+            } else {
+                requestMicPermission().then(ok => {
+                    if (!ok) {
+                        LOG('startAlwaysOnListening: sin permiso de micrófono');
+                        _alwaysOnActive = false;
+                        setState('ready', '⚠ Sin permiso de micrófono');
+                        return;
+                    }
+
+                    if (!_audioUnlocked) {
+                        const videoEl = document.getElementById('video');
+                        videoEl.muted = false;
+                        _audioUnlocked = true;
+                        if (videoEl.srcObject) {
+                            videoEl.play().catch(e => WARN('play() audio unlock error:', e.name));
+                        }
+                        LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
+                    }
+
+                    launchRecognition();
+                });
+            }
         }
 
         function stopAlwaysOnListening() {
@@ -2399,15 +2438,13 @@
 
             // 5. Dar paso inmediato al usuario para hablar
             LOG('stopAvatarTalking: activando escucha para el usuario');
+            setState('ready', 'Preparando micrófono…');
             if (_conversationAwake) {
-                setState('listening', 'Escuchando pregunta…');
                 scheduleFollowUp();
-            } else {
-                setState('listening', 'Esperando activación…');
             }
 
             setTimeout(() => {
-                if (!isListening) {
+                if (!isListening && isConnected && !isSpeaking) {
                     _alwaysOnActive = false;
                     startAlwaysOnListening();
                 }
