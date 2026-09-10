@@ -3,7 +3,12 @@
 ###############################################################################
 
 import io
+import math
 import numpy as np
+
+# Cache de disponibilidad de backends de remuestreo
+_resample_poly_available = None
+_torchaudio_available = None
 
 
 def pcm_to_float32(pcm_bytes: bytes, sample_width: int = 2) -> np.ndarray:
@@ -31,15 +36,59 @@ def float32_to_pcm(audio: np.ndarray, sample_width: int = 2) -> bytes:
 
 
 def resample_audio(audio: np.ndarray, from_rate: int, to_rate: int) -> np.ndarray:
-    """简单的音频重采样"""
-    if from_rate == to_rate:
+    """
+    Remuestreo de audio de alto rendimiento optimizado para baja latencia en tiempo real.
+    Prioridades:
+    1. Si from_rate == to_rate, retorno directo (zero-copy).
+    2. scipy.signal.resample_poly: Filtro polifásico FIR en C (10-15x más rápido que resampy, ideal 24k -> 16k = 2/3).
+    3. torchaudio.functional.resample: Implementación vectorizada en PyTorch.
+    4. resampy: Fallback con interpolación sinc.
+    5. np.interp: Fallback lineal de emergencia.
+    """
+    if from_rate == to_rate or len(audio) == 0:
         return audio
+
+    global _resample_poly_available, _torchaudio_available
+
+    # 1. scipy.signal.resample_poly (ultra rápido para razones racionales como 24k -> 16k = 2/3)
+    if _resample_poly_available is not False:
+        try:
+            from scipy.signal import resample_poly
+            _resample_poly_available = True
+            gcd = math.gcd(from_rate, to_rate)
+            up = to_rate // gcd
+            down = from_rate // gcd
+            return resample_poly(audio, up, down).astype(np.float32)
+        except Exception:
+            _resample_poly_available = False
+
+    # 2. torchaudio.functional.resample
+    if _torchaudio_available is not False:
+        try:
+            import torch
+            import torchaudio.functional as AF
+            _torchaudio_available = True
+            t_audio = torch.from_numpy(audio) if isinstance(audio, np.ndarray) else audio
+            if t_audio.ndim == 1:
+                t_audio = t_audio.unsqueeze(0)
+            resampled = AF.resample(t_audio.float(), from_rate, to_rate)
+            return resampled.squeeze(0).cpu().numpy().astype(np.float32)
+        except Exception:
+            _torchaudio_available = False
+
+    # 3. resampy fallback
     try:
         import resampy
-        return resampy.resample(audio, from_rate, to_rate)
-    except ImportError:
-        # 简单线性插值降级方案
-        ratio = to_rate / from_rate
-        n_samples = int(len(audio) * ratio)
-        indices = np.linspace(0, len(audio) - 1, n_samples)
-        return np.interp(indices, np.arange(len(audio)), audio)
+        return resampy.resample(audio, from_rate, to_rate).astype(np.float32)
+    except Exception:
+        pass
+
+    # 4. Interpolación lineal de emergencia
+    ratio = to_rate / from_rate
+    n_samples = int(len(audio) * ratio)
+    indices = np.linspace(0, len(audio) - 1, n_samples)
+    return np.interp(indices, np.arange(len(audio)), audio).astype(np.float32)
+
+
+# Alias para máxima claridad y compatibilidad
+fast_resample = resample_audio

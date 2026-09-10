@@ -1,6 +1,6 @@
 import soundfile as sf
-import resampy
 import numpy as np
+from utils.audio import resample_audio
 
 def read_audio_file(file_path):
     # 使用soundfile库的read函数读取音频文件
@@ -8,8 +8,8 @@ def read_audio_file(file_path):
     return audio, sample_rate
 
 def change_sample_rate(audio, current_rate, target_rate):
-    # 使用resampy库的resample函数改变采样率
-    new_audio = resampy.resample(audio, current_rate, target_rate)
+    # Usar resample_audio acelerado
+    new_audio = resample_audio(audio, current_rate, target_rate)
     return new_audio, target_rate
 
 def change_channels(audio, current_channels, target_channels):

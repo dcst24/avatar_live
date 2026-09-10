@@ -12,8 +12,8 @@ import time
 import re
 import torch
 import numpy as np
-import resampy
 
+from utils.audio import resample_audio
 from utils.logger import logger
 from .base_tts import BaseTTS, State
 from registry import register
@@ -35,8 +35,10 @@ def normalize_text_for_tts(text: str) -> str:
     # 1. Porcentajes
     text = re.sub(r'(\d+)\s*%', r'\1 por ciento', text)
 
-    # 2. Convertir precios con signo $ a pesos (ej: $599.990 -> 599.990 pesos)
-    text = re.sub(r'\$(\d[\d\.]*)\s*(?:pesos)?', r'\1 pesos', text)
+    # 2. Convertir precios con signo $ o CLP a pesos (ej: $ 599.990 -> 599.990 pesos)
+    text = re.sub(r'\$\s*(\d[\d\.]*)\s*(?:pesos)?', r'\1 pesos', text)
+    text = re.sub(r'(?:CLP|clp)\s*(\d[\d\.]*)', r'\1 pesos', text)
+    text = re.sub(r'(\d[\d\.]*)\s*(?:CLP|clp)', r'\1 pesos', text)
 
     # 3. Flechas
     text = re.sub(r'[→⇒➜➞➝➔]|->|=>|<-|<=|↔', ' ', text)
@@ -173,11 +175,11 @@ class KokoroTTS(BaseTTS):
                 if audio_np.ndim > 1:
                     audio_np = audio_np.squeeze()
 
-                # Resamplear de 24kHz → 16kHz (sample_rate del sistema)
-                audio_16k = resampy.resample(
+                # Resamplear de 24kHz → 16kHz de alta velocidad (resample_poly polifásico / torchaudio)
+                audio_16k = resample_audio(
                     audio_np,
-                    sr_orig=self.KOKORO_SAMPLE_RATE,
-                    sr_new=self.sample_rate
+                    from_rate=self.KOKORO_SAMPLE_RATE,
+                    to_rate=self.sample_rate
                 )
 
                 # Concatenar con el sobrante del segmento anterior
