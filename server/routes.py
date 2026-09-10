@@ -77,6 +77,9 @@ async def human(request):
             return json_error("session not found")
 
         if params.get('interrupt'):
+            abort_gen = request.app.get("abort_generation")
+            if abort_gen and sessionid:
+                abort_gen(sessionid)
             avatar_session.flush_talk()
 
         datainfo = {}
@@ -134,6 +137,9 @@ async def interrupt_talk(request):
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
             return json_error("session not found")
+        abort_gen = request.app.get("abort_generation")
+        if abort_gen and sessionid:
+            abort_gen(sessionid)
         avatar_session.flush_talk()
         return json_ok()
     except Exception as e:

@@ -186,7 +186,13 @@ class BaseAvatar:
             self.tts.flush_talk()
         if hasattr(self, 'asr') and hasattr(self.asr, 'flush_talk'):
             self.asr.flush_talk()
-        self.custom_audiotype = 0  
+        self.custom_audiotype = 0
+        if hasattr(self, 'res_frame_queue'):
+            with self.res_frame_queue.mutex:
+                self.res_frame_queue.queue.clear()
+        if hasattr(self, 'output') and hasattr(self.output, 'purge'):
+            self.output.purge()
+        self.speaking = False
 
     # def flush(self):
     #     self.flush_talk()

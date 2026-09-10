@@ -38,5 +38,9 @@ class WebRTCOutput(BaseOutput):
             return self._player.get_buffer_size()
         return 0
 
+    def purge(self) -> None:
+        if self._player and hasattr(self._player, 'purge'):
+            self._player.purge()
+
     def stop(self) -> None:
         pass

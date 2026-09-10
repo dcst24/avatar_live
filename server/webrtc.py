@@ -161,6 +161,11 @@ class PlayerStreamTrack(MediaStreamTrack):
                 self.totaltime=0
         return frame
     
+    def purge(self):
+        """Purga todos los frames pendientes en cola para corte inmediato."""
+        with self._queue.mutex:
+            self._queue.queue.clear()
+
     def stop(self):
         super().stop()
         # Drain & delete remaining frames
@@ -196,6 +201,13 @@ class HumanPlayer:
         self.__container = avatar_session
         if hasattr(self.__container, 'output'):
             self.__container.output._player = self
+
+    def purge(self):
+        """Purga buffers de video y audio WebRTC de forma instantánea."""
+        if self.__video:
+            self.__video.purge()
+        if self.__audio:
+            self.__audio.purge()
 
     def push_video(self, frame):
         from av import VideoFrame

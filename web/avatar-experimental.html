@@ -165,10 +165,10 @@
             }
         }
 
-        /* ── Transcript overlay (sobre el video, arriba-izquierda) */
+        /* ── Transcript overlay (sobre el video, arriba del botón stop) */
         #transcript-wrap {
             position: absolute;
-            bottom: 36px;
+            bottom: 74px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 20;
@@ -221,7 +221,83 @@
             color: var(--text-muted);
         }
 
-        
+        /* ── Botón STOP Avatar (corte manual inmediato) ───────────── */
+        #btn-stop-talk {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%) scale(0.92);
+            z-index: 35;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 9px 20px;
+            border-radius: 999px;
+            border: 1px solid rgba(239, 68, 68, 0.45);
+            background: rgba(24, 15, 20, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            color: #ffffff;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            visibility: hidden;
+            transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.2);
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #btn-stop-talk .stop-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ef4444;
+            transition: transform 0.2s ease;
+        }
+
+        #btn-stop-talk .stop-label {
+            line-height: 1;
+        }
+
+        /* Cuando el avatar está hablando o pensando, el botón se activa con animación */
+        body.state-speaking #btn-stop-talk,
+        body.state-thinking #btn-stop-talk {
+            opacity: 1;
+            pointer-events: auto;
+            visibility: visible;
+            transform: translateX(-50%) scale(1);
+            animation: pulse-stop-glow 2s ease-in-out infinite;
+        }
+
+        #btn-stop-talk:hover {
+            background: rgba(239, 68, 68, 0.35);
+            border-color: rgba(239, 68, 68, 0.8);
+            box-shadow: 0 6px 28px rgba(239, 68, 68, 0.45), 0 0 12px rgba(239, 68, 68, 0.3);
+            transform: translateX(-50%) scale(1.05);
+        }
+
+        #btn-stop-talk:hover .stop-icon {
+            transform: scale(1.15);
+        }
+
+        #btn-stop-talk:active {
+            transform: translateX(-50%) scale(0.96);
+            background: rgba(239, 68, 68, 0.5);
+        }
+
+        @keyframes pulse-stop-glow {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.2);
+            }
+            50% {
+                box-shadow: 0 4px 26px rgba(239, 68, 68, 0.55), 0 0 16px rgba(239, 68, 68, 0.4);
+            }
+        }
 
         /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
         #btn-mic {
@@ -925,7 +1001,7 @@
                 <span id="status-text">Conectando…</span>
             </div>
 
-            <!-- Transcript (sobre video, encima del mic) -->
+            <!-- Transcript (sobre video, encima del botón stop) -->
             <div id="transcript-wrap">
                 <div id="user-line" class="transcript-line" style="display:none">
                     <span class="transcript-label">Tú</span>
@@ -933,7 +1009,15 @@
                 </div>
             </div>
 
-            
+            <!-- Botón STOP Avatar (flotante, visible cuando habla o piensa) -->
+            <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú">
+                <span class="stop-icon">
+                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                        <rect x="5" y="5" width="14" height="14" rx="2" />
+                    </svg>
+                </span>
+                <span class="stop-label">Parar avatar</span>
+            </button>
 
             <!-- Botón conectar (discreto, bottom-left) -->
             <button id="btn-connect" onclick="connectRTC()">
@@ -1431,42 +1515,58 @@
                     wakeUpModel();
                     stopAlwaysOnListening();
 
-                    const llmRes = await fetch('/human', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: llmContextMsg,
-                            type: 'chat',
-                            interrupt: true,
-                            stream: true,
-                            sessionid: String(sessionid)
-                        })
-                    });
+                    try {
+                        if (_activeLLMAbortController) {
+                            try { _activeLLMAbortController.abort(); } catch (e) {}
+                        }
+                        _activeLLMAbortController = new AbortController();
 
-                    if (llmRes.body) {
-                        const reader = llmRes.body.getReader();
-                        const decoder = new TextDecoder('utf-8');
-                        let fullText = '';
-                        let avatarBubble = null;
+                        const llmRes = await fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                text: llmContextMsg,
+                                type: 'chat',
+                                interrupt: true,
+                                stream: true,
+                                sessionid: String(sessionid)
+                            }),
+                            signal: _activeLLMAbortController.signal
+                        });
 
-                        while (true) {
-                            const { done, value } = await reader.read();
-                            if (done) break;
-                            const chunk = decoder.decode(value, { stream: true });
-                            fullText += chunk;
-                            if (!avatarBubble && fullText.trim()) {
-                                avatarBubble = addChatBubble('avatar', '');
+                        if (llmRes.body) {
+                            const reader = llmRes.body.getReader();
+                            const decoder = new TextDecoder('utf-8');
+                            let fullText = '';
+                            let avatarBubble = null;
+
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+                                const chunk = decoder.decode(value, { stream: true });
+                                fullText += chunk;
+                                if (!avatarBubble && fullText.trim()) {
+                                    avatarBubble = addChatBubble('avatar', '');
+                                }
+                                if (avatarBubble) {
+                                    avatarBubble.textContent = normalizarTexto(fullText);
+                                    const container = document.getElementById('chat-container');
+                                    if (container) container.scrollTop = container.scrollHeight;
+                                }
                             }
                             if (avatarBubble) {
                                 avatarBubble.textContent = normalizarTexto(fullText);
-                                const container = document.getElementById('chat-container');
-                                if (container) container.scrollTop = container.scrollHeight;
                             }
+                            LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
                         }
-                        if (avatarBubble) {
-                            avatarBubble.textContent = normalizarTexto(fullText);
+                    } catch (e) {
+                        if (e && e.name === 'AbortError') {
+                            LOG('handleBarcodeScan: streaming cancelado por STOP/interrupción');
+                            return;
                         }
-                        LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
+                        ERR('handleBarcodeScan error:', e);
+                    } finally {
+                        _activeLLMAbortController = null;
                     }
 
                 } else {
@@ -1752,6 +1852,11 @@
                             if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
+                            // Pausar reconocimiento mientras el avatar habla para evitar retroalimentación
+                            if (isListening || _alwaysOnActive) {
+                                LOG('[Speaking Monitor] Avatar comenzó a hablar → pausando micrófono');
+                                stopAlwaysOnListening();
+                            }
                             if (_pendingAvatarBubbleText) {
                                 clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -2190,6 +2295,11 @@
             }
 
             try {
+                if (_activeLLMAbortController) {
+                    try { _activeLLMAbortController.abort(); } catch (e) {}
+                }
+                _activeLLMAbortController = new AbortController();
+
                 const res = await fetch('/human', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2199,7 +2309,8 @@
                         interrupt: true,
                         stream: true,
                         sessionid: String(sessionid)
-                    })
+                    }),
+                    signal: _activeLLMAbortController.signal
                 });
                 LOG('sendToLLM: respuesta status', res.status);
                 
@@ -2238,30 +2349,73 @@
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
 
             } catch (err) {
+                if (err && err.name === 'AbortError') {
+                    LOG('sendToLLM: streaming cancelado por STOP/interrupción');
+                    return;
+                }
                 ERR('sendToLLM: error de red o streaming:', err);
                 setState('ready', 'Error de red — intenta de nuevo');
+            } finally {
+                _activeLLMAbortController = null;
             }
         }
 
-        // ─── Interrumpir avatar ────────────────────────────────────────────────────
-        async function interruptAvatar() {
-            LOG('interruptAvatar');
+        // ─── Botón STOP / Interrumpir Avatar ────────────────────────────────────────
+        let _activeLLMAbortController = null;
+
+        async function stopAvatarTalking() {
+            LOG('stopAvatarTalking: interrumpiendo avatar inmediatamente');
+
+            // 1. Abortar cualquier petición o streaming activo del LLM
+            if (_activeLLMAbortController) {
+                try {
+                    _activeLLMAbortController.abort();
+                    LOG('stopAvatarTalking: LLM stream abortado');
+                } catch (e) {}
+                _activeLLMAbortController = null;
+            }
+
+            // 2. Limpiar timers de watchdog y burbujas pendientes
+            _clearSpeakingWatchdog();
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = null;
+
+            // 3. Forzar inmediatamente estado visual a reposo
+            isSpeaking = false;
+            const wrap = document.getElementById('avatar-wrap');
+            if (wrap) wrap.classList.remove('avatar-speaking');
+
+            // 4. Notificar al backend para purgar todas las colas de audio, video y LLM
             const sessionid = document.getElementById('sessionid').value;
             try {
-                await fetch('/interrupt_talk', {
+                fetch('/interrupt_talk', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sessionid: String(sessionid) })
-                });
-                LOG('interruptAvatar: solicitud enviada');
-            } catch (e) { WARN('interruptAvatar: error de red', e); }
+                }).catch(e => WARN('stopAvatarTalking error en /interrupt_talk:', e));
+            } catch (e) {
+                WARN('stopAvatarTalking excepción:', e);
+            }
+
+            // 5. Dar paso inmediato al usuario para hablar
+            LOG('stopAvatarTalking: activando escucha para el usuario');
+            if (_conversationAwake) {
+                setState('listening', 'Escuchando pregunta…');
+                scheduleFollowUp();
+            } else {
+                setState('listening', 'Esperando activación…');
+            }
 
             setTimeout(() => {
-                LOG('interruptAvatar: reiniciando always-on listening tras interrupción');
-                isSpeaking = false;
-                startAlwaysOnListening();
-            }, 300);
+                if (!isListening) {
+                    _alwaysOnActive = false;
+                    startAlwaysOnListening();
+                }
+            }, 80);
         }
+
+        // Compatibilidad con invocaciones existentes
+        const interruptAvatar = stopAvatarTalking;
 
         // ══════════════════════════════════════════════════════════════════════════════
         // CARRUSEL DE OFERTAS

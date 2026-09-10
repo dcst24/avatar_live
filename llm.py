@@ -77,6 +77,30 @@ OLLAMA_URL   = "http://200.29.189.27:65535/api/chat"
 OLLAMA_MODEL = "qwen3-vl:32b-instruct"
 OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "4096"))
 
+# ─── Control cooperativo de cancelación de streaming por sesión ──────────────
+_cancelled_sessions: set = set()
+_cancelled_sessions_lock = threading.Lock()
+
+def abort_generation(sessionid: str):
+    """Marca la sesión para abortar inmediatamente el streaming del LLM."""
+    if not sessionid:
+        return
+    with _cancelled_sessions_lock:
+        _cancelled_sessions.add(sessionid)
+    logger.info(f"[LLM] Generación abortada para sesión: {sessionid}")
+
+def _is_cancelled(sessionid: str) -> bool:
+    if not sessionid:
+        return False
+    with _cancelled_sessions_lock:
+        return sessionid in _cancelled_sessions
+
+def _clear_cancellation(sessionid: str):
+    if not sessionid:
+        return
+    with _cancelled_sessions_lock:
+        _cancelled_sessions.discard(sessionid)
+
 # ─── Carga dinámica del catálogo de productos (BDD) ──────────────────────────
 _BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
 _BDD: dict = {}
@@ -479,6 +503,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
     Mantiene historial de conversación por sesión.
     """
     sessionid: str = datainfo.get("sessionid", "")
+    _clear_cancellation(sessionid)
     try:
         start = time.perf_counter()
         logger.info(f"[LLM Stream] Enviando mensaje (sesión={sessionid}): {message}")
@@ -499,6 +524,9 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         full_text = ""
 
         for line in response.iter_lines():
+            if _is_cancelled(sessionid):
+                logger.info(f"[LLM Stream] Cancelación detectada en iteración para sesión: {sessionid}")
+                break
             if not line:
                 continue
 
@@ -514,6 +542,9 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 # Rinde el token de inmediato para la interfaz de chat en tiempo real
                 yield content
 
+                if _is_cancelled(sessionid):
+                    break
+
                 # Dividir para el TTS del avatar solo si el buffer es suficientemente largo (>= 120 chars)
                 # y alcanza un límite de oración natural, evitando micro-cortes a mitad de respuestas cortas
                 if len(chunk_buf) >= MIN_CHUNK_LEN and _is_sentence_boundary(chunk_buf):
@@ -526,19 +557,21 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar cualquier texto restante al avatar
-        if chunk_buf.strip():
+        # Enviar cualquier texto restante al avatar si no fue cancelado
+        if not _is_cancelled(sessionid) and chunk_buf.strip():
             last_frag = normalizar(chunk_buf.strip())
             if last_frag:
                 logger.info(f"[LLM Stream] -> avatar (final): {last_frag}")
                 avatar_session.put_msg_txt(last_frag, datainfo)
 
-        # Guardar turno completo en historial (normalizado)
-        _append_to_history(sessionid, message, normalizar(full_text))
+        if not _is_cancelled(sessionid) and full_text:
+            # Guardar turno completo en historial (normalizado)
+            _append_to_history(sessionid, message, normalizar(full_text))
 
         elapsed = time.perf_counter() - start
-        logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s, total chars={len(full_text)}")
+        logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s (cancelado={_is_cancelled(sessionid)}), total chars={len(full_text)}")
 
     except Exception as e:
-        logger.exception("[LLM Stream] Error:")
-        yield f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"
+        if not _is_cancelled(sessionid):
+            logger.exception("[LLM Stream] Error:")
+            yield f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"
