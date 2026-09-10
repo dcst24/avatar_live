@@ -34,7 +34,12 @@ def parse_args():
                         help="avatar model: musetalk/wav2lip/ultralight")
     parser.add_argument('--avatar_id', type=str, default='wav2lip256_avatar1',
                         help="avatar id in data/avatars")
-    parser.add_argument('--batch_size', type=int, default=16, help="infer batch")
+    parser.add_argument('--batch_size', type=int, default=16,
+                        help="infer batch (16 para mayor throughput GPU, 8 para menor latencia inicial de respuesta)")
+    parser.add_argument('--fp16', action='store_true', default=True,
+                        help="usar precisión media (FP16) con autocast en GPU para mayor velocidad y menor latencia")
+    parser.add_argument('--no_fp16', dest='fp16', action='store_false',
+                        help="desactivar FP16 y forzar inferencia en FP32")
     parser.add_argument('--modelres', type=int, default=192)
     parser.add_argument('--modelfile', type=str, default='')
 

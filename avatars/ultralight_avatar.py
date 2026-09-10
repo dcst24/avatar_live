@@ -171,16 +171,16 @@ class LightReal(BaseAvatar):
         pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
         return pred
     
-    def paste_back_frame(self,pred_frame,idx:int):
+    def paste_back_frame(self, pred_frame, idx: int):
         bbox = self.coord_list_cycle[idx]
-        combine_frame = copy.deepcopy(self.frame_list_cycle[idx])
+        combine_frame = self.frame_list_cycle[idx].copy()
         x1, y1, x2, y2 = bbox
 
         crop_img = self.face_list_cycle[idx]
         crop_img_ori = crop_img.copy()
 
         crop_img_ori[4:164, 4:164] = pred_frame.astype(np.uint8)
-        crop_img_ori = cv2.resize(crop_img_ori, (x2-x1,y2-y1))
+        crop_img_ori = cv2.resize(crop_img_ori, (x2 - x1, y2 - y1))
         combine_frame[y1:y2, x1:x2] = crop_img_ori
         return combine_frame
 

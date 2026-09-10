@@ -152,15 +152,15 @@ class MuseReal(BaseAvatar):
         pred = self.vae.decode_latents(pred_latents)
         return pred
 
-    def paste_back_frame(self,pred_frame,idx:int):
+    def paste_back_frame(self, pred_frame, idx: int):
         bbox = self.coord_list_cycle[idx]
-        ori_frame = copy.deepcopy(self.frame_list_cycle[idx])
+        ori_frame = self.frame_list_cycle[idx].copy()
         x1, y1, x2, y2 = bbox
 
-        res_frame = cv2.resize(pred_frame.astype(np.uint8),(x2-x1,y2-y1))
+        res_frame = cv2.resize(pred_frame.astype(np.uint8), (x2 - x1, y2 - y1))
         mask = self.mask_list_cycle[idx]
         mask_crop_box = self.mask_coords_list_cycle[idx]
 
-        combine_frame = get_image_blending(ori_frame,res_frame,bbox,mask,mask_crop_box)
+        combine_frame = get_image_blending(ori_frame, res_frame, bbox, mask, mask_crop_box)
         return combine_frame
             
