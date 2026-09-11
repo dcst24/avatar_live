@@ -1,16 +1,22 @@
 import logging
- 
-# 配置日志器
+import sys
+
+# Configuración de logger robusto compatible con Windows (CP1252 / UTF-8)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-fhandler = logging.FileHandler('livetalking.log')  # 可以改为StreamHandler输出到控制台或多个Handler组合使用等。
+
+# FileHandler con codificación explícita UTF-8 y reemplazo de caracteres no mapeables
+fhandler = logging.FileHandler('livetalking.log', encoding='utf-8', errors='replace')
 fhandler.setFormatter(formatter)
 fhandler.setLevel(logging.INFO)
 logger.addHandler(fhandler)
 
-# handler = logging.StreamHandler()
-# handler.setLevel(logging.DEBUG)
-# sformatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-# handler.setFormatter(sformatter)
-# logger.addHandler(handler)
+# StreamHandler seguro para terminal / consola
+try:
+    chandler = logging.StreamHandler(sys.stdout)
+    chandler.setLevel(logging.INFO)
+    chandler.setFormatter(formatter)
+    logger.addHandler(chandler)
+except Exception:
+    pass

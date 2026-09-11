@@ -1887,12 +1887,14 @@
                                 }
                             }
 
+                            // Intervalo de guardia acústica (350ms): permite que el audio en los parlantes
+                            // y la reverberación en la sala se extingan completamente antes de reabrir el micrófono
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 80);
+                            }, 350);
                         }
                     }
                 } catch (e) {
@@ -2274,6 +2276,7 @@
 
         // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
         async function sendGreetingAsAvatar() {
+            stopAlwaysOnListening();
             const greetingText = _randomGreeting();
             LOG(`sendGreetingAsAvatar: "${greetingText}"`);
             setState('thinking', 'Pensando…');
@@ -2298,6 +2301,7 @@
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
+            stopAlwaysOnListening();
             LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');
             setUserText(text, false);
@@ -2419,10 +2423,22 @@
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = null;
 
-            // 3. Forzar inmediatamente estado visual a reposo
+            // 3. Forzar inmediatamente estado visual a reposo y silenciar el audio remanente de los altavoces
             isSpeaking = false;
             const wrap = document.getElementById('avatar-wrap');
             if (wrap) wrap.classList.remove('avatar-speaking');
+
+            // Silenciar temporalmente el elemento de video para cortar el audio residual de los parlantes al instante
+            const videoEl = document.getElementById('video');
+            if (videoEl && _audioUnlocked) {
+                videoEl.muted = true;
+                setTimeout(() => {
+                    if (videoEl && _audioUnlocked) videoEl.muted = false;
+                }, 200);
+            }
+
+            // Asegurar que el micrófono esté detenido de inmediato
+            stopAlwaysOnListening();
 
             // 4. Notificar al backend para purgar todas las colas de audio, video y LLM
             const sessionid = document.getElementById('sessionid').value;
@@ -2443,12 +2459,13 @@
                 scheduleFollowUp();
             }
 
+            // Pausa acústica de seguridad (250ms) para que el audio corte en seco antes de abrir el micrófono
             setTimeout(() => {
                 if (!isListening && isConnected && !isSpeaking) {
                     _alwaysOnActive = false;
                     startAlwaysOnListening();
                 }
-            }, 80);
+            }, 250);
         }
 
         // Compatibilidad con invocaciones existentes
