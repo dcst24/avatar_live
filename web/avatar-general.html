@@ -1204,6 +1204,16 @@
                 const elapsed = Date.now() - _recStartMs;
                 ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
 
+                if (e.error === 'aborted') {
+                    LOG('SpeechRecognition abortado programáticamente (pausa normal de micro)');
+                    stopListening();
+                    return;
+                }
+                if (e.error === 'no-speech') {
+                    LOG('no-speech: timeout normal sin voz');
+                    stopListening();
+                    return;
+                }
                 if (e.error === 'audio-capture') {
                     _audioCaptureErrors++;
                     ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
@@ -1215,10 +1225,8 @@
                     _networkSpeechErrors++;
                     ERR('network error #' + _networkSpeechErrors + ': SpeechRecognition no puede conectar a los servidores de voz.');
                     setState('ready', 'Error de red STT — reintenta o verifica soporte de voz');
-                } else if (e.error !== 'no-speech') {
-                    setState('ready', `⚠ Error: ${e.error}`);
                 } else {
-                    LOG('no-speech: timeout normal sin voz');
+                    setState('ready', `⚠ Error: ${e.error}`);
                 }
                 stopListening();
             };

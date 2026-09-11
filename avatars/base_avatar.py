@@ -202,35 +202,25 @@ class BaseAvatar:
 
     def is_speaking(self) -> bool:
         """
-        Determina con precisión milimétrica si el avatar está emitiendo habla o tiene
-        audio en tránsito en cualquier parte de la canalización (TTS, ASR, inferencia,
-        cola de renderizado o buffer WebRTC).
+        Determina con precisión si el avatar está emitiendo habla real o tiene
+        audio de voz en proceso de generación/reproducción.
         """
-        # 1. Si el renderizador actualmente tiene frames de habla activos
+        # 1. Si el renderizador actualmente tiene frames de habla activos (audio type == 0)
         if self.speaking:
             return True
 
-        # 2. Si el búfer de TTS tiene mensajes en cola o está en proceso de síntesis activa
+        # 2. Si el búfer de TTS tiene mensajes en cola o está sintetizando voz
         if hasattr(self, 'tts'):
             if self.tts.msgqueue.qsize() > 0 or getattr(self.tts, 'is_synthesizing', False):
                 return True
 
-        # 3. Si ASR aún tiene chunks de audio en cola de entrada o salida
-        if hasattr(self, 'asr'):
-            if self.asr.queue.qsize() > 0 or self.asr.output_queue.qsize() > 0:
-                return True
-
-        # 4. Si la cola de frames generados (video/audio) aún tiene frames pendientes
-        if self.res_frame_queue.qsize() > 0:
+        # 3. Si la cola de entrada de ASR tiene chunks de voz pendientes generados por TTS
+        if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
-        # 5. Si la salida WebRTC aún tiene frames esperando ser transmitidos
-        if hasattr(self.output, 'get_buffer_size') and self.output.get_buffer_size() > 0:
-            return True
-
-        # 6. Histéresis acústica de seguridad (350ms): tiempo para que el audio emitido
-        #    por WebRTC termine de salir por los parlantes físicos antes de habilitar el micro
-        if (time.time() - getattr(self, '_last_speech_time', 0.0)) < 0.35:
+        # 4. Histéresis acústica de seguridad (250ms): tiempo para que el último frame
+        #    de voz emitido termine de salir por los parlantes físicos antes de declarar silencio
+        if (time.time() - getattr(self, '_last_speech_time', 0.0)) < 0.25:
             return True
 
         return False
