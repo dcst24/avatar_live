@@ -352,7 +352,11 @@ class BaseAvatar:
             is_all_silence = True
             audio_frames: list[AudioFrameData] = []
             for _ in range(self.batch_size * 2):
-                audioframe:AudioFrameData = self.asr.output_queue.get()
+                try:
+                    audioframe: AudioFrameData = self.asr.output_queue.get(block=True, timeout=0.05)
+                except queue.Empty:
+                    # En caso de purga por STOP o vaciado, generar frame de silencio sintético para no colgar el hilo
+                    audioframe = AudioFrameData(data=np.zeros(self.chunk, dtype=np.float32), type=1, userdata={})
                 if audioframe.type == 0:
                     is_all_silence = False               
                 audio_frames.append(audioframe)
@@ -399,11 +403,18 @@ class BaseAvatar:
 
         self.output.start()
         
+        fallback_idx = 0
         while not quit_event.is_set():
             try:
                 audio_frames: list[AudioFrameData]
-                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=1)
+                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=0.04)
             except queue.Empty:
+                # Si la cola está vacía (ej: tras purga por STOP), emitir un frame idle para no dejar a WebRTC sin frames
+                if hasattr(self, 'frame_list_cycle') and len(self.frame_list_cycle) > 0:
+                    fallback_idx = (fallback_idx + 1) % len(self.frame_list_cycle)
+                    idle_frame = self.frame_list_cycle[fallback_idx].copy()
+                    cv2.putText(idle_frame, "LiveTalking", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (128,128,128), 1)
+                    self.output.push_video_frame(idle_frame)
                 continue
             
             # 检测状态变化

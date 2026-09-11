@@ -25,10 +25,10 @@
       "id": "smartphones",
       "nombre": "Tecnologia - Smartphones",
       "ubicacion_tienda": {
-        "piso": 2,
+        "piso": 3,
         "sector": "Tecno",
         "pasillo": "T-01",
-        "referencia": "Piso 2, sector Tecnologia, pasillo T-01 al fondo a la izquierda"
+        "referencia": "Piso 3, sector Tecnologia, pasillo T-01"
       },
       "productos": [
         {
@@ -52,13 +52,13 @@
           "codigo_barra": "780100100001",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -81,13 +81,13 @@
           "codigo_barra": "780100100002",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -110,13 +110,13 @@
           "codigo_barra": "780100100003",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -141,13 +141,13 @@
           "codigo_barra": "780100100004",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -171,13 +171,13 @@
           "codigo_barra": "780100100005",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -201,13 +201,13 @@
           "codigo_barra": "780100100006",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -230,13 +230,13 @@
           "codigo_barra": "780100100007",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         },
         {
@@ -260,13 +260,13 @@
           "codigo_barra": "780100100008",
           "articulo": "El",
           "pasillo": "Pasillo T-01 - Smartphones",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-01",
-            "x": 15,
-            "y": 20
+            "x": 18,
+            "y": 25
           }
         }
       ]
@@ -275,10 +275,10 @@
       "id": "television",
       "nombre": "Tecnologia - Televisores",
       "ubicacion_tienda": {
-        "piso": 2,
+        "piso": 3,
         "sector": "Tecno",
         "pasillo": "T-02",
-        "referencia": "Piso 2, sector Tecnologia, pasillo T-02 al centro. Las pantallas estan exhibidas en la pared lateral"
+        "referencia": "Piso 3, sector Tecnologia, pasillo T-02"
       },
       "productos": [
         {
@@ -303,13 +303,13 @@
           "codigo_barra": "780150100001",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         },
         {
@@ -334,13 +334,13 @@
           "codigo_barra": "780150100002",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         },
         {
@@ -365,13 +365,13 @@
           "codigo_barra": "780150100003",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         },
         {
@@ -395,13 +395,13 @@
           "codigo_barra": "780150100004",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         },
         {
@@ -425,13 +425,13 @@
           "codigo_barra": "780150100005",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         },
         {
@@ -456,13 +456,13 @@
           "codigo_barra": "780150100006",
           "articulo": "El",
           "pasillo": "Pasillo T-02 - Televisores",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-02",
-            "x": 25,
-            "y": 20
+            "x": 32,
+            "y": 25
           }
         }
       ]
@@ -471,10 +471,10 @@
       "id": "computacion",
       "nombre": "Tecnologia - Computacion y Tablets",
       "ubicacion_tienda": {
-        "piso": 2,
+        "piso": 3,
         "sector": "Tecno",
         "pasillo": "T-03",
-        "referencia": "Piso 2, sector Tecnologia, pasillo T-03. Laptops exhibidas sobre mesones en el centro"
+        "referencia": "Piso 3, sector Tecnologia, pasillo T-03"
       },
       "productos": [
         {
@@ -497,14 +497,14 @@
           ],
           "codigo_barra": "780160100001",
           "articulo": "El",
-          "pasillo": "Pasillo T-03 - Computacion",
-          "piso": 2,
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-03",
-            "x": 35,
-            "y": 20
+            "x": 18,
+            "y": 45
           }
         },
         {
@@ -528,14 +528,14 @@
           ],
           "codigo_barra": "780160100002",
           "articulo": "El",
-          "pasillo": "Pasillo T-03 - Computacion",
-          "piso": 2,
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-03",
-            "x": 35,
-            "y": 20
+            "x": 18,
+            "y": 45
           }
         },
         {
@@ -558,14 +558,14 @@
           ],
           "codigo_barra": "780160100003",
           "articulo": "El",
-          "pasillo": "Pasillo T-03 - Computacion",
-          "piso": 2,
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-03",
-            "x": 35,
-            "y": 20
+            "x": 18,
+            "y": 45
           }
         },
         {
@@ -589,14 +589,14 @@
           ],
           "codigo_barra": "780160100004",
           "articulo": "La",
-          "pasillo": "Pasillo T-03 - Computacion",
-          "piso": 2,
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-03",
-            "x": 35,
-            "y": 20
+            "x": 18,
+            "y": 45
           }
         },
         {
@@ -619,14 +619,14 @@
           ],
           "codigo_barra": "780160100005",
           "articulo": "El",
-          "pasillo": "Pasillo T-03 - Computacion",
-          "piso": 2,
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-03",
-            "x": 35,
-            "y": 20
+            "x": 18,
+            "y": 45
           }
         }
       ]
@@ -635,10 +635,10 @@
       "id": "audio_gaming",
       "nombre": "Tecnologia - Audio y Gaming",
       "ubicacion_tienda": {
-        "piso": 2,
+        "piso": 3,
         "sector": "Tecno",
         "pasillo": "T-04",
-        "referencia": "Piso 2, sector Tecnologia, pasillo T-04. Audifonos exhibidos en display interactivo"
+        "referencia": "Piso 3, sector Tecnologia, pasillo T-04"
       },
       "productos": [
         {
@@ -662,14 +662,14 @@
           ],
           "codigo_barra": "780170100001",
           "articulo": "Los",
-          "pasillo": "Pasillo T-04 - Audio",
-          "piso": 2,
+          "pasillo": "Pasillo T-04 - Audio y Gaming",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -693,14 +693,14 @@
           ],
           "codigo_barra": "780170100002",
           "articulo": "Los",
-          "pasillo": "Pasillo T-04 - Audio",
-          "piso": 2,
+          "pasillo": "Pasillo T-04 - Audio y Gaming",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -724,14 +724,14 @@
           ],
           "codigo_barra": "780170100003",
           "articulo": "El",
-          "pasillo": "Pasillo T-04 - Audio",
-          "piso": 2,
+          "pasillo": "Pasillo T-04 - Audio y Gaming",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -756,13 +756,13 @@
           "codigo_barra": "780170100004",
           "articulo": "La",
           "pasillo": "Pasillo T-04 - Audio y Gaming",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -787,13 +787,13 @@
           "codigo_barra": "780170100005",
           "articulo": "La",
           "pasillo": "Pasillo T-04 - Audio y Gaming",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -818,13 +818,13 @@
           "codigo_barra": "780170100006",
           "articulo": "El",
           "pasillo": "Pasillo T-04 - Audio y Gaming",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -850,14 +850,14 @@
           ],
           "codigo_barra": "780170100007",
           "articulo": "El",
-          "pasillo": "Pasillo T-04 - Audio",
-          "piso": 2,
+          "pasillo": "Pasillo T-04 - Audio y Gaming",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -882,14 +882,14 @@
           ],
           "codigo_barra": "780170100008",
           "articulo": "El",
-          "pasillo": "Pasillo T-04 - Audio",
-          "piso": 2,
+          "pasillo": "Pasillo T-04 - Audio y Gaming",
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         },
         {
@@ -916,13 +916,13 @@
           "codigo_barra": "780170100009",
           "articulo": "El",
           "pasillo": "Pasillo T-04 - Audio y Gaming",
-          "piso": 2,
+          "piso": 3,
           "posicion_mapa": {
-            "piso": 2,
+            "piso": 3,
             "sector": "Tecno",
             "pasillo": "T-04",
-            "x": 42,
-            "y": 20
+            "x": 32,
+            "y": 45
           }
         }
       ]
@@ -2557,10 +2557,10 @@
       "id": "decohogar",
       "nombre": "Hogar - Deco y Ropa de Cama",
       "ubicacion_tienda": {
-        "piso": 3,
-        "sector": "Deco Hogar",
-        "pasillo": "H-12",
-        "referencia": "Piso 3, sector Deco Hogar, pasillo H-12. Ropa de cama exhibida en mesas centrales"
+        "piso": 2,
+        "sector": "Hogar",
+        "pasillo": "DH-01",
+        "referencia": "Piso 2, sector Hogar y Decohogar, pasillo DH-01"
       },
       "productos": [
         {
@@ -2584,14 +2584,14 @@
           ],
           "codigo_barra": "780700100001",
           "articulo": "El",
-          "pasillo": "Pasillo H-12 - Deco Hogar",
-          "piso": 3,
+          "pasillo": "Pasillo DH-01 - Deco Hogar y Ropa de Cama",
+          "piso": 2,
           "posicion_mapa": {
-            "piso": 3,
-            "sector": "Deco Hogar",
-            "pasillo": "H-12",
-            "x": 65,
-            "y": 30
+            "piso": 2,
+            "sector": "Hogar",
+            "pasillo": "DH-01",
+            "x": 75,
+            "y": 25
           }
         },
         {
@@ -2615,14 +2615,14 @@
           ],
           "codigo_barra": "780700100002",
           "articulo": "El",
-          "pasillo": "Pasillo H-12 - Deco Hogar",
-          "piso": 3,
+          "pasillo": "Pasillo DH-01 - Deco Hogar y Ropa de Cama",
+          "piso": 2,
           "posicion_mapa": {
-            "piso": 3,
-            "sector": "Deco Hogar",
-            "pasillo": "H-12",
-            "x": 65,
-            "y": 30
+            "piso": 2,
+            "sector": "Hogar",
+            "pasillo": "DH-01",
+            "x": 75,
+            "y": 25
           }
         },
         {
@@ -2646,14 +2646,14 @@
           ],
           "codigo_barra": "780700100003",
           "articulo": "El",
-          "pasillo": "Pasillo H-12 - Deco Hogar",
-          "piso": 3,
+          "pasillo": "Pasillo DH-01 - Deco Hogar y Ropa de Cama",
+          "piso": 2,
           "posicion_mapa": {
-            "piso": 3,
-            "sector": "Deco Hogar",
-            "pasillo": "H-12",
-            "x": 70,
-            "y": 30
+            "piso": 2,
+            "sector": "Hogar",
+            "pasillo": "DH-01",
+            "x": 75,
+            "y": 25
           }
         }
       ]
@@ -2861,187 +2861,246 @@
             "id": "acceso_principal",
             "nombre": "Acceso Principal / Entrada",
             "x": 50,
-            "y": 95
+            "y": 95,
+            "tipo": "acceso"
+          },
+          {
+            "id": "totem_avatar_p1",
+            "nombre": "Totem Avatar Paris",
+            "x": 50,
+            "y": 88,
+            "tipo": "totem"
           },
           {
             "id": "caja_principal",
             "nombre": "Cajas Piso 1",
             "x": 50,
-            "y": 75
+            "y": 75,
+            "tipo": "caja"
           },
           {
             "id": "modulo_informacion",
             "nombre": "Modulo de Informacion",
             "x": 50,
-            "y": 82
+            "y": 82,
+            "tipo": "servicio"
           },
           {
             "id": "punto_retiro",
             "nombre": "Punto de Retiro en Tienda",
             "x": 82,
-            "y": 80
+            "y": 80,
+            "tipo": "servicio"
           },
           {
             "id": "escaleras_p1",
             "nombre": "Escaleras Mecanicas y Ascensores",
             "x": 50,
-            "y": 55
+            "y": 55,
+            "tipo": "conector_piso"
           },
           {
             "id": "sector_perfumes_mujer",
             "nombre": "Sector Perfumes Mujer (Pasillo B-01)",
             "x": 72,
-            "y": 30
+            "y": 30,
+            "tipo": "departamento",
+            "pasillo": "B-01"
           },
           {
             "id": "sector_perfumes_hombre",
             "nombre": "Sector Perfumes Hombre (Pasillo B-02)",
             "x": 78,
-            "y": 30
+            "y": 30,
+            "tipo": "departamento",
+            "pasillo": "B-02"
           },
           {
             "id": "sector_zapatillas",
             "nombre": "Sector Zapatillas (Pasillo D-06)",
             "x": 18,
-            "y": 28
+            "y": 28,
+            "tipo": "departamento",
+            "pasillo": "D-06"
           },
           {
             "id": "sector_deportes_ropa",
             "nombre": "Ropa Deportiva (Pasillo D-07)",
             "x": 18,
-            "y": 42
+            "y": 42,
+            "tipo": "departamento",
+            "pasillo": "D-07"
           },
           {
             "id": "banos_p1",
             "nombre": "Servicios Higienicos Piso 1",
             "x": 10,
-            "y": 75
+            "y": 75,
+            "tipo": "bano"
           }
         ]
       },
       {
         "piso": 2,
-        "nombre": "Piso 2 - Tecnologia, Moda y Calzado",
+        "nombre": "Piso 2 - Moda, Calzado y Decohogar",
         "puntos_interes": [
           {
             "id": "escaleras_p2",
             "nombre": "Escaleras Mecanicas y Ascensores",
             "x": 50,
-            "y": 55
+            "y": 55,
+            "tipo": "conector_piso"
           },
           {
             "id": "caja_express_p2",
             "nombre": "Caja Express Piso 2",
             "x": 50,
-            "y": 75
+            "y": 75,
+            "tipo": "caja"
           },
           {
             "id": "banos_p2",
             "nombre": "Servicios Higienicos Piso 2",
             "x": 10,
-            "y": 15
-          },
-          {
-            "id": "sector_smartphones",
-            "nombre": "Smartphones (Pasillo T-01)",
-            "x": 15,
-            "y": 20
-          },
-          {
-            "id": "sector_tvs",
-            "nombre": "Televisores (Pasillo T-02)",
-            "x": 25,
-            "y": 20
-          },
-          {
-            "id": "sector_computacion",
-            "nombre": "Computacion y Tablets (Pasillo T-03)",
-            "x": 35,
-            "y": 20
-          },
-          {
-            "id": "sector_audio_gaming",
-            "nombre": "Audio, Gaming y Smartwatches (Pasillo T-04)",
-            "x": 42,
-            "y": 20
+            "y": 15,
+            "tipo": "bano"
           },
           {
             "id": "sector_moda_mujer",
             "nombre": "Moda Mujer (Pasillo M-01)",
-            "x": 65,
-            "y": 20
+            "x": 25,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "M-01"
           },
           {
             "id": "sector_moda_hombre",
             "nombre": "Moda Hombre (Pasillo M-02)",
-            "x": 75,
-            "y": 20
+            "x": 40,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "M-02"
           },
           {
             "id": "sector_calzado",
             "nombre": "Calzado Mujer (Pasillo C-01)",
-            "x": 55,
-            "y": 35
+            "x": 25,
+            "y": 45,
+            "tipo": "departamento",
+            "pasillo": "C-01"
+          },
+          {
+            "id": "sector_deco_hogar",
+            "nombre": "Deco Hogar y Ropa de Cama (Pasillo DH-01)",
+            "x": 75,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "DH-01"
+          },
+          {
+            "id": "sector_muebles_descanso",
+            "nombre": "Muebles y Descanso (Pasillo DH-02)",
+            "x": 75,
+            "y": 45,
+            "tipo": "departamento",
+            "pasillo": "DH-02"
           },
           {
             "id": "probadores_p2",
             "nombre": "Probadores",
             "x": 85,
-            "y": 35
+            "y": 35,
+            "tipo": "servicio"
           }
         ]
       },
       {
         "piso": 3,
-        "nombre": "Piso 3 - Electrohogar, Muebles y Deco",
+        "nombre": "Piso 3 - Tecnologia y Electrohogar",
         "puntos_interes": [
           {
             "id": "escaleras_p3",
             "nombre": "Escaleras Mecanicas y Ascensores",
             "x": 50,
-            "y": 55
+            "y": 55,
+            "tipo": "conector_piso"
           },
           {
-            "id": "caja_hogar_p3",
-            "nombre": "Caja Hogar y Gran Equipo",
-            "x": 35,
-            "y": 72
+            "id": "caja_hogar_tecno_p3",
+            "nombre": "Caja Tecnologia y Gran Hogar",
+            "x": 50,
+            "y": 75,
+            "tipo": "caja"
           },
           {
             "id": "servicio_cliente_p3",
             "nombre": "Servicio al Cliente y Tarjeta Paris",
-            "x": 70,
-            "y": 72
-          },
-          {
-            "id": "sector_linea_blanca",
-            "nombre": "Linea Blanca: Refrigeracion y Lavado (Pasillo H-11)",
-            "x": 28,
-            "y": 30
-          },
-          {
-            "id": "sector_pequenos_electrodom",
-            "nombre": "Pequenos Electrodomesticos: Freidoras y Cafeteras (Pasillo H-11)",
-            "x": 20,
-            "y": 20
-          },
-          {
-            "id": "sector_deco_hogar",
-            "nombre": "Deco Hogar y Ropa de Cama (Pasillo H-12)",
-            "x": 67,
-            "y": 30
-          },
-          {
-            "id": "sector_muebles",
-            "nombre": "Muebles y Living (Pasillo H-13)",
-            "x": 67,
-            "y": 50
+            "x": 75,
+            "y": 75,
+            "tipo": "servicio"
           },
           {
             "id": "banos_p3",
             "nombre": "Servicios Higienicos Piso 3",
             "x": 10,
-            "y": 15
+            "y": 15,
+            "tipo": "bano"
+          },
+          {
+            "id": "sector_smartphones",
+            "nombre": "Smartphones y Telefonia (Pasillo T-01)",
+            "x": 18,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "T-01"
+          },
+          {
+            "id": "sector_tvs",
+            "nombre": "Televisores y Smart TV (Pasillo T-02)",
+            "x": 32,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "T-02"
+          },
+          {
+            "id": "sector_computacion",
+            "nombre": "Computacion, Laptops y Tablets (Pasillo T-03)",
+            "x": 18,
+            "y": 45,
+            "tipo": "departamento",
+            "pasillo": "T-03"
+          },
+          {
+            "id": "sector_audio_gaming",
+            "nombre": "Audio, Consolas, Gaming y Smartwatches (Pasillo T-04)",
+            "x": 32,
+            "y": 45,
+            "tipo": "departamento",
+            "pasillo": "T-04"
+          },
+          {
+            "id": "sector_linea_blanca",
+            "nombre": "Linea Blanca: Refrigeracion y Lavado (Pasillo H-11)",
+            "x": 70,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "H-11"
+          },
+          {
+            "id": "sector_pequenos_electrodom",
+            "nombre": "Pequenos Electrodomesticos: Freidoras y Cafeteras (Pasillo H-12)",
+            "x": 85,
+            "y": 25,
+            "tipo": "departamento",
+            "pasillo": "H-12"
+          },
+          {
+            "id": "sector_climatizacion",
+            "nombre": "Climatizacion y Gran Hogar (Pasillo H-13)",
+            "x": 78,
+            "y": 45,
+            "tipo": "departamento",
+            "pasillo": "H-13"
           }
         ]
       }

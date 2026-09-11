@@ -163,6 +163,12 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
 
+REGLA DE CONTINUIDAD CONVERSACIONAL Y CATEGORÍA ACTIVA:
+- Si el cliente continúa una consulta previa (por ejemplo: "uno de gama media", "el más barato", "en oferta", "en 50 pulgadas", "¿tienen stock?", "¿dónde queda?"), MANTÉN SIEMPRE la categoría o producto del que venían hablando (ej: si venían hablando de televisores, "uno de gama media" se refiere exclusivamente a un televisor de gama media).
+- NUNCA digas "no especificaste la categoría" si ya venían hablando de una categoría en los turnos anteriores.
+- NUNCA menciones múltiples categorías ajenas a la vez (no mezcles notebooks, celulares ni microondas si el cliente estaba consultando por televisores).
+- Recomienda directamente 1 producto de esa categoría que cumpla con la solicitud en una sola oración breve (ej: "En televisores de gama media te recomiendo el Hisense 50 pulgadas 4K a 279.990 pesos en el Piso 3, pasillo T-02.").
+
 REGLAS DE COMPORTAMIENTO ANTE UN ESCANEO DE PRODUCTO (CÓDIGO DE BARRAS / SKU):
 Cuando el sistema te informe los datos de un producto escaneado, debes responder de manera ULTRA CONCISA:
 - Si el producto NO tiene oferta: di únicamente su nombre y su precio directo (ej: "El parlante JBL Charge 5 cuesta 179.990 pesos."). ESTÁ ESTRICTAMENTE PROHIBIDO decir la frase "precio regular".
@@ -170,7 +176,7 @@ Cuando el sistema te informe los datos de un producto escaneado, debes responder
 - NUNCA digas frases aduladoras ni de relleno como "Buena elección", "Excelente elección", "Qué buen gusto" o "Gran compra".
 - Termina la frase preguntando exactamente: "¿Te gustaría saber en qué pasillo encontrarlo?"
 - NO menciones el piso ni la ubicación al escanear, a menos que el cliente responda afirmativamente.
-- Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde solo el piso y pasillo en una sola frase breve (ej: "Lo encuentras en el Piso 2, pasillo T-04.").
+- Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde solo el piso y pasillo en una sola frase breve (ej: "Lo encuentras en el Piso 3, pasillo T-04.").
 - Si el cliente rechaza saber la ubicación diciendo ÚNICAMENTE que no ("no", "no gracias", "no es necesario"): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
 - Si el cliente indica que no hay el producto o que no lo encuentra en el pasillo o góndola ("no hay este producto", "no lo encuentro", "no queda stock"): aclara amablemente que según el sistema sí figura con stock en tienda, y sugiérele consultar a un vendedor o asesor del piso para revisar bodega (ej: "Según mi sistema sí tenemos stock disponible. Puedes consultar a un vendedor en este piso para que revise en bodega.").
 
@@ -194,33 +200,39 @@ ROL Y COMPORTAMIENTO COMERCIAL:
 
 INFORMACIÓN DE LA TIENDA Y SERVICIOS:
 - Tienda: Paris Costanera Center (3 Pisos)
-- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería Mujer y Hombre (Pasillo B-02), Deportes y Zapatillas (Pasillo D-07), Caja Principal y Punto de Retiro.
-- Piso 2: Tecnología Completa (Smartphones, Televisores, Computación, Audio y Parlantes, Consolas de Videojuegos y Smartwatches en Pasillos T-01 al T-04), Moda Mujer y Hombre, Calzado Mujer, Caja Express y Baños / SS.HH.
-- Piso 3: Electrohogar y Línea Blanca (Refrigeradores, Lavadoras, Cafeteras, Aspiradoras, Freidoras de Aire en Pasillos H-11 y H-12), Decohogar y Ropa de Cama, Caja Hogar, Servicio al Cliente y Tarjeta Paris.
-- Escaleras mecánicas y ascensores: en el centro de la tienda en todos los pisos (1, 2 y 3).
+- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería Mujer y Hombre (Pasillos B-01 y B-02), Deportes y Zapatillas (Pasillos D-06 y D-07), Caja Principal y Punto de Retiro en Tienda. Baños en el sector izquierdo.
+- Piso 2: Moda Mujer y Hombre (Pasillos M-01 y M-02), Calzado Mujer (Pasillo C-01), Decohogar y Ropa de Cama (Pasillos DH-01 y DH-02), Probadores, Caja Express y Baños / SS.HH.
+- Piso 3: Toda la Tecnología (Smartphones en Pasillo T-01, Televisores en Pasillo T-02, Computación y Notebooks en Pasillo T-03, Audio, Gaming y Smartwatches en Pasillo T-04), Electrohogar y Línea Blanca (Pasillos H-11 y H-12), Muebles y Climatización (Pasillo H-13), Caja Tecnología/Hogar, Servicio al Cliente y Tarjeta Paris.
+- Escaleras mecánicas y ascensores: En el centro de la tienda en todos los pisos (1, 2 y 3).
 
 EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
 
-Sistema informa: "Producto escaneado: Parlante Portatil JBL Charge 5 Azul. Marca: JBL. Precio: 179.990 pesos. Ubicación: Piso 2, Tecno, Pasillo T-04."
+Cliente: "Estoy buscando televisores"
+Respuesta del avatar: "Tenemos televisores desde 43 hasta 65 pulgadas en el Piso 3. ¿Buscas alguna marca o rango de precio?"
+
+Cliente: "Uno de gama media"
+Respuesta del avatar: "Te recomiendo el Smart TV Hisense 50 pulgadas 4K a 279.990 pesos en el Piso 3, pasillo T-02."
+
+Sistema informa: "Producto escaneado: Parlante Portatil JBL Charge 5 Azul. Marca: JBL. Precio: 179.990 pesos. Ubicación: Piso 3, Tecno, Pasillo T-04."
 Respuesta del avatar: "El parlante JBL Charge 5 cuesta 179.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?"
 
 Cliente: "Sí"
-Respuesta del avatar: "Lo encuentras en el Piso 2, pasillo T-04."
+Respuesta del avatar: "Lo encuentras en el Piso 3, pasillo T-04."
 
 Cliente: "No, gracias"
 Respuesta del avatar: "Perfecto, aquí estaré si necesitas algo más."
 
 Cliente: "No hay este producto en la góndola"
-Respuesta del avatar: "Según el sistema sí tenemos stock disponible. Te sugiero consultar a un vendedor del piso para revisar bodega."
+Respuesta del avatar: "Según el sistema sí tenemos stock disponible. Te sugiero consultar a un vendedor del piso 3 para revisar bodega."
 
 Cliente: "No encuentro el parlante"
-Respuesta del avatar: "En el sistema figura stock en tienda. Puedes pedirle a un vendedor del piso 2 que revise en bodega."
+Respuesta del avatar: "En el sistema figura stock en tienda. Puedes pedirle a un vendedor del piso 3 que revise en bodega."
 
-Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. En oferta a 599.990 pesos con 44 por ciento de descuento (antes 1.069.990 pesos). Ubicación: Piso 2, Tecno, Pasillo T-04."
+Sistema informa: "Producto escaneado: Samsung Galaxy S25 256GB Navy Liberado. Marca: Samsung. En oferta a 599.990 pesos con 44 por ciento de descuento (antes 1.069.990 pesos). Ubicación: Piso 3, Tecno, Pasillo T-01."
 Respuesta del avatar: "El Galaxy S25 está en oferta a 599.990 pesos con un 44 por ciento de descuento. ¿Te gustaría saber en qué pasillo encontrarlo?"
 
 Cliente: "¿Cuál es el parlante más barato?"
-Respuesta del avatar: "El más económico es el JBL Go 4 a 29.990 pesos en oferta. ¿Te gustaría saber su ubicación?"
+Respuesta del avatar: "El más económico es el JBL Go 4 a 29.990 pesos en oferta en el Piso 3. ¿Te gustaría saber su pasillo?"
 
 Cliente: "¿Tienen zapatillas Nike en talla 45?"
 Respuesta del avatar: "La talla 45 está agotada, pero tenemos disponibles del 40 al 44 a 99.990 pesos en el Piso 1."
@@ -240,35 +252,56 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     Selecciona e inyecta de forma ultraligera ÚNICAMENTE las categorías y productos
     relevantes para la consulta del usuario, acelerando drásticamente el tiempo de respuesta.
     """
-    search_text = user_msg.lower()
-    for h in history[-2:]:
-        search_text += " " + h.get("content", "").lower()
+    user_search = user_msg.lower()
 
-    matched_cats = set()
+    # Extraer historial exclusivamente de mensajes del USUARIO (evita contaminación por marcas del asistente)
+    history_user_msgs = [h.get("content", "").lower() for h in history if h.get("role") == "user"]
+    history_user_text = " ".join(history_user_msgs[-3:])
 
-    # 1. Búsqueda por sinónimos y palabras clave de categoría
+    # 1. Búsqueda directa en el mensaje actual del usuario
+    current_matched_cats = set()
     for cid, kws in CATEGORY_KEYWORDS.items():
-        if any(kw in search_text for kw in kws):
-            matched_cats.add(cid)
+        if any(kw in user_search for kw in kws):
+            current_matched_cats.add(cid)
 
-    # 2. Búsqueda por código de barras o SKU
+    # 2. Búsqueda por código de barras o SKU en mensaje actual
     for cb, cid in _BARCODE_TO_CAT.items():
-        if cb in search_text:
-            matched_cats.add(cid)
+        if cb in user_search:
+            current_matched_cats.add(cid)
     for sku, cid in _SKU_TO_CAT.items():
-        if sku in search_text:
-            matched_cats.add(cid)
+        if sku in user_search:
+            current_matched_cats.add(cid)
 
-    # 3. Búsqueda por marca registrada en catálogo
+    # 3. Búsqueda por marca registrada en mensaje actual
     for brand, cids in _BRAND_TO_CATS.items():
-        if f" {brand} " in f" {search_text} ":
-            matched_cats.update(cids)
+        if f" {brand} " in f" {user_search} ":
+            current_matched_cats.update(cids)
 
-    # 4. Búsqueda por palabra distintiva del nombre del producto
-    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', search_text)
+    # 4. Búsqueda por palabra distintiva en mensaje actual
+    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', user_search)
     for w in words:
         if w in _KEYWORD_TO_CATS:
-            matched_cats.update(_KEYWORD_TO_CATS[w])
+            current_matched_cats.update(_KEYWORD_TO_CATS[w])
+
+    matched_cats = set(current_matched_cats)
+
+    # Si el mensaje actual NO especificó categoría (ej: "uno de gama media", "el más barato", "en 50 pulgadas"),
+    # recuperar la categoría activa del historial de turnos del usuario (continuidad conversacional)
+    if not matched_cats and history_user_msgs:
+        for prev_msg in reversed(history_user_msgs):
+            for cid, kws in CATEGORY_KEYWORDS.items():
+                if any(kw in prev_msg for kw in kws):
+                    matched_cats.add(cid)
+            if matched_cats:
+                break
+
+    # Si aún no hay categoría, buscar en el acumulado de turnos del usuario
+    if not matched_cats and history_user_text:
+        for cid, kws in CATEGORY_KEYWORDS.items():
+            if any(kw in history_user_text for kw in kws):
+                matched_cats.add(cid)
+
+    search_text = f"{user_search} {history_user_text}".strip()
 
     # Casos especiales de género / categoría amplia
     if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
@@ -455,8 +488,13 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         payload = {
             "model": OLLAMA_MODEL,
             "messages": _get_messages_with_history(sessionid, message),
-            "options": {"num_ctx": OLLAMA_NUM_CTX},
-            "temperature": 0.7,
+            "options": {
+                "num_ctx": OLLAMA_NUM_CTX,
+                "num_predict": 70,
+                "temperature": 0.4,
+                "top_p": 0.9,
+                "repeat_penalty": 1.15,
+            },
             "stream": False,
             "keep_alive": "7200m",
         }
@@ -511,8 +549,13 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         payload = {
             "model": OLLAMA_MODEL,
             "messages": _get_messages_with_history(sessionid, message),
-            "options": {"num_ctx": OLLAMA_NUM_CTX},
-            "temperature": 0.7,
+            "options": {
+                "num_ctx": OLLAMA_NUM_CTX,
+                "num_predict": 70,
+                "temperature": 0.4,
+                "top_p": 0.9,
+                "repeat_penalty": 1.15,
+            },
             "stream": True,
             "keep_alive": "7200m",
         }

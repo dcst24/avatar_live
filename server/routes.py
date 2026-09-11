@@ -52,16 +52,20 @@ async def async_generator_from_sync(sync_gen, *args, **kwargs):
         finally:
             loop.call_soon_threadsafe(queue.put_nowait, None)
 
-    # Run the synchronous generator in a background thread
-    await loop.run_in_executor(None, run_sync)
+    # Ejecutar en segundo plano de manera concurrente para que los tokens hagan stream de inmediato
+    fut = loop.run_in_executor(None, run_sync)
 
-    while True:
-        item = await queue.get()
-        if item is None:
-            break
-        if isinstance(item, Exception):
-            raise item
-        yield item
+    try:
+        while True:
+            item = await queue.get()
+            if item is None:
+                break
+            if isinstance(item, Exception):
+                raise item
+            yield item
+    finally:
+        if fut.done() and not fut.cancelled():
+            _ = fut.exception()
 
 
 # ─── 路由处理函数 ──────────────────────────────────────────────────────────
@@ -109,10 +113,16 @@ async def human(request):
                     llm_response_stream, params['text'], avatar_session, datainfo
                 )
 
-                async for chunk in async_gen:
-                    await response.write(chunk.encode('utf-8'))
-
-                await response.write_eof()
+                try:
+                    async for chunk in async_gen:
+                        await response.write(chunk.encode('utf-8'))
+                    await response.write_eof()
+                except (asyncio.CancelledError, ConnectionResetError):
+                    logger.info(f"[Routes] Streaming SSE cancelado por cliente para sesión: {sessionid}")
+                    abort_gen = request.app.get("abort_generation")
+                    if abort_gen and sessionid:
+                        abort_gen(sessionid)
+                    raise
                 return response
             else:
                 llm_response = request.app.get("llm_response")
