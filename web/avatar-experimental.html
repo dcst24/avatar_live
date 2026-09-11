@@ -1887,14 +1887,14 @@
                                 }
                             }
 
-                            // Intervalo de guardia acústica (350ms): permite que el audio en los parlantes
-                            // y la reverberación en la sala se extingan completamente antes de reabrir el micrófono
+                            // Guardia acústica mínima (150ms): tiempo justo para que drene el búfer de audio
+                            // del navegador sin introducir ningún retraso perceptible para el usuario
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 350);
+                            }, 150);
                         }
                     }
                 } catch (e) {
@@ -2434,7 +2434,7 @@
                 videoEl.muted = true;
                 setTimeout(() => {
                     if (videoEl && _audioUnlocked) videoEl.muted = false;
-                }, 200);
+                }, 150);
             }
 
             // Asegurar que el micrófono esté detenido de inmediato
@@ -2459,13 +2459,13 @@
                 scheduleFollowUp();
             }
 
-            // Pausa acústica de seguridad (250ms) para que el audio corte en seco antes de abrir el micrófono
+            // Pausa acústica mínima (150ms) para que el audio corte en seco antes de abrir el micrófono
             setTimeout(() => {
                 if (!isListening && isConnected && !isSpeaking) {
                     _alwaysOnActive = false;
                     startAlwaysOnListening();
                 }
-            }, 250);
+            }, 150);
         }
 
         // Compatibilidad con invocaciones existentes
