@@ -1135,6 +1135,10 @@
             };
 
             rec.onresult = (event) => {
+                if (isSpeaking) {
+                    LOG('[rec.onresult] Descartando audio captado mientras el avatar habla (anti-eco)');
+                    return;
+                }
                 _gotAnyResult = true;
                 let interim = '';
                 let final = '';

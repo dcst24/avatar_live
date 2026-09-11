@@ -68,6 +68,7 @@ class BaseAvatar:
         self.sessionid = self.opt.sessionid
 
         self.speaking = False
+        self._last_speech_time = 0.0
         self.recording = False
         self._record_video_pipe = None
         self._record_audio_pipe = None
@@ -194,12 +195,45 @@ class BaseAvatar:
         if hasattr(self, 'output') and hasattr(self.output, 'purge'):
             self.output.purge()
         self.speaking = False
+        self._last_speech_time = 0.0
 
     # def flush(self):
     #     self.flush_talk()
 
     def is_speaking(self) -> bool:
-        return self.speaking
+        """
+        Determina con precisión milimétrica si el avatar está emitiendo habla o tiene
+        audio en tránsito en cualquier parte de la canalización (TTS, ASR, inferencia,
+        cola de renderizado o buffer WebRTC).
+        """
+        # 1. Si el renderizador actualmente tiene frames de habla activos
+        if self.speaking:
+            return True
+
+        # 2. Si el búfer de TTS tiene mensajes en cola o está en proceso de síntesis activa
+        if hasattr(self, 'tts'):
+            if self.tts.msgqueue.qsize() > 0 or getattr(self.tts, 'is_synthesizing', False):
+                return True
+
+        # 3. Si ASR aún tiene chunks de audio en cola de entrada o salida
+        if hasattr(self, 'asr'):
+            if self.asr.queue.qsize() > 0 or self.asr.output_queue.qsize() > 0:
+                return True
+
+        # 4. Si la cola de frames generados (video/audio) aún tiene frames pendientes
+        if self.res_frame_queue.qsize() > 0:
+            return True
+
+        # 5. Si la salida WebRTC aún tiene frames esperando ser transmitidos
+        if hasattr(self.output, 'get_buffer_size') and self.output.get_buffer_size() > 0:
+            return True
+
+        # 6. Histéresis acústica de seguridad (350ms): tiempo para que el audio emitido
+        #    por WebRTC termine de salir por los parlantes físicos antes de habilitar el micro
+        if (time.time() - getattr(self, '_last_speech_time', 0.0)) < 0.35:
+            return True
+
+        return False
     
     def __loadcustom(self):
         if not hasattr(self.opt, 'customopt') or not self.opt.customopt:
@@ -412,6 +446,7 @@ class BaseAvatar:
                     combine_frame = target_frame
             else:
                 self.speaking = True
+                self._last_speech_time = time.time()
                 try:
                     current_frame = self.paste_back_frame(res_frame,idx)
                 except Exception as e:

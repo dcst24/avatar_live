@@ -26,11 +26,13 @@ class BaseTTS:
 
         self.msgqueue = Queue()
         self.state = State.RUNNING
+        self.is_synthesizing = False
 
     def flush_talk(self):
         with self.msgqueue.mutex:
             self.msgqueue.queue.clear()
         self.state = State.PAUSE
+        self.is_synthesizing = False
 
     def put_msg_txt(self, msg: str, datainfo: dict = {}): 
         if len(msg) > 0:
@@ -47,7 +49,11 @@ class BaseTTS:
                 self.state = State.RUNNING
             except queue.Empty:
                 continue
-            self.txt_to_audio(msg)
+            self.is_synthesizing = True
+            try:
+                self.txt_to_audio(msg)
+            finally:
+                self.is_synthesizing = False
         self.stop_tts()
         logger.info('ttsreal thread stop')
     

@@ -89,16 +89,12 @@ def load_avatar(avatar_id):
     return frame_list_cycle,face_list_cycle,coord_list_cycle
 
 @torch.no_grad()
-def warm_up(batch_size, model, modelres, use_fp16=True):
+def warm_up(batch_size, model, modelres):
     # 预热函数
     logger.info('warmup model...')
     img_batch = torch.ones(batch_size, 6, modelres, modelres).to(device)
     mel_batch = torch.ones(batch_size, 1, 80, 16).to(device)
-    if use_fp16 and device == 'cuda':
-        with torch.cuda.amp.autocast(dtype=torch.float16):
-            model(mel_batch, img_batch)
-    else:
-        model(mel_batch, img_batch)
+    model(mel_batch, img_batch)
 
 @register("avatar", "wav2lip")
 class LipReal(BaseAvatar):
@@ -109,59 +105,43 @@ class LipReal(BaseAvatar):
         self.model = model
         # Resolución esperada por el modelo (wav2lip256.pth → 256, wav2lip.pth → 96)
         self.modelres = getattr(opt, 'modelres', 256)
-        # Habilitar inferencia FP16 con autocast si estamos en GPU CUDA
-        self.use_fp16 = getattr(opt, 'fp16', True) and (device == 'cuda')
 
         self.frame_list_cycle, self.face_list_cycle, self.coord_list_cycle = avatar
 
-        # 1. Pre-redimensionar caras al tamaño esperado por el modelo una sola vez al inicializar
-        #    Elimina cv2.resize en el bucle de inferencia en tiempo real
+        # 1. Pre-redimensionar y pre-computar tensores de 6 canales en CPU RAM una sola vez al inicializar
+        #    Elimina cv2.resize, máscaras y concatenaciones del bucle de inferencia sin ocupar VRAM de GPU
+        self.face_list_cycle_6ch = []
         if self.face_list_cycle:
-            self.face_list_cycle = [
-                cv2.resize(face, (self.modelres, self.modelres))
-                if (face.shape[0] != self.modelres or face.shape[1] != self.modelres)
-                else face
-                for face in self.face_list_cycle
-            ]
-
-        # 2. Pre-computar tensores de 6 canales (enmascarado + original) normalizados en GPU/device
-        #    Elimina alocaciones de numpy, concatenaciones y transferencias PCIe CPU->GPU por batch
-        self.precomputed_faces = None
-        self._precompute_face_tensors()
+            half_res = self.modelres // 2
+            for face in self.face_list_cycle:
+                if face.shape[0] != self.modelres or face.shape[1] != self.modelres:
+                    face = cv2.resize(face, (self.modelres, self.modelres))
+                masked_face = face.copy()
+                masked_face[half_res:] = 0
+                concat_face = np.concatenate((masked_face, face), axis=2).astype(np.float32) / 255.0
+                transposed = np.transpose(concat_face, (2, 0, 1))  # (6, modelres, modelres)
+                self.face_list_cycle_6ch.append(transposed)
+            logger.info(f"Caras 6-ch preparadas en CPU RAM: {len(self.face_list_cycle_6ch)} frames")
 
         self.asr = MelASR(opt, self)
         self.asr.warm_up()
-
-    def _precompute_face_tensors(self):
-        if not self.face_list_cycle:
-            return
-        logger.info(f"Pre-computando tensores faciales para {len(self.face_list_cycle)} frames (FP16={self.use_fp16}, device={device})...")
-        tensors = []
-        half_res = self.modelres // 2
-        for face in self.face_list_cycle:
-            masked_face = face.copy()
-            masked_face[half_res:] = 0
-            concat_face = np.concatenate((masked_face, face), axis=2).astype(np.float32) / 255.0
-            transposed = np.transpose(concat_face, (2, 0, 1))  # (6, modelres, modelres)
-            tensors.append(torch.from_numpy(transposed))
-
-        self.precomputed_faces = torch.stack(tensors).to(device)
-        logger.info(f"Tensores faciales residentes en {device}: forma {self.precomputed_faces.shape}")
 
     def inference_batch(self, index, audiofeat_batch):
         # 这里的 index 是针对当前 avatar 的索引
         # 返回一个 batch 的推理结果，batch 大小由 self.batch_size 决定
         length = len(self.face_list_cycle)
+        indices = [mirror_index(length, index + i) for i in range(self.batch_size)]
 
-        # 1. Obtención de batch de caras: indexación GPU directa sin copias en memoria
-        if self.precomputed_faces is not None:
-            indices = [mirror_index(length, index + i) for i in range(self.batch_size)]
-            img_batch = self.precomputed_faces[indices]
+        # 1. Obtener batch de caras 6 canales pre-procesadas en CPU (solo transfiere el batch actual a GPU: ~14MB)
+        if self.face_list_cycle_6ch:
+            img_batch_np = np.stack([self.face_list_cycle_6ch[idx] for idx in indices])
+            img_batch = torch.from_numpy(img_batch_np).to(device)
         else:
             img_batch = []
-            for i in range(self.batch_size):
-                idx = mirror_index(length, index + i)
+            for idx in indices:
                 face = self.face_list_cycle[idx]
+                if face.shape[0] != self.modelres or face.shape[1] != self.modelres:
+                    face = cv2.resize(face, (self.modelres, self.modelres))
                 img_batch.append(face)
             img_batch = np.asarray(img_batch)
             img_masked = img_batch.copy()
@@ -172,17 +152,12 @@ class LipReal(BaseAvatar):
         # 2. Audio features a tensor [B, 1, 80, 16] directamente en device
         audiofeat_batch = torch.from_numpy(np.asarray(audiofeat_batch)).unsqueeze(1).float().to(device)
 
-        # 3. Inferencia con FP16 (autocast) para aprovechar Tensor Cores en GPUs NVIDIA / Jetson Orin
+        # 3. Inferencia nativa FP32 (máxima estabilidad, sin fragmentar VRAM ni stalls cuDNN)
         with torch.no_grad():
-            if self.use_fp16 and device == 'cuda':
-                with torch.cuda.amp.autocast(dtype=torch.float16):
-                    pred = self.model(audiofeat_batch, img_batch)
-            else:
-                pred = self.model(audiofeat_batch, img_batch)
+            pred = self.model(audiofeat_batch, img_batch)
 
-        # 4. Transposición, escalado y conversión a uint8 directamente en CUDA
-        #    Reduce 4x el ancho de banda transferido de GPU a CPU (uint8 vs float32)
-        pred = (pred.permute(0, 2, 3, 1) * 255.0).clamp(0, 255).to(torch.uint8).cpu().numpy()
+        # 4. Transferencia directa a CPU y escalado NumPy inmediato liberando la GPU
+        pred = pred.cpu().numpy().transpose(0, 2, 3, 1) * 255.
         return pred
 
     def paste_back_frame(self, pred_frame, idx: int):

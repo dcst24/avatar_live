@@ -208,11 +208,24 @@ class KokoroTTS(BaseTTS):
                 # Guardar sobrante para el próximo segmento
                 leftover = stream[idx:]
 
-            # Señalizar fin de habla (aunque no queden chunks completos)
+            # Drenar cualquier muestra sobrante rellenando con ceros hasta 1 chunk (evita cortar consonantes finales)
+            if len(leftover) > 0 and self.state == State.RUNNING:
+                pad_len = self.chunk - len(leftover)
+                padded_tail = np.pad(leftover, (0, pad_len), mode='constant')
+                self.parent.put_audio_frame(padded_tail, textevent)
+                leftover = np.array([], dtype=np.float32)
+
+            # Vaciar completamente la ventana de contexto derecha de MelASR (stride_right_size ~ 10 frames = 200ms)
+            # enviando chunks de silencio para que la inferencia de las últimas palabras se procese de inmediato
             if self.state == State.RUNNING:
-                eventpoint = {'status': 'end', 'text': text}
-                eventpoint.update(**textevent)
-                self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), eventpoint)
+                flush_chunks = getattr(self.opt, 'r', 10) + 4
+                for i in range(flush_chunks):
+                    if self.state != State.RUNNING:
+                        break
+                    is_last = (i == flush_chunks - 1)
+                    eventpoint = {'status': 'end', 'text': text} if is_last else {}
+                    eventpoint.update(**textevent)
+                    self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), eventpoint)
 
             logger.info(f"[Kokoro TTS] Síntesis completada en {time.time() - t:.3f}s total")
 

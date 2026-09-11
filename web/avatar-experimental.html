@@ -1887,14 +1887,14 @@
                                 }
                             }
 
-                            // Guardia acústica mínima (150ms): tiempo justo para que drene el búfer de audio
-                            // del navegador sin introducir ningún retraso perceptible para el usuario
+                            // Guardia acústica calibrada (250ms): tiempo suficiente para que drene el búfer de audio
+                            // del navegador en los altavoces sin introducir retraso perceptible para el usuario
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 150);
+                            }, 250);
                         }
                     }
                 } catch (e) {
@@ -2021,6 +2021,12 @@
             };
 
             rec.onresult = (event) => {
+                // Protección absoluta anti-eco: si el avatar está hablando, ignorar cualquier captura del micrófono
+                if (isSpeaking) {
+                    LOG('[rec.onresult] Descartando audio captado mientras el avatar habla (prevención de eco/auto-corte)');
+                    return;
+                }
+
                 _gotAnyResult = true;
                 let interim = '';
                 let final = '';
