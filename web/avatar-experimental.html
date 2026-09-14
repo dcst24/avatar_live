@@ -955,7 +955,7 @@
            MÓDULO DE PLANIMETRÍA / MAPA INTERACTIVO (PARIS COSTANERA CENTER)
            ══════════════════════════════════════════════════════════════════════════ */
         
-        /* Botón Flotante para Abrir Mapa (Responsive bottom-left) */
+        /* Botón Flotante para Abrir Mapa (Responsive bottom-left, solo icono) */
         #btn-open-map {
             position: fixed;
             bottom: 24px;
@@ -963,14 +963,14 @@
             z-index: 60;
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 12px 20px;
-            border-radius: 999px;
+            justify-content: center;
+            width: 48px;
+            height: 48px;
+            padding: 0;
+            border-radius: 50%;
             background: rgba(18, 18, 24, 0.88);
             border: 1px solid rgba(99, 102, 241, 0.5);
             color: #f4f4f5;
-            font-size: 13px;
-            font-weight: 600;
             cursor: pointer;
             backdrop-filter: blur(16px);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.3);
@@ -980,15 +980,15 @@
         }
 
         #btn-open-map:hover {
-            transform: translateY(-2px) scale(1.03);
+            transform: translateY(-2px) scale(1.08);
             background: rgba(30, 27, 75, 0.95);
             border-color: rgba(99, 102, 241, 0.85);
             box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.55);
         }
 
         #btn-open-map svg {
-            width: 18px;
-            height: 18px;
+            width: 22px;
+            height: 22px;
             color: #818cf8;
             flex-shrink: 0;
         }
@@ -997,8 +997,12 @@
             #btn-open-map {
                 bottom: 18px;
                 left: 18px;
-                padding: 10px 16px;
-                font-size: 12px;
+                width: 42px;
+                height: 42px;
+            }
+            #btn-open-map svg {
+                width: 20px;
+                height: 20px;
             }
         }
 
@@ -1396,6 +1400,83 @@
             transform: translateY(-2px);
             box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
         }
+
+        /* ── Responsividad de Planimetría en Pantallas Verticales / Móviles ── */
+        @media (max-width: 768px) {
+            #store-map-modal {
+                padding: 10px;
+            }
+            .map-card {
+                max-height: 96vh;
+                border-radius: 18px;
+            }
+            .map-header {
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .map-header-left {
+                min-width: 0;
+                gap: 8px;
+            }
+            .map-logo-badge {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+                border-radius: 8px;
+            }
+            .map-title {
+                font-size: 13px;
+            }
+            .map-subtitle {
+                display: none;
+            }
+            .map-floor-tabs {
+                gap: 4px;
+                padding: 2px;
+            }
+            .map-floor-tab {
+                padding: 5px 9px;
+                font-size: 12px;
+                gap: 4px;
+            }
+            .map-close-btn {
+                width: 30px;
+                height: 30px;
+                font-size: 14px;
+            }
+            .map-stepper {
+                padding: 8px 10px;
+                font-size: 11px;
+                gap: 4px;
+            }
+            .map-step-pill {
+                padding: 4px 8px;
+                font-size: 11px;
+            }
+            .map-svg-wrap {
+                min-height: 280px;
+                padding: 6px;
+            }
+            .map-footer {
+                padding: 10px 14px;
+                gap: 8px;
+            }
+            .map-route-icon {
+                width: 32px;
+                height: 32px;
+                font-size: 16px;
+            }
+            .map-route-text-main {
+                font-size: 12px;
+            }
+            .map-route-text-sub {
+                font-size: 11px;
+            }
+            .map-action-btn {
+                padding: 8px 14px;
+                font-size: 12px;
+            }
+        }
     </style>
 </head>
 
@@ -1470,14 +1551,13 @@
                 <span class="stop-label">Parar avatar</span>
             </button>
 
-            <!-- Botón Planimetría / Mapa de Tienda (bottom-left) -->
-            <button id="btn-open-map" onclick="openStoreMap()" title="Ver mapa y planimetría de la tienda">
+            <!-- Botón Planimetría / Mapa de Tienda (bottom-left, solo icono) -->
+            <button id="btn-open-map" onclick="openStoreMap()" title="Ver mapa y planimetría de la tienda" aria-label="Abrir mapa">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
                     <line x1="8" y1="2" x2="8" y2="18"></line>
                     <line x1="16" y1="6" x2="16" y2="22"></line>
                 </svg>
-                <span>🗺️ Planimetría</span>
             </button>
 
             <!-- Botón conectar (discreto, bottom-left) -->
@@ -1541,15 +1621,15 @@
                     <!-- Tabs de Pisos Clickeables -->
                     <div class="map-floor-tabs" id="map-floor-tabs">
                         <button class="map-floor-tab active" data-piso="1" onclick="setMapFloor(1)">
-                            <span>Piso 1</span>
+                            <span>P1</span>
                             <span class="floor-tag-badge totem-badge">Tótem</span>
                         </button>
                         <button class="map-floor-tab" data-piso="2" onclick="setMapFloor(2)">
-                            <span>Piso 2</span>
+                            <span>P2</span>
                             <span id="floor-2-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
                         </button>
                         <button class="map-floor-tab" data-piso="3" onclick="setMapFloor(3)">
-                            <span>Piso 3</span>
+                            <span>P3</span>
                             <span id="floor-3-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
                         </button>
                     </div>
