@@ -381,7 +381,7 @@ reload_catalog()
 
 
 # ─── Detección inteligente de oraciones para streaming de voz ultra-rápido ───
-MIN_CHUNK_LEN = 120  # caracteres mínimos antes de enviar un fragmento (evita cortes y desincronización en respuestas cortas)
+MIN_CHUNK_LEN = 40  # caracteres mínimos antes de enviar un fragmento al avatar TTS (40 chars ≈ 5-7 palabras, permite latencia mínima)
 
 def _is_sentence_boundary(chunk_buf: str) -> bool:
     """
@@ -490,7 +490,8 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
             "messages": _get_messages_with_history(sessionid, message),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
-                "num_predict": 70,
+                # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de
+                # razonamiento que consumen el presupuesto; 70 truncaba la respuesta visible.
                 "temperature": 0.4,
                 "top_p": 0.9,
                 "repeat_penalty": 1.15,
@@ -551,7 +552,8 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
             "messages": _get_messages_with_history(sessionid, message),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
-                "num_predict": 70,
+                # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de
+                # razonamiento que consumen el presupuesto; 70 truncaba la respuesta visible.
                 "temperature": 0.4,
                 "top_p": 0.9,
                 "repeat_penalty": 1.15,

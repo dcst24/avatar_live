@@ -1144,7 +1144,7 @@
             const rec = new SpeechRec();
             rec.lang = 'es-CL';
             rec.interimResults = true;
-            rec.continuous = false;
+            rec.continuous = true;   // <-- true: el navegador no corta en pausas cortas; nuestros timers de debounce controlan el corte
             rec.maxAlternatives = 1;
 
             rec.onstart = () => {
