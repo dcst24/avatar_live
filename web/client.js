@@ -54,29 +54,22 @@ function start() {
     pc = new RTCPeerConnection(config);
 
     // connect audio / video
-    // IMPORTANTE: ambos tracks (audio + video) van al mismo elemento <video>.
-    // El video empieza con muted=true en el HTML (permite autoplay en Android sin gesto).
-    // handleTapToStart() en avatar.html desmutea tras el primer tap del usuario.
-    let _remoteStream = null;
+    // IMPORTANTE: ambos tracks (audio + video) se añaden al mismo MediaStream
+    // pre-configurado en el elemento <video> para que el pipeline de audio y video
+    // del navegador esté sincronizado e inicializado desde el primer segundo.
+    const _remoteStream = new MediaStream();
+    const videoEl = document.getElementById('video');
+    if (videoEl) {
+        videoEl.srcObject = _remoteStream;
+    }
+
     pc.addEventListener('track', (evt) => {
-        const videoEl = document.getElementById('video');
-        if (evt.streams && evt.streams[0]) {
-            if (!_remoteStream) {
-                _remoteStream = evt.streams[0];
-                videoEl.srcObject = _remoteStream;
-            } else if (videoEl.srcObject !== evt.streams[0]) {
-                _remoteStream.addTrack(evt.track);
-            }
-        } else {
-            if (!_remoteStream) {
-                _remoteStream = new MediaStream();
-                videoEl.srcObject = _remoteStream;
-            }
-            _remoteStream.addTrack(evt.track);
+        _remoteStream.addTrack(evt.track);
+        if (videoEl) {
+            videoEl.play().catch(err => {
+                console.warn('[WebRTC] play() rechazado:', err.name, '-', err.message);
+            });
         }
-        videoEl.play().catch(err => {
-            console.warn('[WebRTC] play() rechazado:', err.name, '-', err.message);
-        });
     });
 
     document.getElementById('start').style.display = 'none';
