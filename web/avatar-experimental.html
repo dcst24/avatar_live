@@ -383,27 +383,28 @@
         /* ── Debug log panel ────────────────────────────────── */
         #dbg-btn {
             position: fixed;
-            bottom: 52px;
+            top: 20px;
             right: 20px;
             z-index: 200;
-            width: 40px;
-            height: 40px;
+            width: 36px;
+            height: 36px;
             border-radius: 50%;
             border: 1px solid rgba(255, 255, 255, 0.15);
             background: rgba(9, 9, 11, 0.75);
             backdrop-filter: blur(10px);
             color: #f4f4f5;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
             -webkit-tap-highlight-color: transparent;
         }
 
         #dbg-btn:hover {
             background: rgba(39, 39, 42, 0.9);
+            transform: scale(1.08);
         }
 
         #dbg-panel {
@@ -950,39 +951,55 @@
            MÓDULO DE PLANIMETRÍA / MAPA INTERACTIVO (PARIS COSTANERA CENTER)
            ══════════════════════════════════════════════════════════════════════════ */
         
-        /* Botón Flotante para Abrir Mapa */
+        /* ══════════════════════════════════════════════════════════════════════════
+           MÓDULO DE PLANIMETRÍA / MAPA INTERACTIVO (PARIS COSTANERA CENTER)
+           ══════════════════════════════════════════════════════════════════════════ */
+        
+        /* Botón Flotante para Abrir Mapa (Responsive bottom-left) */
         #btn-open-map {
-            position: absolute;
-            bottom: 30px;
-            left: 140px;
+            position: fixed;
+            bottom: 24px;
+            left: 24px;
             z-index: 60;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 10px 18px;
+            gap: 10px;
+            padding: 12px 20px;
             border-radius: 999px;
-            background: rgba(18, 18, 22, 0.85);
-            border: 1px solid rgba(99, 102, 241, 0.4);
+            background: rgba(18, 18, 24, 0.88);
+            border: 1px solid rgba(99, 102, 241, 0.5);
             color: #f4f4f5;
             font-size: 13px;
             font-weight: 600;
             cursor: pointer;
-            backdrop-filter: blur(12px);
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(99, 102, 241, 0.25);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.3);
             transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
         }
 
         #btn-open-map:hover {
-            transform: translateY(-2px) scale(1.04);
-            background: rgba(30, 27, 75, 0.9);
-            border-color: rgba(99, 102, 241, 0.7);
-            box-shadow: 0 12px 28px rgba(0, 0, 0, 0.5), 0 0 24px rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px) scale(1.03);
+            background: rgba(30, 27, 75, 0.95);
+            border-color: rgba(99, 102, 241, 0.85);
+            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.55);
         }
 
         #btn-open-map svg {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             color: #818cf8;
+            flex-shrink: 0;
+        }
+
+        @media (max-width: 768px) {
+            #btn-open-map {
+                bottom: 18px;
+                left: 18px;
+                padding: 10px 16px;
+                font-size: 12px;
+            }
         }
 
         /* Badge clickeable en Tarjeta de Producto */
@@ -1010,14 +1027,14 @@
 
         /* Modal Contenedor del Mapa */
         #store-map-modal {
-            position: absolute;
+            position: fixed;
             inset: 0;
-            z-index: 90;
+            z-index: 95;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: rgba(0, 0, 0, 0.82);
-            backdrop-filter: blur(18px);
+            background: rgba(0, 0, 0, 0.85);
+            backdrop-filter: blur(20px);
             opacity: 0;
             pointer-events: none;
             transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
@@ -1031,16 +1048,16 @@
 
         .map-card {
             width: 100%;
-            max-width: 1040px;
-            max-height: 94vh;
-            background: #0f1016;
+            max-width: 1020px;
+            max-height: 92vh;
+            background: #0d0e14;
             border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 24px;
-            box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 40px rgba(99, 102, 241, 0.2);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 45px rgba(99, 102, 241, 0.2);
             display: flex;
             flex-direction: column;
             overflow: hidden;
-            transform: scale(0.95) translateY(10px);
+            transform: scale(0.96) translateY(12px);
             transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -1053,31 +1070,34 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 18px 24px 14px;
+            padding: 16px 24px;
             border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(24, 24, 32, 0.5);
+            background: rgba(20, 20, 28, 0.6);
+            gap: 16px;
         }
 
         .map-header-left {
             display: flex;
             align-items: center;
             gap: 12px;
+            min-width: 220px;
         }
 
         .map-logo-badge {
-            width: 40px;
-            height: 40px;
+            width: 38px;
+            height: 38px;
             border-radius: 12px;
             background: linear-gradient(135deg, #4f46e5, #7c3aed);
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 20px;
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.4);
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
+            flex-shrink: 0;
         }
 
         .map-title {
-            font-size: 17px;
+            font-size: 16px;
             font-weight: 700;
             color: #f4f4f5;
             letter-spacing: -0.2px;
@@ -1089,7 +1109,67 @@
         .map-subtitle {
             font-size: 12px;
             color: #a1a1aa;
-            margin-top: 2px;
+            margin-top: 1px;
+        }
+
+        /* Floor Tabs (Solo Pisos Clickeables) */
+        .map-floor-tabs {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(255, 255, 255, 0.04);
+            padding: 4px;
+            border-radius: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .map-floor-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 16px;
+            border-radius: 10px;
+            background: transparent;
+            border: 1px solid transparent;
+            color: #a1a1aa;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .map-floor-tab:hover {
+            color: #f4f4f5;
+            background: rgba(255, 255, 255, 0.06);
+        }
+
+        .map-floor-tab.active {
+            background: linear-gradient(135deg, #4f46e5, #6366f1);
+            color: #ffffff;
+            border-color: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        }
+
+        .floor-tag-badge {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            text-transform: uppercase;
+        }
+
+        .floor-tag-badge.dest-badge {
+            background: #f43f5e;
+            color: #ffffff;
+            animation: pulse-dest-badge 1.5s infinite;
+        }
+
+        @keyframes pulse-dest-badge {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(0.95); }
         }
 
         .map-close-btn {
@@ -1102,9 +1182,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 18px;
+            font-size: 16px;
             cursor: pointer;
             transition: all 0.2s ease;
+            flex-shrink: 0;
         }
 
         .map-close-btn:hover {
@@ -1114,13 +1195,14 @@
             transform: rotate(90deg);
         }
 
-        /* Stepper Multi-Piso */
+        /* Stepper Multi-Piso (Barra de Guía Automática) */
         .map-stepper {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 24px;
-            background: rgba(15, 23, 42, 0.6);
+            justify-content: center;
+            gap: 12px;
+            padding: 8px 24px;
+            background: rgba(15, 23, 42, 0.7);
             border-bottom: 1px solid rgba(255, 255, 255, 0.06);
         }
 
@@ -1130,7 +1212,7 @@
             gap: 8px;
             padding: 6px 14px;
             border-radius: 10px;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(255, 255, 255, 0.04);
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #a1a1aa;
             font-size: 12px;
@@ -1140,10 +1222,10 @@
         }
 
         .map-step-pill.active {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(99, 102, 241, 0.25);
+            border-color: rgba(99, 102, 241, 0.65);
             color: #e0e7ff;
-            box-shadow: 0 0 16px rgba(99, 102, 241, 0.25);
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
         }
 
         .map-step-pill.done {
@@ -1173,119 +1255,16 @@
             font-size: 14px;
         }
 
-        /* Floor Tabs */
-        .map-floor-tabs {
-            display: flex;
-            gap: 8px;
-            padding: 10px 24px;
-            background: rgba(18, 18, 24, 0.4);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            overflow-x: auto;
-        }
-
-        .map-floor-tab {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            padding: 9px 16px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #a1a1aa;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-
-        .map-floor-tab:hover {
-            background: rgba(255, 255, 255, 0.08);
-            color: #f4f4f5;
-        }
-
-        .map-floor-tab.active {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(124, 58, 237, 0.25));
-            border-color: rgba(99, 102, 241, 0.6);
-            color: #ffffff;
-            box-shadow: 0 0 20px rgba(99, 102, 241, 0.3);
-        }
-
-        .floor-tag-badge {
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #e4e4e7;
-            text-transform: uppercase;
-        }
-
-        .map-floor-tab.active .floor-tag-badge {
-            background: rgba(99, 102, 241, 0.5);
-            color: #fff;
-        }
-
-        .floor-tag-badge.totem-badge {
-            background: rgba(16, 185, 129, 0.3);
-            color: #6ee7b7;
-            border: 1px solid rgba(16, 185, 129, 0.5);
-        }
-
-        .floor-tag-badge.dest-badge {
-            background: rgba(244, 63, 94, 0.3);
-            color: #fda4af;
-            border: 1px solid rgba(244, 63, 94, 0.5);
-        }
-
-        /* Quick Chips Bar */
-        .map-quick-chips {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 24px;
-            background: rgba(10, 10, 15, 0.5);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            overflow-x: auto;
-        }
-
-        .map-quick-chip {
-            padding: 4px 10px;
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #a1a1aa;
-            font-size: 11px;
-            font-weight: 600;
-            cursor: pointer;
-            white-space: nowrap;
-            transition: all 0.2s ease;
-        }
-
-        .map-quick-chip:hover {
-            background: rgba(99, 102, 241, 0.2);
-            border-color: rgba(99, 102, 241, 0.4);
-            color: #e0e7ff;
-        }
-
-        .map-quick-chip.active {
-            background: rgba(99, 102, 241, 0.3);
-            border-color: rgba(99, 102, 241, 0.7);
-            color: #fff;
-        }
-
         /* SVG Map Container */
         .map-svg-wrap {
             flex: 1;
-            min-height: 380px;
-            max-height: 58vh;
+            min-height: 400px;
+            max-height: 60vh;
             padding: 12px 18px;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: radial-gradient(circle at center, #13141f 0%, #0a0a0f 100%);
+            background: radial-gradient(circle at center, #13141f 0%, #09090d 100%);
             position: relative;
             overflow: hidden;
         }
@@ -1293,26 +1272,19 @@
         #store-map-svg {
             width: 100%;
             height: 100%;
-            max-height: 54vh;
-            filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.5));
+            max-height: 56vh;
+            filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
         }
 
         /* Estilos de Elementos SVG */
-        .svg-grid-line { stroke: rgba(255, 255, 255, 0.03); stroke-width: 1; }
-        .svg-store-border { fill: none; stroke: rgba(255, 255, 255, 0.15); stroke-width: 3; rx: 18; }
-        
-        .svg-corridor { fill: rgba(255, 255, 255, 0.015); stroke: rgba(255, 255, 255, 0.04); stroke-width: 1; stroke-dasharray: 4 4; }
+        .svg-grid-line { stroke: rgba(255, 255, 255, 0.025); stroke-width: 1; }
+        .svg-store-border { fill: none; stroke: rgba(255, 255, 255, 0.12); stroke-width: 2.5; rx: 18; }
+        .svg-corridor { fill: rgba(255, 255, 255, 0.012); stroke: rgba(255, 255, 255, 0.04); stroke-width: 1; stroke-dasharray: 4 4; }
 
         .svg-dept-zone {
             transition: all 0.3s ease;
-            cursor: pointer;
-        }
-        .svg-dept-zone:hover {
-            filter: brightness(1.25);
-            stroke-width: 2.5;
         }
         .svg-dept-zone.highlighted {
-            stroke-width: 3;
             filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.8)) brightness(1.3);
             animation: zone-glow 2s infinite alternate;
         }
@@ -1329,7 +1301,7 @@
             stroke-width: 12;
             stroke-linecap: round;
             stroke-linejoin: round;
-            opacity: 0.3;
+            opacity: 0.35;
             filter: blur(4px);
         }
 
@@ -1367,7 +1339,7 @@
 
         /* Footer de Instrucciones de Ruta */
         .map-footer {
-            padding: 14px 24px 18px;
+            padding: 14px 24px 16px;
             background: rgba(18, 18, 24, 0.6);
             border-top: 1px solid rgba(255, 255, 255, 0.08);
             display: flex;
@@ -1392,6 +1364,7 @@
             align-items: center;
             justify-content: center;
             font-size: 20px;
+            flex-shrink: 0;
         }
 
         .map-route-text-main {
@@ -1407,7 +1380,7 @@
         }
 
         .map-action-btn {
-            padding: 10px 20px;
+            padding: 10px 22px;
             border-radius: 12px;
             background: linear-gradient(135deg, #4f46e5, #6366f1);
             border: none;
@@ -1552,22 +1525,39 @@
         <!-- Modal de Planimetría y Mapa de Tienda -->
         <div id="store-map-modal">
             <div class="map-card">
-                <!-- Header -->
+                <!-- Header con Tabs de Pisos integrados -->
                 <div class="map-header">
                     <div class="map-header-left">
                         <div class="map-logo-badge">🗺️</div>
                         <div>
                             <div class="map-title">
-                                <span>Planimetría Paris Costanera Center</span>
+                                <span>Planimetría de Tienda</span>
                                 <span id="map-target-badge" class="floor-tag-badge dest-badge" style="display:none">Destino</span>
                             </div>
-                            <div class="map-subtitle" id="map-header-subtitle">Tótem Interactivo ubicado en Piso 1 (Entrada Principal)</div>
+                            <div class="map-subtitle" id="map-header-subtitle">Paris Costanera Center · Tótem en Piso 1</div>
                         </div>
                     </div>
+
+                    <!-- Tabs de Pisos Clickeables -->
+                    <div class="map-floor-tabs" id="map-floor-tabs">
+                        <button class="map-floor-tab active" data-piso="1" onclick="setMapFloor(1)">
+                            <span>Piso 1</span>
+                            <span class="floor-tag-badge totem-badge">Tótem</span>
+                        </button>
+                        <button class="map-floor-tab" data-piso="2" onclick="setMapFloor(2)">
+                            <span>Piso 2</span>
+                            <span id="floor-2-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
+                        </button>
+                        <button class="map-floor-tab" data-piso="3" onclick="setMapFloor(3)">
+                            <span>Piso 3</span>
+                            <span id="floor-3-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
+                        </button>
+                    </div>
+
                     <button class="map-close-btn" onclick="closeStoreMap()" title="Cerrar Mapa">✕</button>
                 </div>
 
-                <!-- Stepper Multi-Piso (visible cuando el destino es Piso 2 o 3) -->
+                <!-- Barra de Guía Multi-Piso (Visible en rutas multi-piso) -->
                 <div id="map-stepper" class="map-stepper" style="display:none">
                     <div id="step-pill-1" class="map-step-pill active" onclick="setMapStep(1)">
                         <span class="map-step-num">1</span>
@@ -1578,36 +1568,6 @@
                         <span class="map-step-num">2</span>
                         <span id="step-pill-2-text">Paso 2: Llegar al Destino</span>
                     </div>
-                </div>
-
-                <!-- Tabs de Pisos -->
-                <div class="map-floor-tabs" id="map-floor-tabs">
-                    <button class="map-floor-tab active" data-piso="1" onclick="setMapFloor(1)">
-                        <span>Piso 1: Entrada & Belleza</span>
-                        <span class="floor-tag-badge totem-badge">📍 Tótem Aquí</span>
-                    </button>
-                    <button class="map-floor-tab" data-piso="2" onclick="setMapFloor(2)">
-                        <span>Piso 2: Moda & Hogar</span>
-                        <span id="floor-2-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯 Destino</span>
-                    </button>
-                    <button class="map-floor-tab" data-piso="3" onclick="setMapFloor(3)">
-                        <span>Piso 3: Tecnología & Electro</span>
-                        <span id="floor-3-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯 Destino</span>
-                    </button>
-                </div>
-
-                <!-- Quick Chips Bar (Acceso Rápido a Categorías) -->
-                <div class="map-quick-chips">
-                    <button class="map-quick-chip" onclick="quickSelectCategory('smartphones')">📱 Smartphones (T-01)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('television')">📺 Televisores (T-02)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('computacion')">💻 Computación (T-03)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('audio_gaming')">🎧 Audio & Gaming (T-04)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('perfumes_mujer')">💄 Perfumería (B-01)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('zapatillas')">👟 Zapatillas (D-06)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('ropa_mujer')">👗 Moda Mujer (M-01)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('ropa_hombre')">👔 Moda Hombre (M-02)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('electrohogar')">🧊 Línea Blanca (H-11)</button>
-                    <button class="map-quick-chip" onclick="quickSelectCategory('banos')">🚻 Baños / SS.HH.</button>
                 </div>
 
                 <!-- Contenedor SVG del Plano -->
@@ -1622,11 +1582,11 @@
                     <div class="map-route-info">
                         <div class="map-route-icon" id="map-route-icon">📍</div>
                         <div>
-                            <div class="map-route-text-main" id="map-route-text-main">Explora los departamentos de Paris Costanera Center</div>
-                            <div class="map-route-text-sub" id="map-route-text-sub">Toca cualquier zona o categoría para trazar tu ruta desde el tótem.</div>
+                            <div class="map-route-text-main" id="map-route-text-main">Plano de Paris Costanera Center</div>
+                            <div class="map-route-text-sub" id="map-route-text-sub">El mapa guía tu ruta en pantalla automáticamente.</div>
                         </div>
                     </div>
-                    <button class="map-action-btn" onclick="closeStoreMap()">Volver al Avatar</button>
+                    <button class="map-action-btn" onclick="closeStoreMap()">Cerrar Mapa</button>
                 </div>
             </div>
         </div>
@@ -1827,7 +1787,9 @@
                 'no ya no', 'no seria todo', 'no eso seria todo', 'no eso es todo',
                 'no por el momento', 'no de momento', 'no gracias chao',
                 'gracias', 'muchas gracias', 'chao', 'adios', 'hasta luego',
-                'nada mas', 'ninguna', 'ninguno', 'eso es todo', 'nos vemos',
+                'nada', 'no nada', 'nada mas', 'nada gracias', 'ninguna', 'ninguno',
+                'ninguno gracias', 'ninguna gracias', 'todo bien', 'todo bien gracias',
+                'eso es todo', 'eso seria todo', 'nos vemos',
                 'que estes bien', 'chao chao', 'bye', 'seria todo', 'listo gracias'
             ];
             if (exactSleepPhrases.includes(clean)) {
@@ -1857,6 +1819,7 @@
 
         function sleepModel(showBubble = false) {
             LOG("Durmiendo el modelo experimental (conversación cerrada).");
+            closeStoreMap();
             _conversationAwake = false;
             _wakeDetected = false;
             _waitingFollowUpAck = false;
@@ -1889,6 +1852,7 @@
             if (!_conversationAwake) return;
             _inactivityTimeoutId = setTimeout(() => {
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
+                closeStoreMap();
                 _conversationAwake = false;
                 _wakeDetected = false;
                 if (isListening) {
@@ -2004,11 +1968,12 @@
         function scheduleFollowUpAckTimeout() {
             clearTimeout(_followUpAckTimeoutId);
             if (!_waitingFollowUpAck || !_conversationAwake) return;
-            LOG('scheduleFollowUpAckTimeout: esperando 30s respuesta al follow-up…');
+            LOG('scheduleFollowUpAckTimeout: esperando 20s respuesta al follow-up…');
             _followUpAckTimeoutId = setTimeout(() => {
                 if (!_waitingFollowUpAck) return;
-                LOG('30s sin respuesta al follow-up → enviando despedida final y durmiendo.');
+                LOG('20s sin respuesta al follow-up → cerrando mapa, enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
+                closeStoreMap();
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
                 stopAlwaysOnListening();
@@ -2030,7 +1995,7 @@
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('ready', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 30000);
+            }, 20000);
         }
 
         // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
@@ -2452,9 +2417,10 @@
                             // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
                             setState('ready', 'Preparando micrófono…');
                             if (_conversationAwake) {
-                                scheduleFollowUp();
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
+                                } else {
+                                    scheduleFollowUp();
                                 }
                             }
 
@@ -2894,6 +2860,7 @@
             const sessionid = document.getElementById('sessionid').value;
 
             if (isSleepWord) {
+                closeStoreMap();
                 const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
                 let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
@@ -2902,6 +2869,12 @@
 
                 queueAvatarBubble(farewellText);
                 clearServerHistory();
+                _conversationAwake = false;
+                _wakeDetected = false;
+                _waitingFollowUpAck = false;
+                clearTimeout(_inactivityTimeoutId);
+                clearTimeout(_followUpTimeoutId);
+                clearTimeout(_followUpAckTimeoutId);
 
                 try {
                     await fetch('/human', {
@@ -2917,6 +2890,7 @@
                     ERR('sendToLLM farewell error:', err);
                 } finally {
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
+                    setState('ready', 'Esperando activación…');
                 }
                 return;
             }
@@ -3063,62 +3037,71 @@
             totem: { floor: 1, x: 500, y: 560, label: 'Tótem (Usted está aquí)' },
             escalator: { x: 500, y: 325, label: 'Escaleras Mecánicas / Ascensores' },
             categories: {
-                'smartphones': { piso: 3, x: 150, y: 240, name: 'Smartphones & Celulares', sector: 'Tecno', pasillo: 'T-01', color: '#6366f1', icon: '📱' },
-                'television': { piso: 3, x: 150, y: 420, name: 'Televisores & Video', sector: 'Tecno', pasillo: 'T-02', color: '#3b82f6', icon: '📺' },
-                'computacion': { piso: 3, x: 850, y: 240, name: 'Computación & Notebooks', sector: 'Tecno', pasillo: 'T-03', color: '#10b981', icon: '💻' },
-                'audio_gaming': { piso: 3, x: 850, y: 420, name: 'Audio, Gaming & Consolas', sector: 'Tecno', pasillo: 'T-04', color: '#f59e0b', icon: '🎧' },
-                'electrohogar': { piso: 3, x: 500, y: 190, name: 'Línea Blanca & Cocina', sector: 'Línea Blanca', pasillo: 'H-11', color: '#14b8a6', icon: '🧊' },
-                'perfumes_mujer': { piso: 1, x: 845, y: 260, name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', color: '#f43f5e', icon: '💄' },
-                'perfumes_hombre': { piso: 1, x: 845, y: 435, name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', color: '#ec4899', icon: '✨' },
-                'zapatillas': { piso: 1, x: 155, y: 260, name: 'Zapatillas & Deportes', sector: 'Deportes', pasillo: 'D-06', color: '#06b6d4', icon: '👟' },
-                'accesorios': { piso: 1, x: 155, y: 435, name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', color: '#8b5cf6', icon: '💍' },
-                'ropa_mujer': { piso: 2, x: 845, y: 245, name: 'Moda Mujer & Vestuario', sector: 'Moda Mujer', pasillo: 'M-01', color: '#f472b6', icon: '👗' },
-                'ropa_hombre': { piso: 2, x: 845, y: 430, name: 'Moda Hombre & Trajes', sector: 'Moda Hombre', pasillo: 'M-02', color: '#38bdf8', icon: '👔' },
-                'calzado_mujer': { piso: 2, x: 155, y: 260, name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', color: '#a855f7', icon: '👠' },
-                'decohogar': { piso: 2, x: 155, y: 435, name: 'Decohogar & Ropa de Cama', sector: 'Hogar', pasillo: 'DH-01', color: '#eab308', icon: '🛋️' },
-                'banos': { piso: 2, x: 880, y: 550, name: 'Servicios Higiénicos / Baños', sector: 'Servicios', pasillo: 'SS.HH.', color: '#0ea5e9', icon: '🚻' }
+                // Piso 3
+                'smartphones': { piso: 3, x: 150, y: 240, name: 'Smartphones & Celulares', sector: 'Tecnología', pasillo: 'T-01', color: '#6366f1', icon: '📱' },
+                'television': { piso: 3, x: 150, y: 420, name: 'Televisores 4K & Audio', sector: 'Tecnología', pasillo: 'T-02', color: '#3b82f6', icon: '📺' },
+                'computacion': { piso: 3, x: 850, y: 240, name: 'Computación & Notebooks', sector: 'Tecnología', pasillo: 'T-03', color: '#10b981', icon: '💻' },
+                'audio_gaming': { piso: 3, x: 850, y: 420, name: 'Audio, Gaming & Consolas', sector: 'Tecnología', pasillo: 'T-04', color: '#f59e0b', icon: '🎧' },
+                'electrohogar': { piso: 3, x: 500, y: 170, name: 'Línea Blanca & Cocina', sector: 'Línea Blanca', pasillo: 'H-11', color: '#14b8a6', icon: '🧊' },
+                'servicio_cliente': { piso: 3, x: 200, y: 550, name: 'Servicio al Cliente & Devoluciones', sector: 'Servicios', pasillo: 'Piso 3', color: '#06b6d4', icon: 'ℹ️' },
+
+                // Piso 2
+                'ropa_mujer': { piso: 2, x: 850, y: 240, name: 'Moda Mujer & Vestuario', sector: 'Moda', pasillo: 'M-01', color: '#f472b6', icon: '👗' },
+                'ropa_hombre': { piso: 2, x: 850, y: 420, name: 'Moda Hombre & Trajes', sector: 'Moda', pasillo: 'M-02', color: '#38bdf8', icon: '👔' },
+                'calzado_mujer': { piso: 2, x: 150, y: 240, name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', color: '#a855f7', icon: '👠' },
+                'decohogar': { piso: 2, x: 150, y: 420, name: 'Decohogar & Ropa de Cama', sector: 'Hogar', pasillo: 'DH-01', color: '#eab308', icon: '🛋️' },
+                'probadores': { piso: 2, x: 200, y: 550, name: 'Probadores', sector: 'Servicios', pasillo: 'Piso 2', color: '#a855f7', icon: '🚪' },
+                'banos': { piso: 2, x: 880, y: 550, name: 'Servicios Higiénicos / Baños', sector: 'Servicios', pasillo: 'SS.HH.', color: '#0ea5e9', icon: '🚻' },
+
+                // Piso 1
+                'perfumes_mujer': { piso: 1, x: 850, y: 240, name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', color: '#f43f5e', icon: '💄' },
+                'perfumes_hombre': { piso: 1, x: 850, y: 420, name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', color: '#ec4899', icon: '✨' },
+                'zapatillas': { piso: 1, x: 150, y: 240, name: 'Zapatillas & Deportes', sector: 'Deportes', pasillo: 'D-06', color: '#06b6d4', icon: '👟' },
+                'accesorios': { piso: 1, x: 150, y: 420, name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', color: '#8b5cf6', icon: '💍' },
+                'retiro_tienda': { piso: 1, x: 200, y: 560, name: 'Punto de Retiro & Cajas', sector: 'Servicios', pasillo: 'Piso 1', color: '#10b981', icon: '📦' },
+                'cajas': { piso: 1, x: 200, y: 560, name: 'Caja Principal & Retiro', sector: 'Servicios', pasillo: 'Piso 1', color: '#f59e0b', icon: '🛒' }
             },
             floors: {
                 1: {
                     title: 'Piso 1 · Entrada, Belleza y Deportes',
                     zones: [
-                        { id: 'perfumes_mujer', name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', x: 740, y: 190, w: 210, h: 140, color: '#f43f5e', icon: '💄' },
-                        { id: 'perfumes_hombre', name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', x: 740, y: 365, w: 210, h: 140, color: '#ec4899', icon: '✨' },
-                        { id: 'zapatillas', name: 'Zapatillas Deportivas', sector: 'Deportes', pasillo: 'D-06', x: 50, y: 190, w: 210, h: 140, color: '#06b6d4', icon: '👟' },
-                        { id: 'accesorios', name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', x: 50, y: 365, w: 210, h: 140, color: '#8b5cf6', icon: '💍' }
+                        { id: 'perfumes_mujer', name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', x: 740, y: 170, w: 210, h: 145, color: '#f43f5e', icon: '💄' },
+                        { id: 'perfumes_hombre', name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', x: 740, y: 350, w: 210, h: 145, color: '#ec4899', icon: '✨' },
+                        { id: 'zapatillas', name: 'Zapatillas & Deportes', sector: 'Deportes', pasillo: 'D-06', x: 50, y: 170, w: 210, h: 145, color: '#06b6d4', icon: '👟' },
+                        { id: 'accesorios', name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', x: 50, y: 350, w: 210, h: 145, color: '#8b5cf6', icon: '💍' }
                     ],
                     services: [
                         { id: 'entrada', name: 'Entrada Principal', x: 500, y: 615, icon: '🚪' },
-                        { id: 'cajas_1', name: 'Cajas & Retiro en Tienda', x: 200, y: 560, icon: '🛒' },
+                        { id: 'retiro_tienda', name: 'Retiro en Tienda & Cajas', x: 200, y: 560, icon: '📦' },
                         { id: 'banos_1', name: 'Baños / SS.HH.', x: 880, y: 560, icon: '🚻' }
                     ]
                 },
                 2: {
                     title: 'Piso 2 · Moda, Calzado y Decohogar',
                     zones: [
-                        { id: 'ropa_mujer', name: 'Moda Mujer', sector: 'Moda Mujer', pasillo: 'M-01', x: 740, y: 175, w: 210, h: 140, color: '#f472b6', icon: '👗' },
-                        { id: 'ropa_hombre', name: 'Moda Hombre', sector: 'Moda Hombre', pasillo: 'M-02', x: 740, y: 360, w: 210, h: 140, color: '#38bdf8', icon: '👔' },
-                        { id: 'calzado_mujer', name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', x: 50, y: 190, w: 210, h: 140, color: '#a855f7', icon: '👠' },
-                        { id: 'decohogar', name: 'Decohogar & Cama', sector: 'Hogar', pasillo: 'DH-01', x: 50, y: 365, w: 210, h: 140, color: '#eab308', icon: '🛋️' }
+                        { id: 'ropa_mujer', name: 'Moda Mujer', sector: 'Moda', pasillo: 'M-01', x: 740, y: 170, w: 210, h: 145, color: '#f472b6', icon: '👗' },
+                        { id: 'ropa_hombre', name: 'Moda Hombre', sector: 'Moda', pasillo: 'M-02', x: 740, y: 350, w: 210, h: 145, color: '#38bdf8', icon: '👔' },
+                        { id: 'calzado_mujer', name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', x: 50, y: 170, w: 210, h: 145, color: '#a855f7', icon: '👠' },
+                        { id: 'decohogar', name: 'Decohogar & Cama', sector: 'Hogar', pasillo: 'DH-01', x: 50, y: 350, w: 210, h: 145, color: '#eab308', icon: '🛋️' }
                     ],
                     services: [
                         { id: 'cajas_2', name: 'Caja Express Moda', x: 500, y: 550, icon: '🛒' },
-                        { id: 'probadores_2', name: 'Probadores', x: 200, y: 550, icon: '🚪' },
-                        { id: 'banos_2', name: 'Servicios Higiénicos / Baños', x: 880, y: 550, icon: '🚻' }
+                        { id: 'probadores', name: 'Probadores', x: 200, y: 550, icon: '🚪' },
+                        { id: 'banos', name: 'Baños / SS.HH.', x: 880, y: 550, icon: '🚻' }
                     ]
                 },
                 3: {
                     title: 'Piso 3 · Tecnología y Electrohogar',
                     zones: [
-                        { id: 'smartphones', name: 'Smartphones (T-01)', sector: 'Tecno', pasillo: 'T-01', x: 50, y: 170, w: 200, h: 140, color: '#6366f1', icon: '📱' },
-                        { id: 'television', name: 'Televisores 4K (T-02)', sector: 'Tecno', pasillo: 'T-02', x: 50, y: 350, w: 200, h: 140, color: '#3b82f6', icon: '📺' },
-                        { id: 'computacion', name: 'Computación (T-03)', sector: 'Tecno', pasillo: 'T-03', x: 750, y: 170, w: 200, h: 140, color: '#10b981', icon: '💻' },
-                        { id: 'audio_gaming', name: 'Audio & Gaming (T-04)', sector: 'Tecno', pasillo: 'T-04', x: 750, y: 350, w: 200, h: 140, color: '#f59e0b', icon: '🎧' },
-                        { id: 'electrohogar', name: 'Línea Blanca (H-11)', sector: 'Línea Blanca', pasillo: 'H-11', x: 380, y: 140, w: 240, h: 100, color: '#14b8a6', icon: '🧊' }
+                        { id: 'smartphones', name: 'Smartphones & Celulares', sector: 'Tecno', pasillo: 'T-01', x: 50, y: 170, w: 210, h: 145, color: '#6366f1', icon: '📱' },
+                        { id: 'television', name: 'Televisores 4K & Audio', sector: 'Tecno', pasillo: 'T-02', x: 50, y: 350, w: 210, h: 145, color: '#3b82f6', icon: '📺' },
+                        { id: 'computacion', name: 'Computación & Notebooks', sector: 'Tecno', pasillo: 'T-03', x: 740, y: 170, w: 210, h: 145, color: '#10b981', icon: '💻' },
+                        { id: 'audio_gaming', name: 'Audio, Gaming & Consolas', sector: 'Tecno', pasillo: 'T-04', x: 740, y: 350, w: 210, h: 145, color: '#f59e0b', icon: '🎧' },
+                        { id: 'electrohogar', name: 'Línea Blanca & Cocina', sector: 'Línea Blanca', pasillo: 'H-11', x: 370, y: 130, w: 260, h: 110, color: '#14b8a6', icon: '🧊' }
                     ],
                     services: [
                         { id: 'cajas_3', name: 'Caja Central Tecnología', x: 500, y: 550, icon: '🛒' },
-                        { id: 'servicio_cliente', name: 'Servicio al Cliente & Tarjeta', x: 200, y: 550, icon: 'ℹ️' },
+                        { id: 'servicio_cliente', name: 'Servicio al Cliente & Devoluciones', x: 200, y: 550, icon: 'ℹ️' },
                         { id: 'banos_3', name: 'Baños / SS.HH.', x: 880, y: 550, icon: '🚻' }
                     ]
                 }
@@ -3128,11 +3111,13 @@
         let _currentMapFloor = 1;
         let _currentMapStep = 1;
         let _currentMapTarget = null; // { piso, x, y, name, pasillo, sector, id }
+        let _autoStepTimer = null;
 
         function openStoreMap(targetPiso = null, targetX = null, targetY = null, title = null, pasillo = null, sector = null) {
             const modal = document.getElementById('store-map-modal');
             if (!modal) return;
 
+            clearTimeout(_autoStepTimer);
             LOG(`openStoreMap: targetPiso=${targetPiso}, title="${title}"`);
 
             if (targetPiso) {
@@ -3144,6 +3129,8 @@
                     pasillo: pasillo || '',
                     sector: sector || ''
                 };
+            } else {
+                _currentMapTarget = null;
             }
 
             // Configurar vistas según si es multi-piso o mismo piso
@@ -3155,6 +3142,15 @@
                 if (stepper) stepper.style.display = 'flex';
                 const pill2Text = document.getElementById('step-pill-2-text');
                 if (pill2Text) pill2Text.textContent = `Paso 2: Llegar a Piso ${_currentMapTarget.piso} (${_currentMapTarget.name})`;
+
+                // Auto-guía: avanzar automáticamente al Paso 2 tras 4 segundos
+                _autoStepTimer = setTimeout(() => {
+                    if (_currentMapTarget && _currentMapTarget.piso > 1 && _currentMapStep === 1) {
+                        LOG('[Auto-Guide] Avanzando automáticamente a Paso 2 (Piso ' + _currentMapTarget.piso + ')');
+                        setMapStep(2);
+                    }
+                }, 4000);
+
             } else {
                 // Destino en Piso 1 o exploración general
                 _currentMapStep = 1;
@@ -3169,12 +3165,14 @@
         }
 
         function closeStoreMap() {
+            clearTimeout(_autoStepTimer);
             const modal = document.getElementById('store-map-modal');
             if (modal) modal.classList.remove('active');
             LOG('closeStoreMap: modal cerrado');
         }
 
         function setMapFloor(floorNumber) {
+            clearTimeout(_autoStepTimer);
             _currentMapFloor = Number(floorNumber);
             LOG(`setMapFloor: cambiado a Piso ${_currentMapFloor}`);
             updateMapHeaderAndTabs();
@@ -3182,6 +3180,7 @@
         }
 
         function setMapStep(stepIndex) {
+            clearTimeout(_autoStepTimer);
             _currentMapStep = Number(stepIndex);
             if (!_currentMapTarget) return;
 
@@ -3193,22 +3192,6 @@
             LOG(`setMapStep: paso ${_currentMapStep} activado en Piso ${_currentMapFloor}`);
             updateMapHeaderAndTabs();
             renderStoreMapSvg();
-        }
-
-        function quickSelectCategory(catId) {
-            const cat = STORE_MAP_DATA.categories[catId];
-            if (!cat) return;
-
-            // Actualizar active chip
-            document.querySelectorAll('.map-quick-chip').forEach(c => c.classList.remove('active'));
-            const chips = document.querySelectorAll('.map-quick-chip');
-            chips.forEach(c => {
-                if (c.textContent.toLowerCase().includes(cat.name.slice(0, 5).toLowerCase())) {
-                    c.classList.add('active');
-                }
-            });
-
-            openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
         }
 
         function openMapForProduct(skuOrBarcode) {
@@ -3248,7 +3231,7 @@
             if (targetBadge) {
                 if (_currentMapTarget) {
                     targetBadge.style.display = 'inline-block';
-                    targetBadge.textContent = `🎯 Destino: ${_currentMapTarget.name} (${_currentMapTarget.pasillo || 'Piso ' + _currentMapTarget.piso})`;
+                    targetBadge.textContent = `🎯 ${_currentMapTarget.name} (${_currentMapTarget.pasillo || 'Piso ' + _currentMapTarget.piso})`;
                 } else {
                     targetBadge.style.display = 'none';
                 }
@@ -3274,24 +3257,24 @@
 
             if (_currentMapTarget) {
                 if (_currentMapTarget.piso === 1) {
-                    if (mainText) mainText.textContent = `Ruta directa en Piso 1: Dirígete a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
-                    if (subText) subText.textContent = `Sigue la línea iluminada desde el tótem hacia tu ${_currentMapTarget.x > 500 ? 'derecha' : 'izquierda'}.`;
+                    if (mainText) mainText.textContent = `Ruta en Piso 1: Dirígete a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
+                    if (subText) subText.textContent = `Sigue la línea iluminada desde el tótem hacia el pasillo ${_currentMapTarget.pasillo || ''}.`;
                     if (iconEl) iconEl.textContent = '📍';
                 } else {
                     if (_currentMapStep === 1) {
-                        if (mainText) mainText.textContent = `Paso 1: Camina hacia las Escaleras Mecánicas centrales (Piso 1)`;
-                        if (subText) subText.textContent = `Sube por la escalera central hacia el Piso ${_currentMapTarget.piso}. Luego toca "Paso 2" para ver la llegada al pasillo.`;
+                        if (mainText) mainText.textContent = `Paso 1: Dirígete a las Escaleras Mecánicas centrales (Piso 1)`;
+                        if (subText) subText.textContent = `Sube a Piso ${_currentMapTarget.piso} para llegar a ${_currentMapTarget.name} (cambio automático en pantalla).`;
                         if (iconEl) iconEl.textContent = '🪜';
                     } else {
-                        if (mainText) mainText.textContent = `Paso 2 en Piso ${_currentMapTarget.piso}: Dirígete a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
-                        if (subText) subText.textContent = `Al salir de la escalera en Piso ${_currentMapTarget.piso}, camina hacia el sector ${_currentMapTarget.sector || 'correspondiente'}.`;
+                        if (mainText) mainText.textContent = `Paso 2 en Piso ${_currentMapTarget.piso}: Llegada a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
+                        if (subText) subText.textContent = `Al salir de la escalera en Piso ${_currentMapTarget.piso}, camina hacia el sector ${_currentMapTarget.sector || ''}.`;
                         if (iconEl) iconEl.textContent = '🎯';
                     }
                 }
             } else {
                 const floorData = STORE_MAP_DATA.floors[_currentMapFloor];
                 if (mainText) mainText.textContent = floorData ? floorData.title : 'Plano de la tienda';
-                if (subText) subText.textContent = 'Toca cualquier categoría o usa los botones rápidos para trazar tu ruta.';
+                if (subText) subText.textContent = 'Selecciona cualquier piso para explorar los departamentos.';
                 if (iconEl) iconEl.textContent = '🗺️';
             }
         }
@@ -3309,10 +3292,6 @@
                     <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
                         <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6"/>
                         <stop offset="100%" stop-color="#a855f7" stop-opacity="0.3"/>
-                    </linearGradient>
-                    <linearGradient id="zoneGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#ffffff" stop-opacity="0.08"/>
-                        <stop offset="100%" stop-color="#ffffff" stop-opacity="0.02"/>
                     </linearGradient>
                     <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
                         <feGaussianBlur stdDeviation="6" result="blur" />
@@ -3339,7 +3318,7 @@
             html += `
                 <g id="escalator-node" transform="translate(420, 280)">
                     <rect x="0" y="0" width="160" height="90" rx="16" 
-                        fill="${isEscalatorActive ? 'rgba(245, 158, 11, 0.18)' : 'rgba(30, 41, 59, 0.7)'}" 
+                        fill="${isEscalatorActive ? 'rgba(245, 158, 11, 0.2)' : 'rgba(30, 41, 59, 0.7)'}" 
                         stroke="${isEscalatorActive ? '#f59e0b' : 'rgba(255, 255, 255, 0.2)'}" 
                         stroke-width="${isEscalatorActive ? '2.5' : '1.5'}"
                         filter="${isEscalatorActive ? 'url(#glowFilter)' : 'none'}"/>
@@ -3357,29 +3336,36 @@
                 );
 
                 html += `
-                    <g class="svg-dept-zone ${isTarget ? 'highlighted' : ''}" onclick="quickSelectCategory('${z.id}')">
+                    <g class="svg-dept-zone ${isTarget ? 'highlighted' : ''}">
                         <rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="14" 
                             fill="${z.color}1c" stroke="${z.color}" stroke-width="${isTarget ? '3' : '1.5'}"/>
                         
-                        <text x="${z.x + 18}" y="${z.y + 32}" font-size="20">${z.icon || '🛍️'}</text>
-                        <text x="${z.x + 48}" y="${z.y + 32}" fill="#ffffff" font-size="13" font-weight="700">${z.name}</text>
+                        <text x="${z.x + 20}" y="${z.y + 36}" font-size="22">${z.icon || '🛍️'}</text>
+                        <text x="${z.x + 50}" y="${z.y + 34}" fill="#ffffff" font-size="13" font-weight="700">${z.name}</text>
                         
                         <!-- Pasillo pill badge -->
-                        <rect x="${z.x + 18}" y="${z.y + z.h - 32}" width="70" height="20" rx="6" fill="${z.color}33" stroke="${z.color}88" stroke-width="1"/>
-                        <text x="${z.x + 53}" y="${z.y + z.h - 18}" text-anchor="middle" fill="#ffffff" font-size="10" font-weight="800">${z.pasillo}</text>
+                        <rect x="${z.x + 20}" y="${z.y + z.h - 36}" width="70" height="22" rx="6" fill="${z.color}33" stroke="${z.color}88" stroke-width="1"/>
+                        <text x="${z.x + 55}" y="${z.y + z.h - 21}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">${z.pasillo}</text>
                         
-                        <text x="${z.x + 98}" y="${z.y + z.h - 18}" fill="#a1a1aa" font-size="11">${z.sector}</text>
+                        <text x="${z.x + 100}" y="${z.y + z.h - 21}" fill="#a1a1aa" font-size="11">${z.sector}</text>
                     </g>
                 `;
             });
 
-            // 4. Puntos de Servicio (Baños, Cajas, Retiro, Entrada)
+            // 4. Puntos de Servicio (Baños, Cajas, Retiro, Entrada, Servicio al Cliente)
             floorData.services.forEach(s => {
+                const isTargetService = _currentMapTarget && (_currentMapTarget.piso === _currentMapFloor) && (
+                    Math.abs(s.x - _currentMapTarget.x) < 60 && Math.abs(s.y - _currentMapTarget.y) < 60
+                );
+
                 html += `
-                    <g transform="translate(${s.x - 40}, ${s.y - 25})">
-                        <rect x="0" y="0" width="80" height="50" rx="12" fill="rgba(24, 24, 32, 0.75)" stroke="rgba(255, 255, 255, 0.15)" stroke-width="1"/>
-                        <text x="40" y="24" text-anchor="middle" font-size="18">${s.icon}</text>
-                        <text x="40" y="40" text-anchor="middle" fill="#d4d4d8" font-size="9" font-weight="600">${s.name.split('/')[0].slice(0, 14)}</text>
+                    <g transform="translate(${s.x - 45}, ${s.y - 25})">
+                        <rect x="0" y="0" width="90" height="50" rx="12" 
+                            fill="${isTargetService ? 'rgba(99, 102, 241, 0.3)' : 'rgba(24, 24, 32, 0.75)'}" 
+                            stroke="${isTargetService ? '#6366f1' : 'rgba(255, 255, 255, 0.15)'}" 
+                            stroke-width="${isTargetService ? '2.5' : '1'}"/>
+                        <text x="45" y="24" text-anchor="middle" font-size="18">${s.icon}</text>
+                        <text x="45" y="40" text-anchor="middle" fill="#d4d4d8" font-size="9" font-weight="600">${s.name.split('/')[0].slice(0, 14)}</text>
                     </g>
                 `;
             });
@@ -3460,39 +3446,53 @@
 
         // ─── Detección de Intención de Ubicación en Respuestas del Avatar / Usuario ───
         function checkLocationIntentAndTriggerMap(text) {
-            if (!text) return;
+            if (!text) return false;
             const t = text.toLowerCase();
 
-            // Detectar categoría específica
-            const catMap = {
-                'smartphones': ['smartphone', 'celular', 'celulares', 'telefono', 'teléfono', 'iphone', 'galaxy', 't-01'],
-                'television': ['televisor', 'televisores', 'tv', 'smart tv', 'pantalla', 't-02'],
-                'computacion': ['computador', 'computadores', 'notebook', 'notebooks', 'laptop', 'pc', 't-03'],
-                'audio_gaming': ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audífonos', 'gaming', 'playstation', 'consola', 't-04'],
-                'electrohogar': ['electrohogar', 'refrigerador', 'lavadora', 'cocina', 'microondas', 'linea blanca', 'h-11'],
-                'perfumes_mujer': ['perfume', 'perfumes', 'fragancia', 'belleza', 'maquillaje', 'b-01'],
-                'perfumes_hombre': ['perfume hombre', 'perfumes hombre', 'colonia', 'b-02'],
-                'zapatillas': ['zapatilla', 'zapatillas', 'deporte', 'nike', 'adidas', 'd-06'],
-                'ropa_mujer': ['ropa mujer', 'vestido', 'falda', 'blusa', 'm-01'],
-                'ropa_hombre': ['ropa hombre', 'camisa', 'traje', 'pantalon', 'm-02'],
-                'calzado_mujer': ['calzado', 'zapato', 'zapatos', 'tacon', 'sandalia', 'c-01'],
-                'decohogar': ['decohogar', 'cama', 'sabana', 'sabanas', 'almohada', 'dh-01'],
-                'banos': ['baño', 'baños', 'bano', 'banos', 'servicios higienicos', 'servicios higiénicos', 'sshh', 'wc']
-            };
+            // Mapa de categorías con prioridad de coincidencia
+            const catMap = [
+                // 1. Servicios de Postventa / Devoluciones / Cambios / Retiro / Baños (ALTA PRIORIDAD)
+                { id: 'servicio_cliente', keywords: ['devolver', 'devolucion', 'devolución', 'devoluciones', 'cambiar', 'cambio', 'cambios', 'reclamo', 'postventa', 'servicio al cliente', 'garantia', 'garantía', 'tarjeta paris', 'tarjeta cencosud'] },
+                { id: 'retiro_tienda', keywords: ['retiro', 'retirar', 'click and collect', 'click & collect', 'recoger', 'retiro en tienda', 'compra online', 'compré online', 'compra por internet'] },
+                { id: 'banos', keywords: ['baño', 'baños', 'bano', 'banos', 'sshh', 'ss.hh', 'servicios higienicos', 'servicios higiénicos', 'wc', 'lavamanos', 'sanitario', 'sanitarios', 'toilet'] },
+                { id: 'probadores', keywords: ['probador', 'probadores', 'probarme', 'medirme', 'cambiador'] },
+                { id: 'cajas', keywords: ['caja', 'cajas', 'pagar', 'donde pago', 'dónde pago', 'cajera'] },
+
+                // 2. Departamentos de Tecnología (Piso 3)
+                { id: 'smartphones', keywords: ['smartphone', 'smartphones', 'celular', 'celulares', 'telefono', 'teléfono', 'telefonos', 'teléfonos', 'iphone', 'galaxy', 's25', 's24', 'xiaomi', 'motorola', 't-01', 't01'] },
+                { id: 'television', keywords: ['televisor', 'televisores', 'tv', 'smart tv', 'pantalla', 'pantallas', 'oled', 'qled', 'hisense', 't-02', 't02'] },
+                { id: 'computacion', keywords: ['computador', 'computadores', 'notebook', 'notebooks', 'laptop', 'laptops', 'macbook', 'pc', 'computacion', 'computación', 't-03', 't03'] },
+                { id: 'audio_gaming', keywords: ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audifonos', 'audífono', 'audífonos', 'gaming', 'playstation', 'ps5', 'consola', 'consolas', 'nintendo', 'xbox', 'smartwatch', 'reloj inteligente', 't-04', 't04'] },
+                { id: 'electrohogar', keywords: ['electrohogar', 'refrigerador', 'refrigeradores', 'lavadora', 'lavadoras', 'secadora', 'cocina', 'microondas', 'linea blanca', 'línea blanca', 'h-11', 'h-12', 'h-13', 'climatizacion', 'climatización', 'aire acondicionado', 'estufa'] },
+
+                // 3. Departamentos de Belleza y Deportes (Piso 1)
+                { id: 'perfumes_mujer', keywords: ['perfume mujer', 'perfumes mujer', 'fragancia mujer', 'maquillaje', 'labial', 'cosmetica', 'cosmética', 'skincare', 'b-01', 'b01'] },
+                { id: 'perfumes_hombre', keywords: ['perfume hombre', 'perfumes hombre', 'colonia hombre', 'fragancia hombre', 'b-02', 'b02'] },
+                { id: 'perfumes_mujer', keywords: ['perfume', 'perfumes', 'fragancia', 'fragancias', 'belleza', 'colonia'] },
+                { id: 'zapatillas', keywords: ['zapatilla', 'zapatillas', 'deporte', 'deportes', 'calzado deportivo', 'nike', 'adidas', 'puma', 'd-06', 'd-07', 'd06'] },
+                { id: 'accesorios', keywords: ['accesorio', 'accesorios', 'joyeria', 'joyería', 'reloj', 'relojes', 'lentes', 'gafas', 'a-01', 'a01'] },
+
+                // 4. Departamentos de Moda y Hogar (Piso 2)
+                { id: 'ropa_mujer', keywords: ['ropa mujer', 'vestuario mujer', 'vestido', 'vestidos', 'falda', 'faldas', 'blusa', 'blusas', 'm-01', 'm01'] },
+                { id: 'ropa_hombre', keywords: ['ropa hombre', 'vestuario hombre', 'camisa', 'camisas', 'traje', 'trajes', 'm-02', 'm02'] },
+                { id: 'calzado_mujer', keywords: ['calzado mujer', 'calzado femenino', 'zapato', 'zapatos', 'tacon', 'tacones', 'sandalia', 'sandalias', 'botin', 'botines', 'bota', 'botas', 'c-01', 'c01'] },
+                { id: 'decohogar', keywords: ['decohogar', 'cama', 'camas', 'sabana', 'sabanas', 'sábana', 'sábanas', 'almohada', 'almohadas', 'plumon', 'plumón', 'cubrecama', 'toalla', 'toallas', 'dh-01', 'dh-02', 'dh01'] }
+            ];
 
             const isLocationQuestion = t.includes('donde') || t.includes('dónde') || t.includes('ubicacion') || 
                                      t.includes('ubicación') || t.includes('pasillo') || t.includes('piso') || 
-                                     t.includes('llegar') || t.includes('encuentro') || t.includes('muestra en pantalla');
+                                     t.includes('llegar') || t.includes('encuentro') || t.includes('muestra en pantalla') ||
+                                     t.includes('devolver') || t.includes('cambiar') || t.includes('retiro') || t.includes('baño');
 
-            for (const [catId, keywords] of Object.entries(catMap)) {
-                if (keywords.some(k => t.includes(k))) {
+            for (const item of catMap) {
+                if (item.keywords.some(k => t.includes(k))) {
                     if (isLocationQuestion || t.includes('pasillo') || t.includes('piso') || t.includes('muestra en pantalla')) {
-                        LOG(`[Location Intent] Coincidencia con categoría: ${catId}`);
-                        const cat = STORE_MAP_DATA.categories[catId];
+                        LOG(`[Location Intent] Coincidencia con categoría: ${item.id}`);
+                        const cat = STORE_MAP_DATA.categories[item.id];
                         if (cat) {
                             setTimeout(() => {
                                 openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
-                            }, 500);
+                            }, 450);
                         }
                         return true;
                     }
