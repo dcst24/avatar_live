@@ -3529,7 +3529,42 @@
             if (!text) return false;
             const t = text.toLowerCase();
 
-            // Mapa de categorías con prioridad de coincidencia
+            // 1. Prioridad Máxima: Detección por código de Pasillo exacto (ej: B-01, T-02, D-06, etc.)
+            const pasilloToCat = {
+                'b-01': 'perfumes_mujer', 'b01': 'perfumes_mujer',
+                'b-02': 'perfumes_hombre', 'b02': 'perfumes_hombre',
+                'd-06': 'zapatillas', 'd06': 'zapatillas',
+                'd-07': 'zapatillas', 'd07': 'zapatillas',
+                'a-01': 'accesorios', 'a01': 'accesorios',
+                'm-01': 'ropa_mujer', 'm01': 'ropa_mujer',
+                'm-02': 'ropa_hombre', 'm02': 'ropa_hombre',
+                'c-01': 'calzado_mujer', 'c01': 'calzado_mujer',
+                'dh-01': 'decohogar', 'dh01': 'decohogar',
+                'dh-02': 'decohogar', 'dh02': 'decohogar',
+                't-01': 'smartphones', 't01': 'smartphones',
+                't-02': 'television', 't02': 'television',
+                't-03': 'computacion', 't03': 'computacion',
+                't-04': 'audio_gaming', 't04': 'audio_gaming',
+                'h-11': 'electrohogar', 'h11': 'electrohogar',
+                'h-12': 'electrohogar', 'h12': 'electrohogar',
+                'h-13': 'electrohogar', 'h13': 'electrohogar'
+            };
+
+            for (const [code, catId] of Object.entries(pasilloToCat)) {
+                const regex = new RegExp(`\\b${code}\\b`, 'i');
+                if (regex.test(t)) {
+                    LOG(`[Location Intent] Coincidencia directa por pasillo "${code}" → ${catId}`);
+                    const cat = STORE_MAP_DATA.categories[catId];
+                    if (cat) {
+                        setTimeout(() => {
+                            openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
+                        }, 400);
+                        return true;
+                    }
+                }
+            }
+
+            // 2. Prioridad Temática por Palabras Clave (NUNCA incluir 'pantalla' para no chocar con 'se muestra en pantalla')
             const catMap = [
                 // 1. Servicios de Postventa / Devoluciones / Cambios / Retiro / Baños (ALTA PRIORIDAD)
                 { id: 'servicio_cliente', keywords: ['devolver', 'devolucion', 'devolución', 'devoluciones', 'cambiar', 'cambio', 'cambios', 'reclamo', 'postventa', 'servicio al cliente', 'garantia', 'garantía', 'tarjeta paris', 'tarjeta cencosud'] },
@@ -3538,25 +3573,24 @@
                 { id: 'probadores', keywords: ['probador', 'probadores', 'probarme', 'medirme', 'cambiador'] },
                 { id: 'cajas', keywords: ['caja', 'cajas', 'pagar', 'donde pago', 'dónde pago', 'cajera'] },
 
-                // 2. Departamentos de Tecnología (Piso 3)
-                { id: 'smartphones', keywords: ['smartphone', 'smartphones', 'celular', 'celulares', 'telefono', 'teléfono', 'telefonos', 'teléfonos', 'iphone', 'galaxy', 's25', 's24', 'xiaomi', 'motorola', 't-01', 't01'] },
-                { id: 'television', keywords: ['televisor', 'televisores', 'tv', 'smart tv', 'pantalla', 'pantallas', 'oled', 'qled', 'hisense', 't-02', 't02'] },
-                { id: 'computacion', keywords: ['computador', 'computadores', 'notebook', 'notebooks', 'laptop', 'laptops', 'macbook', 'pc', 'computacion', 'computación', 't-03', 't03'] },
-                { id: 'audio_gaming', keywords: ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audifonos', 'audífono', 'audífonos', 'gaming', 'playstation', 'ps5', 'consola', 'consolas', 'nintendo', 'xbox', 'smartwatch', 'reloj inteligente', 't-04', 't04'] },
-                { id: 'electrohogar', keywords: ['electrohogar', 'refrigerador', 'refrigeradores', 'lavadora', 'lavadoras', 'secadora', 'cocina', 'microondas', 'linea blanca', 'línea blanca', 'h-11', 'h-12', 'h-13', 'climatizacion', 'climatización', 'aire acondicionado', 'estufa'] },
+                // 2. Departamentos de Belleza y Deportes (Piso 1)
+                { id: 'perfumes_mujer', keywords: ['perfume mujer', 'perfumes mujer', 'fragancia mujer', 'maquillaje', 'labial', 'cosmetica', 'cosmética', 'skincare', 'perfume', 'perfumes', 'fragancia', 'fragancias', 'belleza', 'colonia'] },
+                { id: 'perfumes_hombre', keywords: ['perfume hombre', 'perfumes hombre', 'colonia hombre', 'fragancia hombre'] },
+                { id: 'zapatillas', keywords: ['zapatilla', 'zapatillas', 'calzado deportivo', 'nike', 'adidas', 'puma', 'deporte', 'deportes'] },
+                { id: 'accesorios', keywords: ['accesorio', 'accesorios', 'joyeria', 'joyería', 'reloj', 'relojes', 'lentes', 'gafas'] },
 
-                // 3. Departamentos de Belleza y Deportes (Piso 1)
-                { id: 'perfumes_mujer', keywords: ['perfume mujer', 'perfumes mujer', 'fragancia mujer', 'maquillaje', 'labial', 'cosmetica', 'cosmética', 'skincare', 'b-01', 'b01'] },
-                { id: 'perfumes_hombre', keywords: ['perfume hombre', 'perfumes hombre', 'colonia hombre', 'fragancia hombre', 'b-02', 'b02'] },
-                { id: 'perfumes_mujer', keywords: ['perfume', 'perfumes', 'fragancia', 'fragancias', 'belleza', 'colonia'] },
-                { id: 'zapatillas', keywords: ['zapatilla', 'zapatillas', 'deporte', 'deportes', 'calzado deportivo', 'nike', 'adidas', 'puma', 'd-06', 'd-07', 'd06'] },
-                { id: 'accesorios', keywords: ['accesorio', 'accesorios', 'joyeria', 'joyería', 'reloj', 'relojes', 'lentes', 'gafas', 'a-01', 'a01'] },
+                // 3. Departamentos de Moda y Hogar (Piso 2)
+                { id: 'ropa_mujer', keywords: ['ropa mujer', 'vestuario mujer', 'vestido', 'vestidos', 'falda', 'faldas', 'blusa', 'blusas'] },
+                { id: 'ropa_hombre', keywords: ['ropa hombre', 'vestuario hombre', 'camisa', 'camisas', 'traje', 'trajes'] },
+                { id: 'calzado_mujer', keywords: ['calzado mujer', 'calzado femenino', 'zapato', 'zapatos', 'tacon', 'tacones', 'sandalia', 'sandalias', 'botin', 'botines', 'bota', 'botas'] },
+                { id: 'decohogar', keywords: ['decohogar', 'cama', 'camas', 'sabana', 'sabanas', 'sábana', 'sábanas', 'almohada', 'almohadas', 'plumon', 'plumón', 'cubrecama', 'toalla', 'toallas'] },
 
-                // 4. Departamentos de Moda y Hogar (Piso 2)
-                { id: 'ropa_mujer', keywords: ['ropa mujer', 'vestuario mujer', 'vestido', 'vestidos', 'falda', 'faldas', 'blusa', 'blusas', 'm-01', 'm01'] },
-                { id: 'ropa_hombre', keywords: ['ropa hombre', 'vestuario hombre', 'camisa', 'camisas', 'traje', 'trajes', 'm-02', 'm02'] },
-                { id: 'calzado_mujer', keywords: ['calzado mujer', 'calzado femenino', 'zapato', 'zapatos', 'tacon', 'tacones', 'sandalia', 'sandalias', 'botin', 'botines', 'bota', 'botas', 'c-01', 'c01'] },
-                { id: 'decohogar', keywords: ['decohogar', 'cama', 'camas', 'sabana', 'sabanas', 'sábana', 'sábanas', 'almohada', 'almohadas', 'plumon', 'plumón', 'cubrecama', 'toalla', 'toallas', 'dh-01', 'dh-02', 'dh01'] }
+                // 4. Departamentos de Tecnología (Piso 3)
+                { id: 'smartphones', keywords: ['smartphone', 'smartphones', 'celular', 'celulares', 'telefono', 'teléfono', 'telefonos', 'teléfonos', 'iphone', 'galaxy', 's25', 's24', 'xiaomi', 'motorola'] },
+                { id: 'television', keywords: ['televisor', 'televisores', 'smart tv', 'smart tvs', 'oled', 'qled', 'hisense', 'tele', 'teles', 'tv'] },
+                { id: 'computacion', keywords: ['computador', 'computadores', 'notebook', 'notebooks', 'laptop', 'laptops', 'macbook', 'pc', 'computacion', 'computación'] },
+                { id: 'audio_gaming', keywords: ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audifonos', 'audífono', 'audífonos', 'gaming', 'playstation', 'ps5', 'consola', 'consolas', 'nintendo', 'xbox', 'smartwatch', 'reloj inteligente'] },
+                { id: 'electrohogar', keywords: ['electrohogar', 'refrigerador', 'refrigeradores', 'lavadora', 'lavadoras', 'secadora', 'cocina', 'microondas', 'linea blanca', 'línea blanca', 'climatizacion', 'climatización', 'aire acondicionado', 'estufa'] }
             ];
 
             const isLocationQuestion = t.includes('donde') || t.includes('dónde') || t.includes('ubicacion') || 
@@ -3565,14 +3599,21 @@
                                      t.includes('devolver') || t.includes('cambiar') || t.includes('retiro') || t.includes('baño');
 
             for (const item of catMap) {
-                if (item.keywords.some(k => t.includes(k))) {
+                const matched = item.keywords.some(k => {
+                    if (k.length <= 3) {
+                        return new RegExp(`\\b${k}\\b`, 'i').test(t);
+                    }
+                    return t.includes(k);
+                });
+
+                if (matched) {
                     if (isLocationQuestion || t.includes('pasillo') || t.includes('piso') || t.includes('muestra en pantalla')) {
-                        LOG(`[Location Intent] Coincidencia con categoría: ${item.id}`);
+                        LOG(`[Location Intent] Coincidencia por palabra clave: ${item.id}`);
                         const cat = STORE_MAP_DATA.categories[item.id];
                         if (cat) {
                             setTimeout(() => {
                                 openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
-                            }, 450);
+                            }, 400);
                         }
                         return true;
                     }
