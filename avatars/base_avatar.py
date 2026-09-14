@@ -218,11 +218,6 @@ class BaseAvatar:
         if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
-        # 4. Histéresis acústica de seguridad (250ms): tiempo para que el último frame
-        #    de voz emitido termine de salir por los parlantes físicos antes de declarar silencio
-        if (time.time() - getattr(self, '_last_speech_time', 0.0)) < 0.25:
-            return True
-
         return False
     
     def __loadcustom(self):
@@ -353,7 +348,7 @@ class BaseAvatar:
             audio_frames: list[AudioFrameData] = []
             for _ in range(self.batch_size * 2):
                 try:
-                    audioframe: AudioFrameData = self.asr.output_queue.get(block=True, timeout=0.05)
+                    audioframe: AudioFrameData = self.asr.output_queue.get(block=True, timeout=1.0)
                 except queue.Empty:
                     # En caso de purga por STOP o vaciado, generar frame de silencio sintético para no colgar el hilo
                     audioframe = AudioFrameData(data=np.zeros(self.chunk, dtype=np.float32), type=1, userdata={})
@@ -407,7 +402,7 @@ class BaseAvatar:
         while not quit_event.is_set():
             try:
                 audio_frames: list[AudioFrameData]
-                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=0.04)
+                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=1.0)
             except queue.Empty:
                 # Si la cola está vacía (ej: tras purga por STOP), emitir un frame idle para no dejar a WebRTC sin frames
                 if hasattr(self, 'frame_list_cycle') and len(self.frame_list_cycle) > 0:

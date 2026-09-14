@@ -565,7 +565,6 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         response = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=120)
         response.raise_for_status()
 
-        chunk_buf = ""
         full_text = ""
 
         for line in response.iter_lines():
@@ -582,7 +581,6 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                     continue
 
                 full_text += content
-                chunk_buf += content
 
                 # Rinde el token de inmediato para la interfaz de chat en tiempo real
                 yield content
@@ -590,28 +588,17 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 if _is_cancelled(sessionid):
                     break
 
-                # Dividir para el TTS del avatar solo si el buffer es suficientemente largo (>= 120 chars)
-                # y alcanza un límite de oración natural, evitando micro-cortes a mitad de respuestas cortas
-                if len(chunk_buf) >= MIN_CHUNK_LEN and _is_sentence_boundary(chunk_buf):
-                    fragment = normalizar(chunk_buf.strip())
-                    if fragment:
-                        logger.info(f"[LLM Stream] -> avatar: {fragment}")
-                        avatar_session.put_msg_txt(fragment, datainfo)
-                    chunk_buf = ""
-
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar cualquier texto restante al avatar si no fue cancelado
-        if not _is_cancelled(sessionid) and chunk_buf.strip():
-            last_frag = normalizar(chunk_buf.strip())
-            if last_frag:
-                logger.info(f"[LLM Stream] -> avatar (final): {last_frag}")
-                avatar_session.put_msg_txt(last_frag, datainfo)
-
-        if not _is_cancelled(sessionid) and full_text:
+        # Enviar respuesta normalizada completa al avatar en un solo bloque fluido si no fue cancelado
+        if not _is_cancelled(sessionid) and full_text.strip():
+            clean_text = normalizar(full_text.strip())
+            if clean_text:
+                logger.info(f"[LLM Stream] -> avatar (completo fluido): {clean_text}")
+                avatar_session.put_msg_txt(clean_text, datainfo)
             # Guardar turno completo en historial (normalizado)
-            _append_to_history(sessionid, message, normalizar(full_text))
+            _append_to_history(sessionid, message, clean_text)
 
         elapsed = time.perf_counter() - start
         logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s (cancelado={_is_cancelled(sessionid)}), total chars={len(full_text)}")

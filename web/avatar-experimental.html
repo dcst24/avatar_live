@@ -1887,21 +1887,20 @@
                                 }
                             }
 
-                            // Guardia acústica calibrada (250ms): tiempo suficiente para que drene el búfer de audio
-                            // del navegador en los altavoces sin introducir retraso perceptible para el usuario
+                            // Activación inmediata del micrófono con guardia acústica mínima (50ms)
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 250);
+                            }, 50);
                         }
                     }
                 } catch (e) {
                     WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
                 }
-                // Sondeo adaptativo: 180ms durante habla para corte instantáneo, 380ms en reposo
-                const nextInterval = isSpeaking ? 180 : 380;
+                // Sondeo adaptativo de alta frecuencia: 150ms durante habla para corte instantáneo, 200ms en reposo
+                const nextInterval = isSpeaking ? 150 : 200;
                 _speakingMonitorTimer = setTimeout(checkSpeaking, nextInterval);
             };
 

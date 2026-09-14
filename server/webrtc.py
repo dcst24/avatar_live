@@ -136,26 +136,11 @@ class PlayerStreamTrack(MediaStreamTrack):
         #         else:
         #             frame = await self._queue.get()
         #     else:
-        empty_retries = 0
         while True:
             try:
                 frame, eventpoint = self._queue.get_nowait()
-                if self.kind == 'video' and frame is not None:
-                    self._last_frame = frame
                 break
             except queue.Empty:
-                empty_retries += 1
-                if self.kind == 'video' and empty_retries >= 8 and getattr(self, '_last_frame', None) is not None:
-                    frame = self._last_frame
-                    eventpoint = None
-                    break
-                elif self.kind == 'audio' and empty_retries >= 4:
-                    from av import AudioFrame
-                    frame = AudioFrame(format='s16', layout='mono', samples=320)
-                    frame.planes[0].update(b'\x00' * 640)
-                    frame.sample_rate = 16000
-                    eventpoint = None
-                    break
                 await asyncio.sleep(0.005)
                 
         pts, time_base = await self.next_timestamp()
