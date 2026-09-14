@@ -3016,8 +3016,8 @@
 
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
 
-                // Detección automática de ubicación para abrir el mapa interactivo
-                checkLocationIntentAndTriggerMap(text + ' ' + fullText);
+                // Detección automática de ubicación para abrir el mapa interactivo (solo si se pide o confirma explícitamente)
+                checkLocationIntentAndTriggerMap(text, fullText);
 
             } catch (err) {
                 if (err && err.name === 'AbortError') {
@@ -3511,11 +3511,54 @@
         }
 
         // ─── Detección de Intención de Ubicación en Respuestas del Avatar / Usuario ───
-        function checkLocationIntentAndTriggerMap(text) {
-            if (!text) return false;
-            const t = text.toLowerCase();
+        function checkLocationIntentAndTriggerMap(userText, avatarText = '') {
+            const u = (userText || '').toLowerCase().trim();
+            const a = (avatarText || '').toLowerCase().trim();
+            const combined = (u + ' ' + a).toLowerCase();
 
-            // 1. Prioridad Máxima: Detección por código de Pasillo exacto (ej: B-01, T-02, D-06, etc.)
+            // 1. ¿El avatar está solo ofreciendo / preguntando si desea saber la ubicación?
+            // (ej: "¿Te gustaría saber en qué pasillo encontrarlo?", "¿Quieres que te indique la ubicación en la tienda?")
+            const isAvatarAskingOffer = a.includes('te gustaría saber') || a.includes('te gustaria saber') || 
+                                       a.includes('quieres saber') || a.includes('deseas saber') || 
+                                       a.includes('te indico la ubicación') || a.includes('te indico la ubicacion') ||
+                                       a.includes('en qué pasillo encontrarlo') || a.includes('en que pasillo encontrarlo') ||
+                                       a.includes('indique la ubicación') || a.includes('indique la ubicacion');
+
+            // 2. ¿El usuario pidió explícitamente la ubicación o servicios que requieren mapa?
+            const isUserAskingLocation = u.includes('donde') || u.includes('dónde') || 
+                                         u.includes('ubicacion') || u.includes('ubicación') || 
+                                         u.includes('como llego') || u.includes('cómo llego') || 
+                                         u.includes('como llegar') || u.includes('cómo llegar') || 
+                                         u.includes('en que pasillo') || u.includes('en qué pasillo') || 
+                                         u.includes('en que piso') || u.includes('en qué piso') ||
+                                         u.includes('donde esta') || u.includes('dónde está') ||
+                                         u.includes('donde queda') || u.includes('dónde queda') ||
+                                         u.includes('donde encuentro') || u.includes('dónde encuentro') ||
+                                         u.includes('devolver') || u.includes('cambiar') || u.includes('retiro') || u.includes('baño') || u.includes('baños');
+
+            // 3. ¿El avatar está confirmando la ubicación en pantalla?
+            const isAvatarConfirmingLocation = a.includes('se muestra en pantalla') || a.includes('muestra en pantalla') ||
+                                              (a.includes('la ubicación') && !isAvatarAskingOffer) ||
+                                              (a.includes('debes dirigirte') && !isAvatarAskingOffer) ||
+                                              (a.includes('subir al piso') && !isAvatarAskingOffer) ||
+                                              (a.includes('sube por la escalera') && !isAvatarAskingOffer);
+
+            // CONDICIÓN CLAVE:
+            // Si el avatar solo está haciendo la pregunta "¿Te gustaría saber en qué pasillo encontrarlo?" y el usuario NO pidió explícitamente ubicación:
+            // NO se abre el mapa (esperamos a que el usuario diga "sí", "dónde", "por favor", etc.)
+            if (isAvatarAskingOffer && !isUserAskingLocation) {
+                LOG('[Location Intent] El avatar preguntó si desea la ubicación. Esperando confirmación del usuario.');
+                return false;
+            }
+
+            // Si el usuario no pidió ubicación y el avatar no está confirmando ubicación en pantalla: NO abrir mapa
+            if (!isUserAskingLocation && !isAvatarConfirmingLocation) {
+                LOG('[Location Intent] Solo asesoramiento o consulta general. Mapa permanece cerrado.');
+                return false;
+            }
+
+            // 4. Determinar la categoría y pasillo del destino a mostrar en el mapa
+            // 4.1 Prioridad Máxima: Detección por código de Pasillo exacto (ej: B-01, T-02, D-06, etc.)
             const pasilloToCat = {
                 'b-01': 'perfumes_mujer', 'b01': 'perfumes_mujer',
                 'b-02': 'perfumes_hombre', 'b02': 'perfumes_hombre',
@@ -3538,7 +3581,7 @@
 
             for (const [code, catId] of Object.entries(pasilloToCat)) {
                 const regex = new RegExp(`\\b${code}\\b`, 'i');
-                if (regex.test(t)) {
+                if (regex.test(combined)) {
                     LOG(`[Location Intent] Coincidencia directa por pasillo "${code}" → ${catId}`);
                     const cat = STORE_MAP_DATA.categories[catId];
                     if (cat) {
@@ -3550,7 +3593,7 @@
                 }
             }
 
-            // 2. Prioridad Temática por Palabras Clave (NUNCA incluir 'pantalla' para no chocar con 'se muestra en pantalla')
+            // 4.2 Prioridad Temática por Palabras Clave
             const catMap = [
                 // 1. Servicios de Postventa / Devoluciones / Cambios / Retiro / Baños (ALTA PRIORIDAD)
                 { id: 'servicio_cliente', keywords: ['devolver', 'devolucion', 'devolución', 'devoluciones', 'cambiar', 'cambio', 'cambios', 'reclamo', 'postventa', 'servicio al cliente', 'garantia', 'garantía', 'tarjeta paris', 'tarjeta cencosud'] },
@@ -3578,11 +3621,6 @@
                 { id: 'audio_gaming', keywords: ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audifonos', 'audífono', 'audífonos', 'gaming', 'playstation', 'ps5', 'consola', 'consolas', 'nintendo', 'xbox', 'smartwatch', 'reloj inteligente'] },
                 { id: 'electrohogar', keywords: ['electrohogar', 'refrigerador', 'refrigeradores', 'lavadora', 'lavadoras', 'secadora', 'cocina', 'microondas', 'linea blanca', 'línea blanca', 'climatizacion', 'climatización', 'aire acondicionado', 'estufa'] }
             ];
-
-            const isLocationQuestion = t.includes('donde') || t.includes('dónde') || t.includes('ubicacion') || 
-                                     t.includes('ubicación') || t.includes('pasillo') || t.includes('piso') || 
-                                     t.includes('llegar') || t.includes('encuentro') || t.includes('muestra en pantalla') ||
-                                     t.includes('devolver') || t.includes('cambiar') || t.includes('retiro') || t.includes('baño');
 
             for (const item of catMap) {
                 const matched = item.keywords.some(k => {
