@@ -83,9 +83,8 @@ class RTCManager:
         preferences = list(filter(lambda x: x.name == "H264", capabilities.codecs))
         preferences += list(filter(lambda x: x.name == "VP8", capabilities.codecs))
         preferences += list(filter(lambda x: x.name == "rtx", capabilities.codecs))
-        for t in pc.getTransceivers():
-            if t.kind == "video":
-                t.setCodecPreferences(preferences)
+        transceiver = pc.getTransceivers()[1]
+        transceiver.setCodecPreferences(preferences)
 
         await pc.setRemoteDescription(offer)
 

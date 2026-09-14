@@ -72,16 +72,16 @@ class PlayerStreamTrack(MediaStreamTrack):
 
         if self.kind == 'video':
             if hasattr(self, "_timestamp"):
+                #self._timestamp = (time.time()-self._start) * VIDEO_CLOCK_RATE
+                self._timestamp += int(VIDEO_PTIME * VIDEO_CLOCK_RATE)
                 self.current_frame_count += 1
-                now = time.time()
-                target_time = self._start + self.current_frame_count * VIDEO_PTIME
-                if target_time < now - 0.2:
-                    self.current_frame_count = int((now - self._start) / VIDEO_PTIME)
-                    target_time = self._start + self.current_frame_count * VIDEO_PTIME
-                wait = target_time - now
-                if wait > 0:
+                wait = self._start + self.current_frame_count * VIDEO_PTIME - time.time()
+                # wait = self.timelist[0] + len(self.timelist)*VIDEO_PTIME - time.time()               
+                if wait>0:
                     await asyncio.sleep(wait)
-                self._timestamp = int((time.time() - self._start) * VIDEO_CLOCK_RATE)
+                # if len(self.timelist)>=100:
+                #     self.timelist.pop(0)
+                # self.timelist.append(time.time())
             else:
                 if self._player and hasattr(self._player, "_shared_start"):
                     self._start = self._player._shared_start
@@ -90,22 +90,22 @@ class PlayerStreamTrack(MediaStreamTrack):
                     if self._player:
                         self._player._shared_start = self._start
                 self._timestamp = 0
-                self.current_frame_count = 0
                 self.timelist.append(self._start)
-                mylogger.info('video start:%f', self._start)
+                mylogger.info('video start:%f',self._start)
             return self._timestamp, VIDEO_TIME_BASE
         else: #audio
             if hasattr(self, "_timestamp"):
+                #self._timestamp = (time.time()-self._start) * SAMPLE_RATE
+                self._timestamp += int(AUDIO_PTIME * SAMPLE_RATE)
                 self.current_frame_count += 1
-                now = time.time()
-                target_time = self._start + self.current_frame_count * AUDIO_PTIME
-                if target_time < now - 0.2:
-                    self.current_frame_count = int((now - self._start) / AUDIO_PTIME)
-                    target_time = self._start + self.current_frame_count * AUDIO_PTIME
-                wait = target_time - now
-                if wait > 0:
+                wait = self._start + self.current_frame_count * AUDIO_PTIME - time.time()
+                # wait = self.timelist[0] + len(self.timelist)*AUDIO_PTIME - time.time()
+                if wait>0:
                     await asyncio.sleep(wait)
-                self._timestamp = int((time.time() - self._start) * SAMPLE_RATE)
+                # if len(self.timelist)>=200:
+                #     self.timelist.pop(0)
+                #     self.timelist.pop(0)
+                # self.timelist.append(time.time())
             else:
                 if self._player and hasattr(self._player, "_shared_start"):
                     self._start = self._player._shared_start
@@ -114,9 +114,8 @@ class PlayerStreamTrack(MediaStreamTrack):
                     if self._player:
                         self._player._shared_start = self._start
                 self._timestamp = 0
-                self.current_frame_count = 0
                 self.timelist.append(self._start)
-                mylogger.info('audio start:%f', self._start)
+                mylogger.info('audio start:%f',self._start)
             return self._timestamp, AUDIO_TIME_BASE
 
     async def recv(self) -> Union[Frame, Packet]:
