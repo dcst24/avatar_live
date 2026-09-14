@@ -1155,25 +1155,14 @@
             box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
         }
 
-        .floor-tag-badge {
-            font-size: 9px;
-            font-weight: 700;
-            padding: 2px 6px;
-            border-radius: 4px;
-            background: rgba(255, 255, 255, 0.15);
-            color: #fff;
-            text-transform: uppercase;
-        }
-
-        .floor-tag-badge.dest-badge {
+        .floor-dest-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
             background: #f43f5e;
-            color: #ffffff;
-            animation: pulse-dest-badge 1.5s infinite;
-        }
-
-        @keyframes pulse-dest-badge {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.8; transform: scale(0.95); }
+            box-shadow: 0 0 6px #f43f5e;
+            display: inline-block;
+            margin-left: 2px;
         }
 
         .map-close-btn {
@@ -1612,7 +1601,6 @@
                         <div>
                             <div class="map-title">
                                 <span>Planimetría de Tienda</span>
-                                <span id="map-target-badge" class="floor-tag-badge dest-badge" style="display:none">Destino</span>
                             </div>
                             <div class="map-subtitle" id="map-header-subtitle">Paris Costanera Center · Tótem en Piso 1</div>
                         </div>
@@ -1622,15 +1610,14 @@
                     <div class="map-floor-tabs" id="map-floor-tabs">
                         <button class="map-floor-tab active" data-piso="1" onclick="setMapFloor(1)">
                             <span>P1</span>
-                            <span class="floor-tag-badge totem-badge">Tótem</span>
                         </button>
                         <button class="map-floor-tab" data-piso="2" onclick="setMapFloor(2)">
                             <span>P2</span>
-                            <span id="floor-2-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
+                            <span id="floor-2-dest-badge" class="floor-dest-dot" style="display:none"></span>
                         </button>
                         <button class="map-floor-tab" data-piso="3" onclick="setMapFloor(3)">
                             <span>P3</span>
-                            <span id="floor-3-dest-badge" class="floor-tag-badge dest-badge" style="display:none">🎯</span>
+                            <span id="floor-3-dest-badge" class="floor-dest-dot" style="display:none"></span>
                         </button>
                     </div>
 
@@ -3200,11 +3187,11 @@
             clearTimeout(_autoStepTimer);
             LOG(`openStoreMap: targetPiso=${targetPiso}, title="${title}"`);
 
-            if (targetPiso) {
+            if (targetPiso && (title || targetX !== null)) {
                 _currentMapTarget = {
                     piso: Number(targetPiso),
-                    x: Number(targetX || 500),
-                    y: Number(targetY || 300),
+                    x: Number(targetX !== null ? targetX : 500),
+                    y: Number(targetY !== null ? targetY : 300),
                     name: title || 'Destino seleccionado',
                     pasillo: pasillo || '',
                     sector: sector || ''
@@ -3234,7 +3221,7 @@
             } else {
                 // Destino en Piso 1 o exploración general
                 _currentMapStep = 1;
-                _currentMapFloor = _currentMapTarget ? _currentMapTarget.piso : 1;
+                _currentMapFloor = _currentMapTarget ? _currentMapTarget.piso : (Number(targetPiso) || 1);
                 const stepper = document.getElementById('map-stepper');
                 if (stepper) stepper.style.display = 'none';
             }
@@ -3305,17 +3292,6 @@
                 const f = Number(tab.getAttribute('data-piso'));
                 tab.classList.toggle('active', f === _currentMapFloor);
             });
-
-            // Target badge en header
-            const targetBadge = document.getElementById('map-target-badge');
-            if (targetBadge) {
-                if (_currentMapTarget) {
-                    targetBadge.style.display = 'inline-block';
-                    targetBadge.textContent = `🎯 ${_currentMapTarget.name} (${_currentMapTarget.pasillo || 'Piso ' + _currentMapTarget.piso})`;
-                } else {
-                    targetBadge.style.display = 'none';
-                }
-            }
 
             // Stepper pills
             const pill1 = document.getElementById('step-pill-1');
@@ -3484,7 +3460,7 @@
             }
 
             // 6. MARCADORES Y PINES
-            // Tótem "Usted está aquí" (solo en Piso 1)
+            // Tótem "Usted está aquí" (solo en Piso 1 - Color Verde Esmeralda)
             if (_currentMapFloor === 1) {
                 html += `
                     <g id="totem-pin" transform="translate(500, 560)">
@@ -3507,16 +3483,26 @@
                 `;
             }
 
-            // Pin de Destino (en el piso de destino)
+            // Pin de Destino (en el piso de destino - Color Rojo Neón / Rosa Vibrante)
             if (_currentMapTarget && _currentMapFloor === _currentMapTarget.piso) {
+                const tx = _currentMapTarget.x;
+                const ty = _currentMapTarget.y;
+                const tooltipW = 180;
+                const tooltipH = 32;
+                // Clamping seguro para que el tooltip nunca se corte en los bordes del SVG
+                const tooltipX = Math.max(45, Math.min(955 - tooltipW, tx - tooltipW / 2));
+                const tooltipY = (ty - 54 < 40) ? (ty + 22) : (ty - 54);
+                const textX = tooltipX + tooltipW / 2;
+                const textY = tooltipY + 20;
+
                 html += `
-                    <g transform="translate(${_currentMapTarget.x}, ${_currentMapTarget.y})" class="dest-bounce-group">
-                        <circle cx="0" cy="0" r="18" fill="rgba(244, 63, 94, 0.3)" class="totem-pulse-circle" />
-                        <circle cx="0" cy="0" r="11" fill="#f43f5e" stroke="#ffffff" stroke-width="3" filter="url(#glowFilter)" />
+                    <g class="dest-bounce-group">
+                        <circle cx="${tx}" cy="${ty}" r="18" fill="rgba(244, 63, 94, 0.3)" class="totem-pulse-circle" />
+                        <circle cx="${tx}" cy="${ty}" r="11" fill="#f43f5e" stroke="#ffffff" stroke-width="3" filter="url(#glowFilter)" />
                         
-                        <!-- Tooltip Destino -->
-                        <rect x="-90" y="-54" width="180" height="32" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#f43f5e" stroke-width="2" />
-                        <text x="0" y="-34" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">🎯 ${_currentMapTarget.pasillo || _currentMapTarget.name.slice(0, 16)}</text>
+                        <!-- Tooltip Destino Clamped y Seguro -->
+                        <rect x="${tooltipX}" y="${tooltipY}" width="${tooltipW}" height="${tooltipH}" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#f43f5e" stroke-width="2" />
+                        <text x="${textX}" y="${textY}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">🎯 ${_currentMapTarget.pasillo ? _currentMapTarget.pasillo + ' · ' : ''}${_currentMapTarget.name.slice(0, 15)}</text>
                     </g>
                 `;
             }
