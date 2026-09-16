@@ -141,12 +141,16 @@ class MainActivity : AppCompatActivity() {
         setupPresetChips()
     }
 
+    private var lastSentText: String = ""
+    private var lastSentTime: Long = 0L
+
     private fun setupPresetChips() {
         val presetListener = View.OnClickListener { v ->
             if (v is Chip) {
                 val phrase = v.text.toString()
                 binding.etMessage.setText(phrase)
-                sendTextToAvatar(phrase)
+                binding.etMessage.setSelection(phrase.length)
+                binding.etMessage.requestFocus()
             }
         }
         binding.chipPreset1.setOnClickListener(presetListener)
@@ -224,11 +228,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun sendTextToAvatar(text: String) {
+        val now = System.currentTimeMillis()
+        if (text == lastSentText && (now - lastSentTime) < 1500L) {
+            Log.d(TAG, "Descartando envío duplicado en <1.5s: '$text'")
+            return
+        }
+        lastSentText = text
+        lastSentTime = now
+
         lifecycleScope.launch {
             binding.btnSpeak.isEnabled = false
             updateStatusChip("speaking", "Enviando…")
 
-            // Llamada nativa única con OkHttp (sin duplicados con JS y sin interrupt involuntario)
+            // Llamada nativa única con OkHttp
             val result = avatarClient.speak(
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId,
