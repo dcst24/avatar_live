@@ -226,26 +226,26 @@ class MainActivity : AppCompatActivity() {
     private fun sendTextToAvatar(text: String) {
         lifecycleScope.launch {
             binding.btnSpeak.isEnabled = false
-            updateStatusChip("speaking", "Sintetizando…")
+            updateStatusChip("speaking", "Enviando…")
 
-            // Llamada nativa con OkHttp
+            // Llamada nativa única con OkHttp (sin duplicados con JS y sin interrupt involuntario)
             val result = avatarClient.speak(
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId,
                 text = text,
-                interrupt = true
+                interrupt = false
             )
-
-            // Disparar también por el puente JS en el WebView para redundancia inmediata
-            val quoted = JSONObject.quote(text)
-            binding.webviewPlayer.evaluateJavascript("window.speakText && window.speakText($quoted);", null)
 
             binding.btnSpeak.isEnabled = true
             if (result.isSuccess) {
-                Log.d(TAG, "Texto enviado con éxito al avatar: $text (sessionid: $currentSessionId)")
+                Log.d(TAG, "Texto encolado con éxito en el servidor: '$text' (sessionid: $currentSessionId)")
             } else {
                 val error = result.exceptionOrNull()?.message ?: "Error desconocido"
-                Log.w(TAG, "Aviso OkHttp: $error (JS evaluado)")
+                Log.e(TAG, "Error al enviar texto: $error")
+                Toast.makeText(this@MainActivity, "Error: $error", Toast.LENGTH_SHORT).show()
+                if (isConnected) {
+                    updateStatusChip("connected", "Conectado")
+                }
             }
         }
     }
@@ -256,9 +256,8 @@ class MainActivity : AppCompatActivity() {
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId
             )
-            binding.webviewPlayer.evaluateJavascript("window.interruptTalk && window.interruptTalk();", null)
             if (result.isSuccess) {
-                Log.d(TAG, "Locución interrumpida con éxito")
+                Log.d(TAG, "Locución interrumpida con éxito en servidor")
                 if (isConnected) {
                     updateStatusChip("connected", "Conectado")
                 }
