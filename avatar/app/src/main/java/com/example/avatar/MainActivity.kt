@@ -3,17 +3,20 @@ package com.example.avatar
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.http.SslError
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
+import android.webkit.SslErrorHandler
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.RadioButton
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AlertDialog
@@ -29,6 +32,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -36,8 +40,8 @@ class MainActivity : AppCompatActivity() {
     private val avatarClient = AvatarApiClient()
     private lateinit var prefs: SharedPreferences
 
-    private var serverProtocol: String = "http"
-    private var serverHost: String = "10.0.2.2"
+    private var serverProtocol: String = "https"
+    private var serverHost: String = "192.168.0.73"
     private var serverPort: Int = 8010
     private var currentSessionId: String = "0"
     private var isConnected: Boolean = false
@@ -79,8 +83,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadPreferences() {
         prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        serverProtocol = prefs.getString(KEY_PROTOCOL, "http") ?: "http"
-        serverHost = prefs.getString(KEY_HOST, "10.0.2.2") ?: "10.0.2.2"
+        serverProtocol = prefs.getString(KEY_PROTOCOL, "https") ?: "https"
+        serverHost = prefs.getString(KEY_HOST, "192.168.0.73") ?: "192.168.0.73"
         serverPort = prefs.getInt(KEY_PORT, 8010)
     }
 
@@ -159,6 +163,12 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.allowFileAccess = true
+        settings.allowContentAccess = true
+        @Suppress("DEPRECATION")
+        settings.allowFileAccessFromFileURLs = true
+        @Suppress("DEPRECATION")
+        settings.allowUniversalAccessFromFileURLs = true
+        settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.loadsImagesAutomatically = true
 
         webView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
@@ -174,6 +184,23 @@ class MainActivity : AppCompatActivity() {
         }
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                // Ignorar errores de certificado autofirmado en desarrollo local y proceder
+                Log.w(TAG, "Procediendo con certificado SSL local: ${error?.primaryError}")
+                handler?.proceed()
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    Log.e(TAG, "Error cargando página principal: ${error?.description}")
+                }
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 Log.d(TAG, "WebView page finished: $url")
@@ -183,15 +210,17 @@ class MainActivity : AppCompatActivity() {
         // Registrar puente JavaScript <-> Kotlin
         webView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
 
-        // Cargar reproductor local
-        webView.loadUrl("file:///android_asset/avatar_player.html")
+        // Cargar el reproductor del servidor
+        reconnectWebRTC()
     }
 
     private fun reconnectWebRTC() {
         updateStatusChip("connecting", "Conectando…")
         binding.layoutReconnect.visibility = View.GONE
-        val jsCommand = "javascript:connect('$fullServerUrl');"
-        binding.webviewPlayer.evaluateJavascript(jsCommand, null)
+
+        val targetUrl = "$fullServerUrl/avatar-android"
+        Log.d(TAG, "Cargando targetUrl en WebView: $targetUrl")
+        binding.webviewPlayer.loadUrl(targetUrl)
     }
 
     private fun sendTextToAvatar(text: String) {
@@ -199,6 +228,7 @@ class MainActivity : AppCompatActivity() {
             binding.btnSpeak.isEnabled = false
             updateStatusChip("speaking", "Sintetizando…")
 
+            // Llamada nativa con OkHttp
             val result = avatarClient.speak(
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId,
@@ -206,16 +236,16 @@ class MainActivity : AppCompatActivity() {
                 interrupt = true
             )
 
+            // Disparar también por el puente JS en el WebView para redundancia inmediata
+            val quoted = JSONObject.quote(text)
+            binding.webviewPlayer.evaluateJavascript("window.speakText && window.speakText($quoted);", null)
+
             binding.btnSpeak.isEnabled = true
             if (result.isSuccess) {
-                Log.d(TAG, "Texto enviado con éxito al avatar: $text")
+                Log.d(TAG, "Texto enviado con éxito al avatar: $text (sessionid: $currentSessionId)")
             } else {
                 val error = result.exceptionOrNull()?.message ?: "Error desconocido"
-                Log.e(TAG, "Error al enviar texto: $error")
-                Toast.makeText(this@MainActivity, "Error: $error", Toast.LENGTH_SHORT).show()
-                if (isConnected) {
-                    updateStatusChip("connected", "Conectado")
-                }
+                Log.w(TAG, "Aviso OkHttp: $error (JS evaluado)")
             }
         }
     }
@@ -226,6 +256,7 @@ class MainActivity : AppCompatActivity() {
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId
             )
+            binding.webviewPlayer.evaluateJavascript("window.interruptTalk && window.interruptTalk();", null)
             if (result.isSuccess) {
                 Log.d(TAG, "Locución interrumpida con éxito")
                 if (isConnected) {
@@ -315,7 +346,7 @@ class MainActivity : AppCompatActivity() {
             .setView(dialogBinding.root)
             .setPositiveButton(R.string.btn_save) { dialog, _ ->
                 val protocol = if (dialogBinding.rbHttps.isChecked) "https" else "http"
-                val host = dialogBinding.etIp.text?.toString()?.trim().orEmpty().ifEmpty { "10.0.2.2" }
+                val host = dialogBinding.etIp.text?.toString()?.trim().orEmpty().ifEmpty { "192.168.0.73" }
                 val port = dialogBinding.etPort.text?.toString()?.trim()?.toIntOrNull() ?: 8010
 
                 savePreferences(protocol, host, port)

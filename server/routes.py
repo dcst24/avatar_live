@@ -75,10 +75,17 @@ async def human(request):
     try:
         params: dict = await request.json()
 
-        sessionid: str = params.get('sessionid', '')
+        sessionid: str = str(params.get('sessionid', ''))
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
-            return json_error("session not found")
+            # Fallback a la sesión activa única si no se especificó o no coincide
+            active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+            if len(active_sessions) == 1:
+                sessionid, avatar_session = next(iter(active_sessions.items()))
+                logger.info(f"[Routes] human: usando sesión activa automática: {sessionid}")
+
+        if avatar_session is None:
+            return json_error("session not found", code=404)
 
         if params.get('interrupt'):
             abort_gen = request.app.get("abort_generation")
@@ -93,8 +100,9 @@ async def human(request):
         datainfo['sessionid'] = sessionid
 
         if params['type'] == 'echo':
+            logger.info(f"[Routes] human echo: '{params.get('text', '')}' para sesión: {sessionid}")
             avatar_session.put_msg_txt(params['text'], datainfo)
-            return json_ok()
+            return json_ok(data={"sessionid": sessionid})
         elif params['type'] == 'chat':
             llm_response_stream = request.app.get("llm_response_stream")
             if params.get('stream') and llm_response_stream:
@@ -143,10 +151,14 @@ async def interrupt_talk(request):
     """打断当前说话"""
     try:
         params = await request.json()
-        sessionid = params.get('sessionid', '')
+        sessionid = str(params.get('sessionid', ''))
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
-            return json_error("session not found")
+            active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+            if len(active_sessions) == 1:
+                sessionid, avatar_session = next(iter(active_sessions.items()))
+        if avatar_session is None:
+            return json_error("session not found", code=404)
         abort_gen = request.app.get("abort_generation")
         if abort_gen and sessionid:
             abort_gen(sessionid)
@@ -161,9 +173,9 @@ async def clear_history(request):
     """Borra el historial de conversación del LLM para la sesión indicada."""
     try:
         params = await request.json()
-        sessionid = params.get('sessionid', '')
+        sessionid = str(params.get('sessionid', ''))
         clear_conv = request.app.get("clear_conversation")
-        if clear_conv:
+        if clear_conv and sessionid:
             clear_conv(sessionid)
         return json_ok()
     except Exception as e:
@@ -183,7 +195,11 @@ async def humanaudio(request):
 
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
-            return json_error("session not found")
+            active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+            if len(active_sessions) == 1:
+                sessionid, avatar_session = next(iter(active_sessions.items()))
+        if avatar_session is None:
+            return json_error("session not found", code=404)
         avatar_session.put_audio_file(filebytes, datainfo)
         return json_ok()
     except Exception as e:
@@ -195,10 +211,14 @@ async def set_audiotype(request):
     """设置自定义状态（动作编排）"""
     try:
         params = await request.json()
-        sessionid = params.get('sessionid', '')
+        sessionid = str(params.get('sessionid', ''))
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
-            return json_error("session not found")
+            active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+            if len(active_sessions) == 1:
+                sessionid, avatar_session = next(iter(active_sessions.items()))
+        if avatar_session is None:
+            return json_error("session not found", code=404)
         avatar_session.set_custom_state(params['audiotype'])
         return json_ok()
     except Exception as e:
@@ -210,10 +230,14 @@ async def record(request):
     """录制控制"""
     try:
         params = await request.json()
-        sessionid = params.get('sessionid', '')
+        sessionid = str(params.get('sessionid', ''))
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
-            return json_error("session not found")
+            active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+            if len(active_sessions) == 1:
+                sessionid, avatar_session = next(iter(active_sessions.items()))
+        if avatar_session is None:
+            return json_error("session not found", code=404)
         if params['type'] == 'start_record':
             avatar_session.start_recording()
         elif params['type'] == 'end_record':
@@ -227,10 +251,14 @@ async def record(request):
 async def is_speaking(request):
     """查询是否正在说话"""
     params = await request.json()
-    sessionid = params.get('sessionid', '')
+    sessionid = str(params.get('sessionid', ''))
     avatar_session = get_session(request, sessionid)
     if avatar_session is None:
-        return json_error("session not found")
+        active_sessions = {k: v for k, v in session_manager.sessions.items() if v is not None}
+        if len(active_sessions) == 1:
+            sessionid, avatar_session = next(iter(active_sessions.items()))
+    if avatar_session is None:
+        return json_ok(data=False)
     return json_ok(data=avatar_session.is_speaking())
 
 
