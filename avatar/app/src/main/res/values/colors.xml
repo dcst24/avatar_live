@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Colores base -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Paleta Moderna Avatar Dark -->
+    <color name="bg_main">#0B0C10</color>
+    <color name="bg_surface">#161722</color>
+    <color name="bg_surface_elevated">#1E2030</color>
+    <color name="border_subtle">#2A2D43</color>
+    
+    <!-- Acentos -->
+    <color name="accent_primary">#6366F1</color>
+    <color name="accent_primary_variant">#4F46E5</color>
+    <color name="accent_secondary">#818CF8</color>
+    
+    <!-- Estados -->
+    <color name="status_connected">#10B981</color>
+    <color name="status_connected_bg">#1A10B981</color>
+    <color name="status_connecting">#F59E0B</color>
+    <color name="status_connecting_bg">#1AF59E0B</color>
+    <color name="status_disconnected">#EF4444</color>
+    <color name="status_disconnected_bg">#1AEF4444</color>
+    <color name="status_speaking">#06B6D4</color>
+    <color name="status_speaking_bg">#1A06B6D4</color>
+    
+    <!-- Tipografía -->
+    <color name="text_primary">#F8FAFC</color>
+    <color name="text_secondary">#94A3B8</color>
+    <color name="text_muted">#64748B</color>
+    
+    <!-- Botón Stop/Danger -->
+    <color name="btn_danger_bg">#2D151B</color>
+    <color name="btn_danger_text">#F87171</color>
+    <color name="btn_danger_border">#59212B</color>
+</resources>

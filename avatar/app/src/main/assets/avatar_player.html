@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Avatar WebRTC Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: #0d0e15;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #player-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #1b1c2b 0%, #0c0d14 100%);
+        }
+        #video {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            object-position: center center;
+            display: block;
+            background-color: transparent;
+            transition: opacity 0.3s ease;
+        }
+        #placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            color: #94a3b8;
+            background: #0d0e15;
+            z-index: 10;
+            transition: opacity 0.4s ease;
+        }
+        .spinner {
+            width: 38px;
+            height: 38px;
+            border: 3px solid rgba(99, 102, 241, 0.2);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        .status-text {
+            font-size: 13px;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            color: #cbd5e1;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div id="player-container">
+        <video id="video" autoplay playsinline webkit-playsinline></video>
+        <div id="placeholder">
+            <div class="spinner" id="spinner"></div>
+            <div class="status-text" id="status-label">Iniciando conexión...</div>
+        </div>
+    </div>
+
+    <script>
+        var pc = null;
+        var currentServerUrl = "";
+        var currentSessionId = "";
+        var isConnected = false;
+        var isConnecting = false;
+
+        function log(msg) {
+            console.log("[AvatarPlayer] " + msg);
+            if (window.AndroidBridge && window.AndroidBridge.onLog) {
+                window.AndroidBridge.onLog(msg);
+            }
+        }
+
+        function updateUIState(state, message) {
+            var placeholder = document.getElementById("placeholder");
+            var statusLabel = document.getElementById("status-label");
+            var spinner = document.getElementById("spinner");
+
+            if (statusLabel) statusLabel.textContent = message || state;
+
+            if (state === "connected") {
+                if (placeholder) placeholder.style.opacity = "0";
+                setTimeout(function() {
+                    if (placeholder && isConnected) placeholder.style.display = "none";
+                }, 400);
+            } else {
+                if (placeholder) {
+                    placeholder.style.display = "flex";
+                    placeholder.style.opacity = "1";
+                }
+                if (spinner) {
+                    spinner.style.display = (state === "connecting") ? "block" : "none";
+                }
+            }
+
+            if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
+                window.AndroidBridge.onConnectionStateChange(state, message || "");
+            }
+        }
+
+        function notifySessionReady(sessionId) {
+            currentSessionId = sessionId;
+            if (window.AndroidBridge && window.AndroidBridge.onSessionReady) {
+                window.AndroidBridge.onSessionReady(sessionId);
+            }
+        }
+
+        function notifyError(errorMsg) {
+            log("Error: " + errorMsg);
+            if (window.AndroidBridge && window.AndroidBridge.onError) {
+                window.AndroidBridge.onError(errorMsg);
+            }
+        }
+
+        function disconnect() {
+            if (pc) {
+                try {
+                    pc.close();
+                } catch (e) {
+                    console.error("Error closing pc:", e);
+                }
+                pc = null;
+            }
+            isConnected = false;
+            isConnecting = false;
+            updateUIState("disconnected", "Desconectado");
+        }
+
+        function connect(serverUrl) {
+            if (!serverUrl) {
+                updateUIState("error", "URL de servidor no especificada");
+                return;
+            }
+
+            // Normalizar URL (quitar slash al final)
+            serverUrl = serverUrl.replace(/\/+$/, "");
+            currentServerUrl = serverUrl;
+            disconnect();
+
+            isConnecting = true;
+            updateUIState("connecting", "Conectando al Avatar en " + serverUrl + "...");
+
+            var config = {
+                sdpSemantics: 'unified-plan',
+                iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
+            };
+
+            try {
+                pc = new RTCPeerConnection(config);
+            } catch (e) {
+                isConnecting = false;
+                notifyError("No se pudo crear RTCPeerConnection: " + e.message);
+                updateUIState("error", "Error WebRTC");
+                return;
+            }
+
+            var videoEl = document.getElementById("video");
+            var remoteStream = null;
+
+            pc.addEventListener('track', function(evt) {
+                log("Track recibido: " + evt.track.kind);
+                if (evt.streams && evt.streams[0]) {
+                    if (!remoteStream) {
+                        remoteStream = evt.streams[0];
+                        videoEl.srcObject = remoteStream;
+                    } else if (videoEl.srcObject !== evt.streams[0]) {
+                        remoteStream.addTrack(evt.track);
+                    }
+                } else {
+                    if (!remoteStream) {
+                        remoteStream = new MediaStream();
+                        videoEl.srcObject = remoteStream;
+                    }
+                    remoteStream.addTrack(evt.track);
+                }
+
+                // Reproducir automáticamente el audio y video
+                videoEl.muted = false;
+                var playPromise = videoEl.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(function() {
+                        log("Reproducción de video/audio iniciada exitosamente");
+                        isConnected = true;
+                        isConnecting = false;
+                        updateUIState("connected", "Conectado");
+                    }).catch(function(err) {
+                        log("play() inicial advertencia: " + err.name + " " + err.message);
+                        // Reintentar con muted=false tras un pequeño delay
+                        setTimeout(function() {
+                            videoEl.muted = false;
+                            videoEl.play().catch(function(e) {
+                                log("Reintento de play fallo: " + e.message);
+                            });
+                        }, 300);
+                        isConnected = true;
+                        isConnecting = false;
+                        updateUIState("connected", "Conectado");
+                    });
+                }
+            });
+
+            pc.addEventListener('connectionstatechange', function() {
+                log("Connection state: " + pc.connectionState);
+                if (pc.connectionState === 'connected') {
+                    isConnected = true;
+                    isConnecting = false;
+                    updateUIState("connected", "Conectado");
+                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                    isConnected = false;
+                    isConnecting = false;
+                    updateUIState("disconnected", "Conexión cerrada");
+                }
+            });
+
+            // Añadir transceivers para recepción de audio y video
+            pc.addTransceiver('video', { direction: 'recvonly' });
+            pc.addTransceiver('audio', { direction: 'recvonly' });
+
+            // Negociar oferta SDP
+            pc.createOffer().then(function(offer) {
+                return pc.setLocalDescription(offer);
+            }).then(function() {
+                // Esperar a que concluya la recolección ICE
+                return new Promise(function(resolve) {
+                    if (pc.iceGatheringState === 'complete') {
+                        resolve();
+                    } else {
+                        var checkState = function() {
+                            if (pc.iceGatheringState === 'complete') {
+                                pc.removeEventListener('icegatheringstatechange', checkState);
+                                resolve();
+                            }
+                        };
+                        pc.addEventListener('icegatheringstatechange', checkState);
+                        // Timeout de seguridad para ICE
+                        setTimeout(resolve, 2000);
+                    }
+                });
+            }).then(function() {
+                var offer = pc.localDescription;
+                var offerUrl = currentServerUrl + "/offer";
+                log("Enviando oferta a " + offerUrl);
+
+                return fetch(offerUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        sdp: offer.sdp,
+                        type: offer.type
+                    })
+                });
+            }).then(function(response) {
+                if (!response.ok) {
+                    throw new Error("HTTP " + response.status + " en /offer");
+                }
+                return response.json();
+            }).then(function(answer) {
+                log("Respuesta SDP recibida, sessionid: " + answer.sessionid);
+                notifySessionReady(String(answer.sessionid || "0"));
+                return pc.setRemoteDescription(answer);
+            }).then(function() {
+                log("RemoteDescription configurada exitosamente");
+            }).catch(function(err) {
+                isConnecting = false;
+                isConnected = false;
+                notifyError("Fallo de conexión WebRTC: " + err.message);
+                updateUIState("error", "Error: " + err.message);
+            });
+        }
+
+        function setFitMode(mode) {
+            var videoEl = document.getElementById("video");
+            if (videoEl) {
+                videoEl.style.objectFit = (mode === "cover") ? "cover" : "contain";
+            }
+        }
+
+        // Auto-notificar que el reproductor está listo para recibir comandos desde Kotlin
+        window.addEventListener('DOMContentLoaded', function() {
+            log("DOM ready");
+            if (window.AndroidBridge && window.AndroidBridge.onPlayerReady) {
+                window.AndroidBridge.onPlayerReady();
+            }
+        });
+    </script>
+</body>
+</html>

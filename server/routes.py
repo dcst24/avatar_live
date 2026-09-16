@@ -254,6 +254,11 @@ async def avatar_experimental_pendon_2(request):
     return web.FileResponse('web/avatar-experimental-pendon-2.html')
 
 
+async def avatar_android(request):
+    """Servir la página avatar-android.html directamente (modo no pensante / directo)"""
+    return web.FileResponse('web/avatar-android.html')
+
+
 async def get_productos(request):
     """Obtener el catálogo completo y planimetría de productos"""
     try:
@@ -323,4 +328,7 @@ def setup_routes(app):
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
+    app.router.add_get("/avatar-android", avatar_android)
+    app.router.add_get("/avatar-android.html", avatar_android)
     app.router.add_static('/', path='web')
+

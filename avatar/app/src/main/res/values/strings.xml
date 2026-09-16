@@ -1,0 +1,27 @@
+<resources>
+    <string name="app_name">Avatar Live</string>
+    <string name="header_subtitle">Modo Directo TTS &amp; Video</string>
+    <string name="status_connecting">Conectando…</string>
+    <string name="status_connected">Conectado</string>
+    <string name="status_disconnected">Desconectado</string>
+    <string name="status_speaking">Hablando…</string>
+    <string name="input_hint">Escribe lo que el avatar debe decir…</string>
+    <string name="btn_speak">Hablar</string>
+    <string name="btn_stop">Detener</string>
+    <string name="btn_reconnect">Reconectar</string>
+    <string name="quick_phrases">Frases rápidas</string>
+    
+    <!-- Config Dialog -->
+    <string name="config_dialog_title">Configuración del Servidor</string>
+    <string name="config_ip_hint">Host / IP (ej. 10.0.2.2 o 192.168.1.100)</string>
+    <string name="config_port_hint">Puerto (ej. 8010)</string>
+    <string name="config_protocol_hint">Protocolo</string>
+    <string name="btn_save">Guardar y Conectar</string>
+    <string name="btn_cancel">Cancelar</string>
+    
+    <!-- Quick preset chips -->
+    <string name="chip_hello">¡Hola! ¿En qué te puedo ayudar hoy?</string>
+    <string name="chip_welcome">¡Bienvenidos a nuestra tienda!</string>
+    <string name="chip_order">Tu solicitud ha sido procesada con éxito.</string>
+    <string name="chip_goodbye">¡Muchas gracias por tu visita, hasta pronto!</string>
+</resources>
