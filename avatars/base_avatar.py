@@ -410,10 +410,6 @@ class BaseAvatar:
                     idle_frame = self.frame_list_cycle[fallback_idx].copy()
                     cv2.putText(idle_frame, "LiveTalking", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (128,128,128), 1)
                     self.output.push_video_frame(idle_frame)
-                    # Emparejar con audio silencioso para mantener sincronía A/V
-                    silent_audio = np.zeros(self.chunk, dtype=np.int16)
-                    self.output.push_audio_frame(silent_audio, {})
-                    self.output.push_audio_frame(silent_audio, {})
                 continue
             
             # 检测状态变化
@@ -507,10 +503,9 @@ class BaseAvatar:
             self.asr.run_step()
 
             buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            if buffer_size >= 12:
-                time.sleep(0.015)
-            elif buffer_size >= 6:
-                time.sleep(0.008)
+            if buffer_size >= 5:
+                logger.debug('sleep qsize=%d', buffer_size)
+                time.sleep(0.04 * buffer_size * 0.8)
         logger.info('baseavatar render thread stop')
 
         infer_quit_event.set()

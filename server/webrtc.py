@@ -48,62 +48,66 @@ from utils.logger import logger as mylogger
 
 class PlayerStreamTrack(MediaStreamTrack):
     """
-    Pista de audio o video para WebRTC con temporización monotónica de alta precisión,
-    prevención de desincronización de reloj y colas no bloqueantes.
+    A video/audio track that returns animated frames synchronized with WebRTC.
     """
 
     def __init__(self, player, kind):
         super().__init__()
         self.kind = kind
         self._player = player
-        self._queue = queue.Queue(maxsize=120)
-        self._start_time: Optional[float] = None
-        self._timestamp: int = 0
-        self.last_frame = None
-
+        self._queue = queue.Queue(maxsize=100)
+        self.timelist = []
+        self.current_frame_count = 0
         if self.kind == 'video':
-            self.frame_duration = VIDEO_PTIME      # 0.040s (25 fps)
-            self.clock_rate = VIDEO_CLOCK_RATE     # 90000 Hz
-            self.pts_step = int(VIDEO_PTIME * VIDEO_CLOCK_RATE) # 3600
-            self.time_base = VIDEO_TIME_BASE
             self.framecount = 0
             self.lasttime = time.perf_counter()
             self.totaltime = 0
-        else: # audio
-            self.frame_duration = AUDIO_PTIME      # 0.020s
-            self.clock_rate = SAMPLE_RATE          # 16000 Hz
-            self.pts_step = int(AUDIO_PTIME * SAMPLE_RATE) # 320
-            self.time_base = AUDIO_TIME_BASE
+    
+    _start: float
+    _timestamp: int
 
     async def next_timestamp(self) -> Tuple[int, fractions.Fraction]:
         if self.readyState != "live":
             raise Exception("Track is no longer live")
 
-        now = time.perf_counter()
-        if self._start_time is None:
-            if self._player and hasattr(self._player, "_shared_start_time") and self._player._shared_start_time:
-                self._start_time = self._player._shared_start_time
+        if self.kind == 'video':
+            if hasattr(self, "_timestamp"):
+                self._timestamp += int(VIDEO_PTIME * VIDEO_CLOCK_RATE)
+                self.current_frame_count += 1
+                wait = self._start + self.current_frame_count * VIDEO_PTIME - time.time()
+                if wait > 0:
+                    await asyncio.sleep(wait)
             else:
-                self._start_time = now
-                if self._player:
-                    self._player._shared_start_time = self._start_time
-            self._timestamp = 0
-            return self._timestamp, self.time_base
-
-        self._timestamp += self.pts_step
-
-        # Calcular tiempo esperado para este timestamp relativo al inicio
-        expected_time = self._start_time + (self._timestamp / self.clock_rate)
-        wait = expected_time - now
-
-        if wait > 0.001:
-            await asyncio.sleep(wait)
-        elif wait < -0.15:
-            # Si hay un retraso superior a 150ms (por carga o GC), resincronizar el reloj base
-            # para evitar ráfagas descontroladas o timestamps desfasados con RTCP
-            self._start_time = now - (self._timestamp / self.clock_rate)
-
-        return self._timestamp, self.time_base
+                if self._player and hasattr(self._player, "_shared_start"):
+                    self._start = self._player._shared_start
+                else:
+                    self._start = time.time()
+                    if self._player:
+                        self._player._shared_start = self._start
+                self._timestamp = 0
+                self.current_frame_count = 0
+                self.timelist.append(self._start)
+                mylogger.info('video start:%f', self._start)
+            return self._timestamp, VIDEO_TIME_BASE
+        else: # audio
+            if hasattr(self, "_timestamp"):
+                self._timestamp += int(AUDIO_PTIME * SAMPLE_RATE)
+                self.current_frame_count += 1
+                wait = self._start + self.current_frame_count * AUDIO_PTIME - time.time()
+                if wait > 0:
+                    await asyncio.sleep(wait)
+            else:
+                if self._player and hasattr(self._player, "_shared_start"):
+                    self._start = self._player._shared_start
+                else:
+                    self._start = time.time()
+                    if self._player:
+                        self._player._shared_start = self._start
+                self._timestamp = 0
+                self.current_frame_count = 0
+                self.timelist.append(self._start)
+                mylogger.info('audio start:%f', self._start)
+            return self._timestamp, AUDIO_TIME_BASE
 
     async def recv(self) -> Union[Frame, Packet]:
         if self.readyState != "live":
@@ -111,10 +115,6 @@ class PlayerStreamTrack(MediaStreamTrack):
 
         self._player._start(self)
 
-        frame = None
-        eventpoint = None
-
-        # Esperar hasta que el renderizador produzca frames
         while self.readyState == "live":
             try:
                 frame, eventpoint = self._queue.get_nowait()
@@ -125,7 +125,6 @@ class PlayerStreamTrack(MediaStreamTrack):
         if self.readyState != "live" or frame is None:
             raise Exception("Track stopped")
 
-        self.last_frame = frame
         pts, time_base = await self.next_timestamp()
         frame.pts = pts
         frame.time_base = time_base
@@ -138,12 +137,12 @@ class PlayerStreamTrack(MediaStreamTrack):
             self.framecount += 1
             self.lasttime = time.perf_counter()
             if self.framecount == 100:
-                mylogger.debug(f"WebRTC avg video fps: {self.framecount/self.totaltime:.2f}")
+                mylogger.info(f"------actual avg final fps:{self.framecount/self.totaltime:.4f}")
                 self.framecount = 0
                 self.totaltime = 0
 
         return frame
-
+    
     def purge(self):
         """Purga todos los frames pendientes en cola para corte inmediato."""
         with self._queue.mutex:
@@ -151,8 +150,12 @@ class PlayerStreamTrack(MediaStreamTrack):
 
     def stop(self):
         super().stop()
-        with self._queue.mutex:
-            self._queue.queue.clear()
+        while not self._queue.empty():
+            try:
+                item = self._queue.get_nowait()
+                del item
+            except queue.Empty:
+                break
         if self._player is not None:
             self._player._stop(self)
             self._player = None
@@ -161,10 +164,7 @@ def player_worker_thread(
     quit_event,
     container
 ):
-    try:
-        container.render(quit_event)
-    except Exception as e:
-        mylogger.exception("Error en player_worker_thread:")
+    container.render(quit_event)
 
 class HumanPlayer:
 
@@ -173,7 +173,7 @@ class HumanPlayer:
     ):
         self.__thread: Optional[threading.Thread] = None
         self.__thread_quit: Optional[threading.Event] = None
-        self._shared_start_time: Optional[float] = None
+        self._shared_start: Optional[float] = None
 
         # examine streams
         self.__started: Set[PlayerStreamTrack] = set()
@@ -193,33 +193,17 @@ class HumanPlayer:
     def push_video(self, frame):
         from av import VideoFrame
         new_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        # Inserción segura sin bloqueo de hilo: si la cola está llena, descartar el más viejo
-        try:
-            self.__video._queue.put_nowait((new_frame, None))
-        except queue.Full:
-            try:
-                self.__video._queue.get_nowait()
-            except queue.Empty:
-                pass
-            self.__video._queue.put_nowait((new_frame, None))
+        self.__video._queue.put((new_frame, None))
 
     def push_audio(self, frame, eventpoint=None):
         from av import AudioFrame
         new_frame = AudioFrame(format='s16', layout='mono', samples=frame.shape[0])
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
-        # Inserción segura sin bloqueo de hilo: si la cola está llena, descartar el más viejo
-        try:
-            self.__audio._queue.put_nowait((new_frame, eventpoint))
-        except queue.Full:
-            try:
-                self.__audio._queue.get_nowait()
-            except queue.Empty:
-                pass
-            self.__audio._queue.put_nowait((new_frame, eventpoint))
+        self.__audio._queue.put((new_frame, eventpoint))
 
     def get_buffer_size(self) -> int:
-        return max(self.__video._queue.qsize(), self.__audio._queue.qsize() // 2)
+        return self.__video._queue.qsize()
 
     def notify(self, eventpoint):
         if self.__container is not None:
@@ -236,7 +220,7 @@ class HumanPlayer:
     def _start(self, track: PlayerStreamTrack) -> None:
         self.__started.add(track)
         if self.__thread is None:
-            self.__log_debug("Iniciando hilo de renderizado del avatar")
+            self.__log_debug("Starting worker thread")
             self.__thread_quit = threading.Event()
             self.__thread = threading.Thread(
                 name="media-player",
@@ -245,7 +229,6 @@ class HumanPlayer:
                     self.__thread_quit,
                     self.__container
                 ),
-                daemon=True
             )
             self.__thread.start()
 
@@ -253,11 +236,9 @@ class HumanPlayer:
         self.__started.discard(track)
 
         if not self.__started and self.__thread is not None:
-            self.__log_debug("Deteniendo hilo de renderizado del avatar")
-            if self.__thread_quit is not None:
-                self.__thread_quit.set()
-            if self.__thread is not None:
-                self.__thread.join(timeout=2.0)
+            self.__log_debug("Stopping worker thread")
+            self.__thread_quit.set()
+            self.__thread.join()
             self.__thread = None
 
         if not self.__started and self.__container is not None:
