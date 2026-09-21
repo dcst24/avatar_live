@@ -7,7 +7,9 @@ build/
 tmp*
 trial*/
 
-data
+/data/avatars/
+!data/productos.json
+!web/data/
 data_utils/face_tracking/3DMM/*
 data_utils/face_parsing/79999_iter.pth
 
@@ -19,3 +21,7 @@ workspace/log_ngp.txt
 models/
 *.log
 dist
+
+# Apps separadas — solo locales para referencia, no forman parte del repo del backend
+avatar/
+consultaPasillo/
