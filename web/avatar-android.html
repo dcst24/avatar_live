@@ -36,6 +36,8 @@
             display: block;
             background: transparent;
         }
+
+        /* Pantalla completa: solo en la primera conexión (sin histórico de frame) */
         #loading-indicator {
             position: absolute;
             inset: 0;
@@ -49,7 +51,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             font-size: 13px;
             z-index: 10;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.4s ease;
         }
         .spinner {
             width: 36px;
@@ -59,18 +61,54 @@
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+
+        /* Badge pequeño: reconexiones post-primera-conexión, no tapa el avatar */
+        #reconnect-badge {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(10, 10, 20, 0.72);
+            border: 1px solid rgba(99, 102, 241, 0.35);
+            border-radius: 20px;
+            padding: 5px 12px;
+            color: #94a3b8;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 11px;
+            display: none;
+            align-items: center;
+            gap: 7px;
+            z-index: 20;
+            backdrop-filter: blur(4px);
         }
+        #reconnect-badge.visible { display: flex; }
+        .mini-spinner {
+            width: 10px;
+            height: 10px;
+            border: 2px solid rgba(99, 102, 241, 0.25);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+            flex-shrink: 0;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
     <input type="hidden" id="sessionid" value="0">
     <div id="video-container">
         <video id="video" autoplay playsinline webkit-playsinline></video>
+
+        <!-- Carga inicial: pantalla completa negra (solo la primera vez) -->
         <div id="loading-indicator">
             <div class="spinner"></div>
             <div id="loading-text">Conectando con el Avatar…</div>
+        </div>
+
+        <!-- Reconexión: badge pequeño, el último frame del avatar sigue visible -->
+        <div id="reconnect-badge">
+            <div class="mini-spinner"></div>
+            <span id="reconnect-text">Reconectando…</span>
         </div>
     </div>
 
@@ -80,10 +118,14 @@
         var isConnecting = false;
         var currentSessionId = "0";
         var reconnectTimer = null;
-        var reconnectDelay = 1000; // Iniciar con 1s, backoff hasta 5s
+        var reconnectDelay = 1000;
         var lastVideoTime = -1;
         var stallCount = 0;
         var watchdogTimer = null;
+
+        // Después del primer connect exitoso, los cortes muestran solo el badge
+        // y NO la pantalla negra, preservando el último frame del avatar visible.
+        var hasEverConnected = false;
 
         function log(msg) {
             console.log("[AvatarLive] " + msg);
@@ -92,26 +134,49 @@
             }
         }
 
+        // ─── UI helpers ────────────────────────────────────────────────
+
         function hideLoading() {
             var loader = document.getElementById('loading-indicator');
             if (loader) {
                 loader.style.opacity = '0';
-                setTimeout(function() {
-                    if (loader && isConnected) loader.style.display = 'none';
-                }, 300);
+                setTimeout(function() { loader.style.display = 'none'; }, 400);
             }
+            hideBadge();
         }
 
-        function showLoading(msg) {
+        function showFullLoading(msg) {
             var loader = document.getElementById('loading-indicator');
-            var text = document.getElementById('loading-text');
+            var text  = document.getElementById('loading-text');
             if (text && msg) text.textContent = msg;
-            if (loader) {
-                loader.style.display = 'flex';
-                loader.style.opacity = '1';
+            if (loader) { loader.style.display = 'flex'; loader.style.opacity = '1'; }
+        }
+
+        function showBadge(msg) {
+            var badge = document.getElementById('reconnect-badge');
+            var text  = document.getElementById('reconnect-text');
+            if (text && msg) text.textContent = msg;
+            if (badge) badge.classList.add('visible');
+        }
+
+        function hideBadge() {
+            var badge = document.getElementById('reconnect-badge');
+            if (badge) badge.classList.remove('visible');
+        }
+
+        // Selector: pantalla completa la primera vez, badge pequeño después.
+        // El browser congela automáticamente el último frame cuando el track
+        // termina, así el avatar permanece visible durante la reconexión.
+        function showLoading(msg) {
+            if (hasEverConnected) {
+                showBadge(msg || "Reconectando…");
+            } else {
+                showFullLoading(msg || "Conectando con el Avatar…");
             }
         }
 
+        // ─── Cleanup ────────────────────────────────────────────────────
+        // NO se toca videoEl.srcObject para preservar el último frame visible.
         function cleanupRTC() {
             if (pc) {
                 try {
@@ -124,13 +189,14 @@
             }
         }
 
+        // ─── Reconexión con backoff ─────────────────────────────────────
         function scheduleReconnect(customDelay) {
             if (reconnectTimer || isConnecting) return;
             var delayMs = customDelay !== undefined ? customDelay : reconnectDelay;
-            log("Programando auto-reconexión en " + delayMs + " ms…");
-            
+            log("Programando reconexión en " + delayMs + " ms…");
+
             if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
-                window.AndroidBridge.onConnectionStateChange("connecting", "Reconectando en " + Math.round(delayMs/1000) + "s…");
+                window.AndroidBridge.onConnectionStateChange("connecting", "Reconectando…");
             }
 
             reconnectTimer = setTimeout(function() {
@@ -140,16 +206,18 @@
             }, delayMs);
         }
 
+        // ─── Watchdog de video ──────────────────────────────────────────
+        // 10 ticks × 1.5s = 15 segundos de stall antes de reconectar.
+        // Previene falsos positivos en idle donde el avatar apenas se mueve.
         function startVideoWatchdog() {
             if (watchdogTimer) clearInterval(watchdogTimer);
             watchdogTimer = setInterval(function() {
                 var videoEl = document.getElementById('video');
-                // Solo vigilar cuando ya esté conectado y el video haya comenzado
                 if (isConnected && !isConnecting && videoEl && !videoEl.paused) {
                     if (videoEl.currentTime > 0 && videoEl.currentTime === lastVideoTime) {
                         stallCount++;
-                        if (stallCount >= 5) { // ~7.5 segundos congelado continuo
-                            log("Watchdog: Video congelado detectado. Reiniciando conexión WebRTC…");
+                        if (stallCount >= 10) {
+                            log("Watchdog: Video congelado 15s. Reconectando…");
                             stallCount = 0;
                             isConnected = false;
                             showLoading("Recuperando transmisión…");
@@ -163,10 +231,11 @@
             }, 1500);
         }
 
+        // ─── Conexión WebRTC ────────────────────────────────────────────
         function connectRTC() {
             if (isConnecting) return;
             isConnecting = true;
-            showLoading("Iniciando WebRTC…");
+            showLoading("Conectando…");
             cleanupRTC();
 
             var config = {
@@ -186,23 +255,23 @@
             }
 
             var videoEl = document.getElementById('video');
-            var remoteStream = null;
 
             pc.addEventListener('track', function(evt) {
                 log("Track recibido: " + evt.track.kind);
+
+                // Siempre asignar / actualizar srcObject al llegar el nuevo stream.
                 if (evt.streams && evt.streams[0]) {
-                    if (!remoteStream) {
-                        remoteStream = evt.streams[0];
-                        videoEl.srcObject = remoteStream;
-                    } else if (videoEl.srcObject !== evt.streams[0]) {
-                        remoteStream.addTrack(evt.track);
+                    if (videoEl.srcObject !== evt.streams[0]) {
+                        videoEl.srcObject = evt.streams[0];
                     }
                 } else {
-                    if (!remoteStream) {
-                        remoteStream = new MediaStream();
-                        videoEl.srcObject = remoteStream;
+                    if (!videoEl.srcObject || !(videoEl.srcObject instanceof MediaStream)) {
+                        videoEl.srcObject = new MediaStream();
                     }
-                    remoteStream.addTrack(evt.track);
+                    var existing = videoEl.srcObject.getTracks().find(function(t) {
+                        return t.id === evt.track.id;
+                    });
+                    if (!existing) videoEl.srcObject.addTrack(evt.track);
                 }
 
                 videoEl.muted = false;
@@ -210,8 +279,9 @@
                 if (playPromise !== undefined) {
                     playPromise.then(function() {
                         log("Video y audio reproduciendo exitosamente");
+                        hasEverConnected = true;
                         isConnected = true;
-                        reconnectDelay = 1000; // Resetear backoff
+                        reconnectDelay = 1000;
                         hideLoading();
                         if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
                             window.AndroidBridge.onConnectionStateChange("connected", "Conectado");
@@ -222,6 +292,7 @@
                             videoEl.muted = false;
                             videoEl.play().catch(function(){});
                         }, 200);
+                        hasEverConnected = true;
                         isConnected = true;
                         reconnectDelay = 1000;
                         hideLoading();
@@ -236,6 +307,7 @@
                 if (!pc) return;
                 log("Connection state: " + pc.connectionState);
                 if (pc.connectionState === 'connected') {
+                    hasEverConnected = true;
                     isConnected = true;
                     isConnecting = false;
                     reconnectDelay = 1000;
@@ -243,10 +315,14 @@
                     if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
                         window.AndroidBridge.onConnectionStateChange("connected", "Conectado");
                     }
-                } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
+                } else if (
+                    pc.connectionState === 'disconnected' ||
+                    pc.connectionState === 'failed' ||
+                    pc.connectionState === 'closed'
+                ) {
                     isConnected = false;
                     isConnecting = false;
-                    showLoading("Conexión interrumpida. Reconectando…");
+                    showLoading("Reconectando…");
                     scheduleReconnect(3000);
                 }
             });
@@ -254,10 +330,13 @@
             pc.addEventListener('iceconnectionstatechange', function() {
                 if (!pc) return;
                 log("ICE state: " + pc.iceConnectionState);
-                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+                if (
+                    pc.iceConnectionState === 'failed' ||
+                    pc.iceConnectionState === 'disconnected'
+                ) {
                     if (isConnected) {
                         isConnected = false;
-                        showLoading("Reconectando ICE…");
+                        showLoading("Recuperando ICE…");
                         scheduleReconnect(3000);
                     }
                 }
@@ -298,7 +377,7 @@
                 currentSessionId = String(answer.sessionid || "0");
                 document.getElementById('sessionid').value = currentSessionId;
                 log("Oferta aceptada, sessionid: " + currentSessionId);
-                
+
                 if (window.AndroidBridge && window.AndroidBridge.onSessionReady) {
                     window.AndroidBridge.onSessionReady(currentSessionId);
                 }
@@ -310,23 +389,20 @@
                 log("Error conectando WebRTC: " + err.message);
                 isConnected = false;
                 isConnecting = false;
-                showLoading("Reconectando con el servidor…");
+                showLoading("Sin servidor…");
                 scheduleReconnect(3000);
             });
         }
 
-        // Reconexión forzada externa (invocada desde Kotlin)
+        // ─── API pública ────────────────────────────────────────────────
+
         window.forceReconnect = function() {
             log("forceReconnect invocado");
-            if (reconnectTimer) {
-                clearTimeout(reconnectTimer);
-                reconnectTimer = null;
-            }
+            if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null; }
             isConnecting = false;
             connectRTC();
         };
 
-        // Funciones auxiliares accesibles desde JS o Kotlin
         window.speakText = async function(text) {
             if (!text) return;
             log("speakText JS: " + text);
@@ -360,12 +436,13 @@
             } catch(e) {}
         };
 
-        // Iniciar watchdog y conectar al cargar
+        // ─── Arranque ───────────────────────────────────────────────────
         window.addEventListener('DOMContentLoaded', function() {
-            log("DOM ready - iniciando WebRTC automáticamente y watchdog");
+            log("DOM ready - iniciando WebRTC y watchdog");
             startVideoWatchdog();
             connectRTC();
         });
     </script>
 </body>
 </html>
+

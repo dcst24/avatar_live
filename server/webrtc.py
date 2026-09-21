@@ -55,7 +55,12 @@ class PlayerStreamTrack(MediaStreamTrack):
         super().__init__()
         self.kind = kind
         self._player = player
-        self._queue = queue.Queue(maxsize=100)
+        # Video: cola grande para buffer de 100 frames (el render la regula con sleep)
+        # Audio: cola pequeña de 30 frames (~600ms) — el push usa put_nowait para no bloquear el render
+        if self.kind == 'video':
+            self._queue = queue.Queue(maxsize=100)
+        else:
+            self._queue = queue.Queue(maxsize=30)
         self.timelist = []
         self.current_frame_count = 0
         if self.kind == 'video':
@@ -200,7 +205,20 @@ class HumanPlayer:
         new_frame = AudioFrame(format='s16', layout='mono', samples=frame.shape[0])
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
-        self.__audio._queue.put((new_frame, eventpoint))
+        # Inserción no bloqueante: si la cola está llena, descartar el frame más viejo
+        # para evitar que el hilo de render quede bloqueado esperando a WebRTC
+        # (causa principal de cortes de audio al medio y al final de frases)
+        try:
+            self.__audio._queue.put_nowait((new_frame, eventpoint))
+        except queue.Full:
+            try:
+                self.__audio._queue.get_nowait()  # descarta el frame más viejo
+            except queue.Empty:
+                pass
+            try:
+                self.__audio._queue.put_nowait((new_frame, eventpoint))
+            except queue.Full:
+                pass  # descarte silencioso si aún está llena
 
     def get_buffer_size(self) -> int:
         return self.__video._queue.qsize()

@@ -40,7 +40,7 @@ def parse_args():
                         help="usar precisión media (FP16) con autocast en GPU para mayor velocidad y menor latencia")
     parser.add_argument('--no_fp16', dest='fp16', action='store_false',
                         help="desactivar FP16 y forzar inferencia en FP32")
-    parser.add_argument('--modelres', type=int, default=192)
+    parser.add_argument('--modelres', type=int, default=96)
     parser.add_argument('--modelfile', type=str, default='')
 
     # ─── 自定义动作和多形象 ────────────────────────────────────────────
