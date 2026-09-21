@@ -262,7 +262,10 @@ class MainActivity : AppCompatActivity() {
         loadPlayerPage()
     }
 
+    private var isConnecting: Boolean = false
+
     private fun loadPlayerPage() {
+        isConnecting = true
         updateStatusChip("connecting", "Conectando…")
         binding.layoutReconnect.visibility = View.GONE
 
@@ -274,10 +277,13 @@ class MainActivity : AppCompatActivity() {
     private fun triggerManualReconnect() {
         autoReconnectJob?.cancel()
         autoReconnectJob = null
+        isConnecting = false
         reconnectWebRTC()
     }
 
     private fun reconnectWebRTC() {
+        if (isConnected) return
+        isConnecting = true
         updateStatusChip("connecting", "Conectando…")
         binding.layoutReconnect.visibility = View.GONE
 
@@ -290,7 +296,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun scheduleAutoReconnect(delayMs: Long = 1500) {
+    private fun scheduleAutoReconnect(delayMs: Long = 4000) {
         if (autoReconnectJob?.isActive == true || isConnected) return
 
         autoReconnectJob = lifecycleScope.launch {
@@ -298,10 +304,16 @@ class MainActivity : AppCompatActivity() {
             delay(delayMs)
             var attempt = 1
             while (isActive && !isConnected) {
+                if (isConnecting) {
+                    // Si ya hay un intento en vuelo negociando WebRTC, esperar a que termine
+                    delay(4000L)
+                    continue
+                }
+
                 updateStatusChip("connecting", "Reconectando (intento $attempt)…")
                 Log.d(TAG, "Ejecutando intento de auto-reconexión #$attempt…")
 
-                // Verificar primero si el endpoint del servidor responde
+                // Verificar primero si el servidor responde antes de enviar oferta
                 val isServerAlive = avatarClient.ping(fullServerUrl).getOrDefault(false)
                 if (isServerAlive) {
                     reconnectWebRTC()
@@ -310,8 +322,10 @@ class MainActivity : AppCompatActivity() {
                     updateStatusChip("disconnected", "Buscando servidor…")
                 }
 
-                val nextWait = (2000L * attempt).coerceAtMost(6000L)
+                // Dar tiempo suficiente para inicializar modelos y negociar SDP (8s)
+                val nextWait = (4000L + 2000L * attempt).coerceAtMost(10000L)
                 delay(nextWait)
+                isConnecting = false // Permitir nuevo intento si el anterior no concretó
                 attempt++
             }
         }
@@ -512,6 +526,7 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "[Bridge] onSessionReady: $sessionId")
             currentSessionId = sessionId
             isConnected = true
+            isConnecting = false
             autoReconnectJob?.cancel()
             autoReconnectJob = null
             updateStatusChip("connected", "Conectado")
@@ -525,23 +540,27 @@ class MainActivity : AppCompatActivity() {
                 when (state) {
                     "connected" -> {
                         isConnected = true
+                        isConnecting = false
                         autoReconnectJob?.cancel()
                         autoReconnectJob = null
                         updateStatusChip("connected", "Conectado")
                         startSpeakingMonitor()
                     }
                     "connecting" -> {
+                        isConnecting = true
                         updateStatusChip("connecting", message.ifEmpty { "Conectando…" })
                     }
                     "disconnected" -> {
                         isConnected = false
+                        isConnecting = false
                         updateStatusChip("disconnected", "Desconectado")
-                        scheduleAutoReconnect(1500)
+                        scheduleAutoReconnect(3000)
                     }
                     "error" -> {
                         isConnected = false
+                        isConnecting = false
                         updateStatusChip("disconnected", "Error de conexión")
-                        scheduleAutoReconnect(1500)
+                        scheduleAutoReconnect(3000)
                     }
                 }
             }
@@ -551,8 +570,10 @@ class MainActivity : AppCompatActivity() {
         fun onError(errorMsg: String) {
             Log.e(TAG, "[Bridge] onError: $errorMsg")
             runOnUiThread {
+                isConnected = false
+                isConnecting = false
                 updateStatusChip("disconnected", "Error")
-                scheduleAutoReconnect(1500)
+                scheduleAutoReconnect(3000)
             }
         }
 

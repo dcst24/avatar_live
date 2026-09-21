@@ -125,7 +125,7 @@
         }
 
         function scheduleReconnect(customDelay) {
-            if (reconnectTimer) return;
+            if (reconnectTimer || isConnecting) return;
             var delayMs = customDelay !== undefined ? customDelay : reconnectDelay;
             log("Programando auto-reconexión en " + delayMs + " ms…");
             
@@ -135,7 +135,7 @@
 
             reconnectTimer = setTimeout(function() {
                 reconnectTimer = null;
-                reconnectDelay = Math.min(reconnectDelay * 1.5, 5000);
+                reconnectDelay = Math.min(reconnectDelay * 1.5, 8000);
                 connectRTC();
             }, delayMs);
         }
@@ -144,17 +144,18 @@
             if (watchdogTimer) clearInterval(watchdogTimer);
             watchdogTimer = setInterval(function() {
                 var videoEl = document.getElementById('video');
-                if (isConnected && videoEl && !videoEl.paused) {
-                    if (videoEl.currentTime === lastVideoTime && videoEl.currentTime > 0) {
+                // Solo vigilar cuando ya esté conectado y el video haya comenzado
+                if (isConnected && !isConnecting && videoEl && !videoEl.paused) {
+                    if (videoEl.currentTime > 0 && videoEl.currentTime === lastVideoTime) {
                         stallCount++;
-                        if (stallCount >= 3) { // ~4.5 segundos congelado
+                        if (stallCount >= 5) { // ~7.5 segundos congelado continuo
                             log("Watchdog: Video congelado detectado. Reiniciando conexión WebRTC…");
                             stallCount = 0;
                             isConnected = false;
                             showLoading("Recuperando transmisión…");
-                            scheduleReconnect(500);
+                            scheduleReconnect(1000);
                         }
-                    } else {
+                    } else if (videoEl.currentTime > 0) {
                         stallCount = 0;
                         lastVideoTime = videoEl.currentTime;
                     }
@@ -180,7 +181,7 @@
             } catch(e) {
                 log("Error al crear RTCPeerConnection: " + e.message);
                 isConnecting = false;
-                scheduleReconnect();
+                scheduleReconnect(3000);
                 return;
             }
 
@@ -246,7 +247,7 @@
                     isConnected = false;
                     isConnecting = false;
                     showLoading("Conexión interrumpida. Reconectando…");
-                    scheduleReconnect(1000);
+                    scheduleReconnect(3000);
                 }
             });
 
@@ -257,7 +258,7 @@
                     if (isConnected) {
                         isConnected = false;
                         showLoading("Reconectando ICE…");
-                        scheduleReconnect(1000);
+                        scheduleReconnect(3000);
                     }
                 }
             });
@@ -279,7 +280,7 @@
                             }
                         };
                         pc.addEventListener('icegatheringstatechange', check);
-                        setTimeout(resolve, 1500); // No demorar más de 1.5s
+                        setTimeout(resolve, 2000);
                     }
                 });
             }).then(function() {
@@ -310,7 +311,7 @@
                 isConnected = false;
                 isConnecting = false;
                 showLoading("Reconectando con el servidor…");
-                scheduleReconnect();
+                scheduleReconnect(3000);
             });
         }
 

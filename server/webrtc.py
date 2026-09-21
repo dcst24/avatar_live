@@ -114,35 +114,16 @@ class PlayerStreamTrack(MediaStreamTrack):
         frame = None
         eventpoint = None
 
-        # Esperar frame con timeout para no congelar el bucle de aiortc
-        retry_count = 0
+        # Esperar hasta que el renderizador produzca frames
         while self.readyState == "live":
             try:
                 frame, eventpoint = self._queue.get_nowait()
                 break
             except queue.Empty:
-                retry_count += 1
-                if retry_count > 20: # ~100ms sin frame
-                    # Si no hay frame en cola, reutilizar el último frame (video) o generar silencio (audio)
-                    if self.kind == 'audio':
-                        audio = np.zeros(int(SAMPLE_RATE * AUDIO_PTIME), dtype=np.int16)
-                        frame = AudioFrame(format='s16', layout='mono', samples=audio.shape[0])
-                        frame.planes[0].update(audio.tobytes())
-                        frame.sample_rate = SAMPLE_RATE
-                    elif self.last_frame is not None:
-                        frame = self.last_frame
-                    break
                 await asyncio.sleep(0.005)
 
-        if frame is None:
-            if self.kind == 'audio':
-                audio = np.zeros(int(SAMPLE_RATE * AUDIO_PTIME), dtype=np.int16)
-                frame = AudioFrame(format='s16', layout='mono', samples=audio.shape[0])
-                frame.planes[0].update(audio.tobytes())
-                frame.sample_rate = SAMPLE_RATE
-            else:
-                self.stop()
-                raise Exception("No frame available")
+        if self.readyState != "live" or frame is None:
+            raise Exception("Track stopped")
 
         self.last_frame = frame
         pts, time_base = await self.next_timestamp()
