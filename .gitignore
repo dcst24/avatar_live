@@ -21,3 +21,7 @@ workspace/log_ngp.txt
 models/
 *.log
 dist
+
+# Apps separadas — solo locales para referencia, no forman parte del repo del backend
+avatar/
+consultaPasillo/
