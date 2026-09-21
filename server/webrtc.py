@@ -78,7 +78,7 @@ class PlayerStreamTrack(MediaStreamTrack):
                 if wait > 0:
                     await asyncio.sleep(wait)
             else:
-                if self._player and hasattr(self._player, "_shared_start"):
+                if self._player and getattr(self._player, "_shared_start", None) is not None:
                     self._start = self._player._shared_start
                 else:
                     self._start = time.time()
@@ -97,7 +97,7 @@ class PlayerStreamTrack(MediaStreamTrack):
                 if wait > 0:
                     await asyncio.sleep(wait)
             else:
-                if self._player and hasattr(self._player, "_shared_start"):
+                if self._player and getattr(self._player, "_shared_start", None) is not None:
                     self._start = self._player._shared_start
                 else:
                     self._start = time.time()
