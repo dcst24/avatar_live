@@ -3,11 +3,16 @@ package com.example.avatar
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.net.http.SslError
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
+import android.view.WindowManager
 import android.webkit.JavascriptInterface
 import android.webkit.PermissionRequest
 import android.webkit.SslErrorHandler
@@ -32,7 +37,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -46,6 +50,11 @@ class MainActivity : AppCompatActivity() {
     private var currentSessionId: String = "0"
     private var isConnected: Boolean = false
     private var speakingMonitorJob: Job? = null
+    private var autoReconnectJob: Job? = null
+    private var consecutiveHealthFailures = 0
+
+    private var connectivityManager: ConnectivityManager? = null
+    private var networkCallback: ConnectivityManager.NetworkCallback? = null
 
     companion object {
         private const val TAG = "AvatarMainActivity"
@@ -61,6 +70,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Mantener pantalla siempre encendida para modo kiosco / consulta pasillo
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -78,6 +91,7 @@ class MainActivity : AppCompatActivity() {
 
         loadPreferences()
         setupUI()
+        setupNetworkMonitoring()
         setupWebView()
     }
 
@@ -114,12 +128,10 @@ class MainActivity : AppCompatActivity() {
 
         // Chip de Estado y Botón de Reintento
         binding.statusChip.setOnClickListener {
-            if (!isConnected) {
-                reconnectWebRTC()
-            }
+            triggerManualReconnect()
         }
         binding.btnRetryConnect.setOnClickListener {
-            reconnectWebRTC()
+            triggerManualReconnect()
         }
 
         // Botón Hablar / Enviar Texto
@@ -159,6 +171,37 @@ class MainActivity : AppCompatActivity() {
         binding.chipPreset4.setOnClickListener(presetListener)
     }
 
+    private fun setupNetworkMonitoring() {
+        try {
+            connectivityManager = getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
+            val networkRequest = NetworkRequest.Builder()
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .build()
+
+            networkCallback = object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) {
+                    Log.d(TAG, "Red disponible detectada. Verificando reconexión…")
+                    runOnUiThread {
+                        if (!isConnected) {
+                            scheduleAutoReconnect(500)
+                        }
+                    }
+                }
+
+                override fun onLost(network: Network) {
+                    Log.w(TAG, "Conexión de red perdida")
+                    runOnUiThread {
+                        updateStatusChip("disconnected", "Sin red")
+                        scheduleAutoReconnect(2000)
+                    }
+                }
+            }
+            connectivityManager?.registerNetworkCallback(networkRequest, networkCallback as ConnectivityManager.NetworkCallback)
+        } catch (e: Exception) {
+            Log.w(TAG, "No se pudo registrar NetworkCallback: ${e.message}")
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun setupWebView() {
         val webView = binding.webviewPlayer
@@ -189,7 +232,7 @@ class MainActivity : AppCompatActivity() {
 
         webView.webViewClient = object : WebViewClient() {
             override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
-                // Ignorar errores de certificado autofirmado en desarrollo local y proceder
+                // Ignorar advertencias de certificado autofirmado en desarrollo local y proceder
                 Log.w(TAG, "Procediendo con certificado SSL local: ${error?.primaryError}")
                 handler?.proceed()
             }
@@ -202,6 +245,7 @@ class MainActivity : AppCompatActivity() {
                 super.onReceivedError(view, request, error)
                 if (request?.isForMainFrame == true) {
                     Log.e(TAG, "Error cargando página principal: ${error?.description}")
+                    scheduleAutoReconnect(2000)
                 }
             }
 
@@ -215,6 +259,21 @@ class MainActivity : AppCompatActivity() {
         webView.addJavascriptInterface(WebAppInterface(), "AndroidBridge")
 
         // Cargar el reproductor del servidor
+        loadPlayerPage()
+    }
+
+    private fun loadPlayerPage() {
+        updateStatusChip("connecting", "Conectando…")
+        binding.layoutReconnect.visibility = View.GONE
+
+        val targetUrl = "$fullServerUrl/avatar-android"
+        Log.d(TAG, "Cargando targetUrl en WebView: $targetUrl")
+        binding.webviewPlayer.loadUrl(targetUrl)
+    }
+
+    private fun triggerManualReconnect() {
+        autoReconnectJob?.cancel()
+        autoReconnectJob = null
         reconnectWebRTC()
     }
 
@@ -222,9 +281,40 @@ class MainActivity : AppCompatActivity() {
         updateStatusChip("connecting", "Conectando…")
         binding.layoutReconnect.visibility = View.GONE
 
-        val targetUrl = "$fullServerUrl/avatar-android"
-        Log.d(TAG, "Cargando targetUrl en WebView: $targetUrl")
-        binding.webviewPlayer.loadUrl(targetUrl)
+        // Primero intentar invocar forceReconnect() en JS sin recargar todo el DOM
+        binding.webviewPlayer.evaluateJavascript("if (window.forceReconnect) { window.forceReconnect(); true; } else { false; }") { result ->
+            val handled = result == "true"
+            if (!handled) {
+                loadPlayerPage()
+            }
+        }
+    }
+
+    private fun scheduleAutoReconnect(delayMs: Long = 1500) {
+        if (autoReconnectJob?.isActive == true || isConnected) return
+
+        autoReconnectJob = lifecycleScope.launch {
+            Log.d(TAG, "Bucle de auto-reconexión programado en ${delayMs}ms…")
+            delay(delayMs)
+            var attempt = 1
+            while (isActive && !isConnected) {
+                updateStatusChip("connecting", "Reconectando (intento $attempt)…")
+                Log.d(TAG, "Ejecutando intento de auto-reconexión #$attempt…")
+
+                // Verificar primero si el endpoint del servidor responde
+                val isServerAlive = avatarClient.ping(fullServerUrl).getOrDefault(false)
+                if (isServerAlive) {
+                    reconnectWebRTC()
+                } else {
+                    Log.w(TAG, "Servidor no alcanzable en $fullServerUrl, esperando siguiente intento")
+                    updateStatusChip("disconnected", "Buscando servidor…")
+                }
+
+                val nextWait = (2000L * attempt).coerceAtMost(6000L)
+                delay(nextWait)
+                attempt++
+            }
+        }
     }
 
     private fun sendTextToAvatar(text: String) {
@@ -240,7 +330,6 @@ class MainActivity : AppCompatActivity() {
             binding.btnSpeak.isEnabled = false
             updateStatusChip("speaking", "Enviando…")
 
-            // Llamada nativa única con OkHttp
             val result = avatarClient.speak(
                 serverUrl = fullServerUrl,
                 sessionId = currentSessionId,
@@ -257,6 +346,8 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Error: $error", Toast.LENGTH_SHORT).show()
                 if (isConnected) {
                     updateStatusChip("connected", "Conectado")
+                } else {
+                    scheduleAutoReconnect(1000)
                 }
             }
         }
@@ -281,16 +372,28 @@ class MainActivity : AppCompatActivity() {
 
     private fun startSpeakingMonitor() {
         speakingMonitorJob?.cancel()
+        consecutiveHealthFailures = 0
         speakingMonitorJob = lifecycleScope.launch {
             while (isActive && isConnected) {
                 delay(700)
                 val result = avatarClient.isSpeaking(fullServerUrl, currentSessionId)
                 if (result.isSuccess) {
+                    consecutiveHealthFailures = 0
                     val speaking = result.getOrDefault(false)
                     if (speaking) {
                         updateStatusChip("speaking", "Hablando…")
                     } else if (isConnected) {
                         updateStatusChip("connected", "Conectado")
+                    }
+                } else {
+                    consecutiveHealthFailures++
+                    Log.w(TAG, "Fallo en health check / isSpeaking ($consecutiveHealthFailures/4)")
+                    if (consecutiveHealthFailures >= 4) {
+                        Log.e(TAG, "Servidor no responde tras 4 intentos. Activando auto-reconexión…")
+                        isConnected = false
+                        updateStatusChip("disconnected", "Servidor no responde")
+                        scheduleAutoReconnect(1000)
+                        break
                     }
                 }
             }
@@ -307,6 +410,8 @@ class MainActivity : AppCompatActivity() {
             when (state) {
                 "connected" -> {
                     isConnected = true
+                    autoReconnectJob?.cancel()
+                    autoReconnectJob = null
                     binding.statusChip.text = "🟢 $text"
                     binding.statusChip.setTextColor(ContextCompat.getColor(this, R.color.status_connected))
                     binding.statusChip.setChipBackgroundColorResource(R.color.status_connected_bg)
@@ -335,7 +440,7 @@ class MainActivity : AppCompatActivity() {
                     binding.statusChip.setChipBackgroundColorResource(R.color.status_disconnected_bg)
                     binding.statusChip.setChipStrokeColorResource(R.color.status_disconnected)
                     binding.layoutReconnect.visibility = View.VISIBLE
-                    binding.tvErrorDetail.text = "No se pudo conectar con el Avatar en $fullServerUrl"
+                    binding.tvErrorDetail.text = "Reconectando automáticamente con $fullServerUrl…"
                 }
             }
         }
@@ -361,7 +466,7 @@ class MainActivity : AppCompatActivity() {
                 val port = dialogBinding.etPort.text?.toString()?.trim()?.toIntOrNull() ?: 8010
 
                 savePreferences(protocol, host, port)
-                reconnectWebRTC()
+                triggerManualReconnect()
                 dialog.dismiss()
             }
             .setNegativeButton(R.string.btn_cancel) { dialog, _ ->
@@ -370,8 +475,21 @@ class MainActivity : AppCompatActivity() {
             .show()
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (!isConnected) {
+            scheduleAutoReconnect(500)
+        }
+    }
+
     override fun onDestroy() {
         stopSpeakingMonitor()
+        autoReconnectJob?.cancel()
+        networkCallback?.let {
+            try {
+                connectivityManager?.unregisterNetworkCallback(it)
+            } catch (e: Exception) {}
+        }
         binding.webviewPlayer.destroy()
         super.onDestroy()
     }
@@ -394,6 +512,8 @@ class MainActivity : AppCompatActivity() {
             Log.d(TAG, "[Bridge] onSessionReady: $sessionId")
             currentSessionId = sessionId
             isConnected = true
+            autoReconnectJob?.cancel()
+            autoReconnectJob = null
             updateStatusChip("connected", "Conectado")
             startSpeakingMonitor()
         }
@@ -405,6 +525,8 @@ class MainActivity : AppCompatActivity() {
                 when (state) {
                     "connected" -> {
                         isConnected = true
+                        autoReconnectJob?.cancel()
+                        autoReconnectJob = null
                         updateStatusChip("connected", "Conectado")
                         startSpeakingMonitor()
                     }
@@ -414,10 +536,12 @@ class MainActivity : AppCompatActivity() {
                     "disconnected" -> {
                         isConnected = false
                         updateStatusChip("disconnected", "Desconectado")
+                        scheduleAutoReconnect(1500)
                     }
                     "error" -> {
                         isConnected = false
                         updateStatusChip("disconnected", "Error de conexión")
+                        scheduleAutoReconnect(1500)
                     }
                 }
             }
@@ -428,7 +552,7 @@ class MainActivity : AppCompatActivity() {
             Log.e(TAG, "[Bridge] onError: $errorMsg")
             runOnUiThread {
                 updateStatusChip("disconnected", "Error")
-                Toast.makeText(this@MainActivity, "WebRTC: $errorMsg", Toast.LENGTH_SHORT).show()
+                scheduleAutoReconnect(1500)
             }
         }
 

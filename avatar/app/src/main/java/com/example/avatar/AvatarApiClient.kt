@@ -78,21 +78,22 @@ class AvatarApiClient {
                 .post(payload.toString().toRequestBody(jsonMediaType))
                 .build()
 
-            val response = client.newCall(request).execute()
-            val bodyString = response.body?.string().orEmpty()
+            client.newCall(request).execute().use { response ->
+                val bodyString = response.body?.string().orEmpty()
 
-            if (response.isSuccessful) {
-                if (bodyString.isNotEmpty()) {
-                    val json = JSONObject(bodyString)
-                    val code = json.optInt("code", 0)
-                    if (code != 0) {
-                        val msg = json.optString("msg", "Error en servidor")
-                        return@withContext Result.failure(Exception(msg))
+                if (response.isSuccessful) {
+                    if (bodyString.isNotEmpty()) {
+                        val json = JSONObject(bodyString)
+                        val code = json.optInt("code", 0)
+                        if (code != 0) {
+                            val msg = json.optString("msg", "Error en servidor")
+                            return@withContext Result.failure(Exception(msg))
+                        }
                     }
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Error HTTP ${response.code}: $bodyString"))
                 }
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Error HTTP ${response.code}: $bodyString"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -117,21 +118,22 @@ class AvatarApiClient {
                 .post(payload.toString().toRequestBody(jsonMediaType))
                 .build()
 
-            val response = client.newCall(request).execute()
-            val bodyString = response.body?.string().orEmpty()
+            client.newCall(request).execute().use { response ->
+                val bodyString = response.body?.string().orEmpty()
 
-            if (response.isSuccessful) {
-                if (bodyString.isNotEmpty()) {
-                    val json = JSONObject(bodyString)
-                    val code = json.optInt("code", 0)
-                    if (code != 0) {
-                        val msg = json.optString("msg", "Error al interrumpir")
-                        return@withContext Result.failure(Exception(msg))
+                if (response.isSuccessful) {
+                    if (bodyString.isNotEmpty()) {
+                        val json = JSONObject(bodyString)
+                        val code = json.optInt("code", 0)
+                        if (code != 0) {
+                            val msg = json.optString("msg", "Error al interrumpir")
+                            return@withContext Result.failure(Exception(msg))
+                        }
                     }
+                    Result.success(Unit)
+                } else {
+                    Result.failure(Exception("Error HTTP ${response.code}: $bodyString"))
                 }
-                Result.success(Unit)
-            } else {
-                Result.failure(Exception("Error HTTP ${response.code}: $bodyString"))
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -156,14 +158,15 @@ class AvatarApiClient {
                 .post(payload.toString().toRequestBody(jsonMediaType))
                 .build()
 
-            val response = client.newCall(request).execute()
-            val bodyString = response.body?.string()
-            if (response.isSuccessful && bodyString != null) {
-                val json = JSONObject(bodyString)
-                val speaking = json.optBoolean("data", false)
-                Result.success(speaking)
-            } else {
-                Result.failure(Exception("HTTP ${response.code}"))
+            client.newCall(request).execute().use { response ->
+                val bodyString = response.body?.string()
+                if (response.isSuccessful && bodyString != null) {
+                    val json = JSONObject(bodyString)
+                    val speaking = json.optBoolean("data", false)
+                    Result.success(speaking)
+                } else {
+                    Result.failure(Exception("HTTP ${response.code}"))
+                }
             }
         } catch (e: Exception) {
             Result.failure(e)
@@ -181,8 +184,9 @@ class AvatarApiClient {
                 .head()
                 .build()
 
-            val response = client.newCall(request).execute()
-            Result.success(response.isSuccessful || response.code < 500)
+            client.newCall(request).execute().use { response ->
+                Result.success(response.isSuccessful || response.code < 500)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

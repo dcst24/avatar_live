@@ -77,7 +77,13 @@
     <script>
         var pc = null;
         var isConnected = false;
+        var isConnecting = false;
         var currentSessionId = "0";
+        var reconnectTimer = null;
+        var reconnectDelay = 1000; // Iniciar con 1s, backoff hasta 5s
+        var lastVideoTime = -1;
+        var stallCount = 0;
+        var watchdogTimer = null;
 
         function log(msg) {
             console.log("[AvatarLive] " + msg);
@@ -106,25 +112,75 @@
             }
         }
 
-        function connectRTC() {
-            showLoading("Iniciando WebRTC…");
+        function cleanupRTC() {
             if (pc) {
-                try { pc.close(); } catch(e) {}
+                try {
+                    pc.onconnectionstatechange = null;
+                    pc.oniceconnectionstatechange = null;
+                    pc.ontrack = null;
+                    pc.close();
+                } catch(e) {}
                 pc = null;
             }
+        }
+
+        function scheduleReconnect(customDelay) {
+            if (reconnectTimer) return;
+            var delayMs = customDelay !== undefined ? customDelay : reconnectDelay;
+            log("Programando auto-reconexión en " + delayMs + " ms…");
+            
+            if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
+                window.AndroidBridge.onConnectionStateChange("connecting", "Reconectando en " + Math.round(delayMs/1000) + "s…");
+            }
+
+            reconnectTimer = setTimeout(function() {
+                reconnectTimer = null;
+                reconnectDelay = Math.min(reconnectDelay * 1.5, 5000);
+                connectRTC();
+            }, delayMs);
+        }
+
+        function startVideoWatchdog() {
+            if (watchdogTimer) clearInterval(watchdogTimer);
+            watchdogTimer = setInterval(function() {
+                var videoEl = document.getElementById('video');
+                if (isConnected && videoEl && !videoEl.paused) {
+                    if (videoEl.currentTime === lastVideoTime && videoEl.currentTime > 0) {
+                        stallCount++;
+                        if (stallCount >= 3) { // ~4.5 segundos congelado
+                            log("Watchdog: Video congelado detectado. Reiniciando conexión WebRTC…");
+                            stallCount = 0;
+                            isConnected = false;
+                            showLoading("Recuperando transmisión…");
+                            scheduleReconnect(500);
+                        }
+                    } else {
+                        stallCount = 0;
+                        lastVideoTime = videoEl.currentTime;
+                    }
+                }
+            }, 1500);
+        }
+
+        function connectRTC() {
+            if (isConnecting) return;
+            isConnecting = true;
+            showLoading("Iniciando WebRTC…");
+            cleanupRTC();
 
             var config = {
                 sdpSemantics: 'unified-plan',
-                iceServers: [{ urls: ['stun:stun.l.google.com:19302'] }]
+                iceServers: [
+                    { urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }
+                ]
             };
 
             try {
                 pc = new RTCPeerConnection(config);
             } catch(e) {
                 log("Error al crear RTCPeerConnection: " + e.message);
-                if (window.AndroidBridge && window.AndroidBridge.onError) {
-                    window.AndroidBridge.onError("WebRTC error: " + e.message);
-                }
+                isConnecting = false;
+                scheduleReconnect();
                 return;
             }
 
@@ -154,6 +210,7 @@
                     playPromise.then(function() {
                         log("Video y audio reproduciendo exitosamente");
                         isConnected = true;
+                        reconnectDelay = 1000; // Resetear backoff
                         hideLoading();
                         if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
                             window.AndroidBridge.onConnectionStateChange("connected", "Conectado");
@@ -165,6 +222,7 @@
                             videoEl.play().catch(function(){});
                         }, 200);
                         isConnected = true;
+                        reconnectDelay = 1000;
                         hideLoading();
                         if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
                             window.AndroidBridge.onConnectionStateChange("connected", "Conectado");
@@ -174,18 +232,32 @@
             });
 
             pc.addEventListener('connectionstatechange', function() {
+                if (!pc) return;
                 log("Connection state: " + pc.connectionState);
                 if (pc.connectionState === 'connected') {
                     isConnected = true;
+                    isConnecting = false;
+                    reconnectDelay = 1000;
                     hideLoading();
                     if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
                         window.AndroidBridge.onConnectionStateChange("connected", "Conectado");
                     }
                 } else if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed' || pc.connectionState === 'closed') {
                     isConnected = false;
-                    showLoading("Conexión perdida");
-                    if (window.AndroidBridge && window.AndroidBridge.onConnectionStateChange) {
-                        window.AndroidBridge.onConnectionStateChange("disconnected", "Desconectado");
+                    isConnecting = false;
+                    showLoading("Conexión interrumpida. Reconectando…");
+                    scheduleReconnect(1000);
+                }
+            });
+
+            pc.addEventListener('iceconnectionstatechange', function() {
+                if (!pc) return;
+                log("ICE state: " + pc.iceConnectionState);
+                if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+                    if (isConnected) {
+                        isConnected = false;
+                        showLoading("Reconectando ICE…");
+                        scheduleReconnect(1000);
                     }
                 }
             });
@@ -207,7 +279,7 @@
                             }
                         };
                         pc.addEventListener('icegatheringstatechange', check);
-                        setTimeout(resolve, 2000);
+                        setTimeout(resolve, 1500); // No demorar más de 1.5s
                     }
                 });
             }).then(function() {
@@ -231,15 +303,27 @@
                 }
 
                 return pc.setRemoteDescription(answer);
+            }).then(function() {
+                isConnecting = false;
             }).catch(function(err) {
                 log("Error conectando WebRTC: " + err.message);
                 isConnected = false;
-                showLoading("Error de conexión: " + err.message);
-                if (window.AndroidBridge && window.AndroidBridge.onError) {
-                    window.AndroidBridge.onError(err.message || 'Error WebRTC');
-                }
+                isConnecting = false;
+                showLoading("Reconectando con el servidor…");
+                scheduleReconnect();
             });
         }
+
+        // Reconexión forzada externa (invocada desde Kotlin)
+        window.forceReconnect = function() {
+            log("forceReconnect invocado");
+            if (reconnectTimer) {
+                clearTimeout(reconnectTimer);
+                reconnectTimer = null;
+            }
+            isConnecting = false;
+            connectRTC();
+        };
 
         // Funciones auxiliares accesibles desde JS o Kotlin
         window.speakText = async function(text) {
@@ -275,9 +359,10 @@
             } catch(e) {}
         };
 
-        // Auto-conectar de inmediato al cargar la página
+        // Iniciar watchdog y conectar al cargar
         window.addEventListener('DOMContentLoaded', function() {
-            log("DOM ready - iniciando WebRTC automáticamente");
+            log("DOM ready - iniciando WebRTC automáticamente y watchdog");
+            startVideoWatchdog();
             connectRTC();
         });
     </script>

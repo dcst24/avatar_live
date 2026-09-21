@@ -57,22 +57,28 @@ class RTCManager:
         logger.info('offer sessionid=%s', sessionid)
         avatar_session = session_manager.get_session(sessionid)
 
-        # 创建 PeerConnection
-        ice_server = RTCIceServer(urls='stun:stun.freeswitch.org:3478')
+        # Crear PeerConnection con STUN confiable y soporte host directo LAN
+        ice_servers = [
+            RTCIceServer(urls='stun:stun.l.google.com:19302'),
+            RTCIceServer(urls='stun:stun1.l.google.com:19302')
+        ]
         pc = RTCPeerConnection(
-            configuration=RTCConfiguration(iceServers=[ice_server])
+            configuration=RTCConfiguration(iceServers=ice_servers)
         )
         self.pcs.add(pc)
 
         @pc.on("connectionstatechange")
         async def on_connectionstatechange():
-            logger.info("Connection state is %s", pc.connectionState)
+            logger.info(f"WebRTC connection state [{sessionid}]: {pc.connectionState}")
             if pc.connectionState in ("failed", "closed"):
-                await pc.close()
+                try:
+                    await pc.close()
+                except Exception:
+                    pass
                 self.pcs.discard(pc)
                 session_manager.remove_session(sessionid)
 
-        # 添加发送轨道
+        # Agregar pistas de envío
         from server.webrtc import HumanPlayer
         player = HumanPlayer(avatar_session)
         pc.addTrack(player.audio)
