@@ -55,12 +55,13 @@ class PlayerStreamTrack(MediaStreamTrack):
         super().__init__()
         self.kind = kind
         self._player = player
-        # Video: cola grande para buffer de 100 frames (el render la regula con sleep)
-        # Audio: cola pequeña de 30 frames (~600ms) — el push usa put_nowait para no bloquear el render
+        # Video: cola para buffer de 150 frames (6s @ 25fps)
+        # Audio: cola proporcional de 300 frames (6s @ 50 chunks/s de 20ms = relación exacta 2:1)
+        # Previene que ráfagas de inferencia desborden la cola de audio y descarten frames
         if self.kind == 'video':
-            self._queue = queue.Queue(maxsize=100)
+            self._queue = queue.Queue(maxsize=150)
         else:
-            self._queue = queue.Queue(maxsize=30)
+            self._queue = queue.Queue(maxsize=300)
         self.timelist = []
         self.current_frame_count = 0
         if self.kind == 'video':
@@ -205,20 +206,17 @@ class HumanPlayer:
         new_frame = AudioFrame(format='s16', layout='mono', samples=frame.shape[0])
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
-        # Inserción no bloqueante: si la cola está llena, descartar el frame más viejo
-        # para evitar que el hilo de render quede bloqueado esperando a WebRTC
-        # (causa principal de cortes de audio al medio y al final de frases)
         try:
-            self.__audio._queue.put_nowait((new_frame, eventpoint))
+            self.__audio._queue.put((new_frame, eventpoint), block=True, timeout=0.05)
         except queue.Full:
             try:
-                self.__audio._queue.get_nowait()  # descarta el frame más viejo
+                self.__audio._queue.get_nowait()  # descarta el más viejo solo si se acumularon > 6s
             except queue.Empty:
                 pass
             try:
                 self.__audio._queue.put_nowait((new_frame, eventpoint))
             except queue.Full:
-                pass  # descarte silencioso si aún está llena
+                pass
 
     def get_buffer_size(self) -> int:
         return self.__video._queue.qsize()
