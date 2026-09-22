@@ -80,7 +80,7 @@ def generate_phrase(pipeline, phrase: str, voice: str, speed: float) -> np.ndarr
 def main():
     parser = argparse.ArgumentParser(description="Pre-genera audios TTS en caché")
     parser.add_argument("--voice", default="ef_dora", help="Voz Kokoro a usar (ej: ef_dora, em_alex)")
-    parser.add_argument("--speed", type=float, default=1.10, help="Velocidad de síntesis (default: 1.10)")
+    parser.add_argument("--speed", type=float, default=1.00, help="Velocidad de síntesis (default: 1.00, igual que config.py)")
     parser.add_argument(
         "--phrases_file",
         default=str(Path(__file__).parent / "cache_phrases.txt"),
