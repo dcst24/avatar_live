@@ -1,0 +1,14 @@
+# Frases a pre-cachear para la voz ef_dora
+# Una frase por línea. Las líneas que empiezan con # son ignoradas.
+# Fuente: strings.xml (tts_* entries) de la app Android consultaPasillo
+#
+# Para regenerar los audios:
+#   python tts/generate_cache.py --voice ef_dora
+
+Lo siento, no logré entender tu consulta. Intenta decirlo más despacio o con otro nombre
+Puede que este producto tenga otro nombre o ubicación especial, por favor, pide ayuda a un vendedor
+Por favor, deje el objeto en la plataforma.
+Por favor, seleccione la mejor coincidencia.
+Hubo un error al intentar consultar el producto.
+Por favor, mantenga presionado el botón mientras habla
+Por favor, deje un objeto en la plataforma

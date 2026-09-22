@@ -22,6 +22,9 @@ models/
 *.log
 dist
 
-# Apps separadas — solo locales para referencia, no forman parte del repo del backend
+# Apps separadas - solo locales para referencia, no forman parte del repo del backend
 avatar/
 consultaPasillo/
+
+# Audios pre-generados del cache TTS (se generan con tts/generate_cache.py)
+tts/cache/

@@ -10,6 +10,8 @@
 
 import time
 import re
+import hashlib
+from pathlib import Path
 import torch
 import numpy as np
 
@@ -128,6 +130,52 @@ class KokoroTTS(BaseTTS):
             logger.error(f"[Kokoro TTS] Error al inicializar el pipeline: {e}")
             raise
 
+    # ── Cache de audio pre-generado ─────────────────────────────────────────────
+
+    _CACHE_DIR = Path(__file__).parent / "cache"
+
+    def _get_cache_key(self, text: str, voice: str) -> Path:
+        """
+        Devuelve el path del .npy cacheado para este texto+voz.
+        La clave es el MD5 del texto normalizado + voz, igual que generate_cache.py.
+        """
+        normalized = normalize_text_for_tts(text).strip().lower()
+        key = hashlib.md5(f"{normalized}|{voice}".encode()).hexdigest()
+        return self._CACHE_DIR / f"{key}.npy"
+
+    def _play_from_cache(self, cache_path: Path, text: str, textevent: dict):
+        """
+        Reproduce audio cacheado chunk a chunk, idéntico al bucle del generador
+        de Kokoro en txt_to_audio. No modifica nada del pipeline ni de los tipos.
+        """
+        stream = np.load(str(cache_path))  # float32, 16kHz
+        idx = 0
+        streamlen = len(stream)
+        first_chunk_sent = False
+
+        while streamlen >= self.chunk and self.state == State.RUNNING:
+            eventpoint = {}
+            if not first_chunk_sent:
+                eventpoint = {'status': 'start', 'text': text}
+                first_chunk_sent = True
+            eventpoint.update(**textevent)
+            self.parent.put_audio_frame(stream[idx:idx + self.chunk], eventpoint)
+            idx += self.chunk
+            streamlen -= self.chunk
+
+        # Drenar sobrante igual que txt_to_audio
+        leftover = stream[idx:]
+        if len(leftover) > 0 and self.state == State.RUNNING:
+            pad_len = self.chunk - len(leftover)
+            padded_tail = np.pad(leftover, (0, pad_len), mode='constant')
+            self.parent.put_audio_frame(padded_tail, textevent)
+
+        # Señalizar fin de habla
+        if self.state == State.RUNNING:
+            eventpoint = {'status': 'end', 'text': text}
+            eventpoint.update(**textevent)
+            self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), eventpoint)
+
     def txt_to_audio(self, msg: tuple[str, dict]):
         """
         Genera audio a partir de texto usando Kokoro y lo envía al avatar
@@ -137,6 +185,17 @@ class KokoroTTS(BaseTTS):
         text, textevent = msg
 
         voice = textevent.get('tts', {}).get('ref_file', self.voice)
+
+        # ── Verificar caché de audio pre-generado ─────────────────────────────
+        cache_path = self._get_cache_key(text, voice)
+        if cache_path.exists():
+            logger.info(f"[Kokoro TTS] Cache HIT ({cache_path.name}): '{text[:60]}{'…' if len(text) > 60 else ''}'")  
+            try:
+                self._play_from_cache(cache_path, text, textevent)
+                return
+            except Exception as e:
+                logger.warning(f"[Kokoro TTS] Error reproduciendo caché, generando con Kokoro: {e}")
+        # ── ─────────────────────────────────────────────────────────────────────
 
         logger.info(f"[Kokoro TTS] Sintetizando ({len(text)} chars, speed={self.speed}): \"{text[:60]}{'…' if len(text) > 60 else ''}\"")
         t = time.time()
