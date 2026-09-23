@@ -37,36 +37,20 @@
             background: #AE1311;
         }
 
-        /* Cubre marca de agua LiveTalking en la esquina superior izquierda del stream del avatar */
+        /* Rectángulo ovalado verde para cubrir marca de agua e indicar estado conectado */
         #wm-cover {
             position: absolute;
             top: 0;
             left: 0;
-            background: #AE1311;
+            background-color: #22c55e;
             display: none;
-            align-items: center;
-            justify-content: flex-start;
-            padding: 8px 14px;
-            border-bottom-right-radius: 14px;
             z-index: 50;
             pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-            min-width: 175px;
-            height: 42px;
-            box-sizing: border-box;
-        }
-        #wm-dot {
-            width: 16px;
-            height: 16px;
-            border-radius: 50%;
-            background-color: #22c55e;
-            box-shadow: 0 0 8px #22c55e;
-            animation: pulse-dot 2s infinite ease-in-out;
-            flex-shrink: 0;
-        }
-        @keyframes pulse-dot {
-            0%, 100% { transform: scale(1); opacity: 1; }
-            50% { transform: scale(1.15); opacity: 0.85; }
+            width: 145px;
+            height: 30px;
+            border-radius: 15px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+            transition: background-color 0.3s ease;
         }
 
         /* Pantalla completa: solo en la primera conexión (sin histórico de frame) */
@@ -131,10 +115,8 @@
     <div id="video-container">
         <video id="video" autoplay playsinline webkit-playsinline></video>
 
-        <!-- Cubre marca de agua LiveTalking en la esquina superior izquierda del stream del avatar -->
-        <div id="wm-cover">
-            <div id="wm-dot"></div>
-        </div>
+        <!-- Rectángulo ovalado verde que cubre marca de agua LiveTalking -->
+        <div id="wm-cover"></div>
 
         <!-- Carga inicial: pantalla completa (solo la primera vez) -->
         <div id="loading-indicator">
@@ -203,20 +185,24 @@
                 offsetY = (cH - renderH) / 2;
             }
 
-            cover.style.display = 'flex';
-            cover.style.left = Math.max(0, Math.round(offsetX)) + 'px';
-            cover.style.top = Math.max(0, Math.round(offsetY)) + 'px';
+            // Desplazamiento a la derecha (+16px) y hacia abajo (+8px) para cubrir la marca de agua
+            var shiftX = 16;
+            var shiftY = 8;
+
+            cover.style.display = 'block';
+            cover.style.left = Math.round(offsetX + shiftX) + 'px';
+            cover.style.top = Math.round(offsetY + shiftY) + 'px';
         }
 
         function setWmDotStatus(connected) {
-            var dot = document.getElementById('wm-dot');
-            if (!dot) return;
+            var cover = document.getElementById('wm-cover');
+            if (!cover) return;
             if (connected) {
-                dot.style.backgroundColor = '#22c55e';
-                dot.style.boxShadow = '0 0 8px #22c55e';
+                cover.style.backgroundColor = '#22c55e';
+                cover.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35)';
             } else {
-                dot.style.backgroundColor = '#94a3b8';
-                dot.style.boxShadow = 'none';
+                cover.style.backgroundColor = '#64748b';
+                cover.style.boxShadow = 'none';
             }
         }
 
