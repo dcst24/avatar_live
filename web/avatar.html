@@ -66,15 +66,27 @@
         }
 
         #video {
-            /* width: 100%; */
+            width: 100%;
             height: 100%;
-            /* position: absolute;
-            top: 25%; */
             object-fit: contain;
             /* muestra el avatar completo sin recortar */
             object-position: center center;
             display: block;
             background: #AE1311;
+        }
+
+        /* ── Cubre la marca de agua de LiveTalking ─────────────── */
+        #wm-cover {
+            position: absolute;
+            /* posición exacta calculada por JS al cargar el video */
+            top: 0;
+            left: 0;
+            width: 160px;
+            height: 34px;
+            background: #AE1311;
+            border-radius: 0 0 10px 0;
+            z-index: 50;
+            pointer-events: none;
         }
 
         /* Gradient overlay at bottom (para legibilidad del mic) */
@@ -558,6 +570,8 @@
         <!-- Avatar fullscreen -->
         <div id="avatar-wrap">
             <video id="video" autoplay playsinline muted></video>
+            <!-- Cubre marca de agua LiveTalking: posicionado por JS sobre el video content -->
+            <div id="wm-cover"></div>
             <div id="speaking-ring"></div>
 
             <!-- Status badge (arriba-centro) -->
@@ -1424,6 +1438,55 @@
                 setTimeout(connectRTC, 800);
             }
         });
+
+        // ─── Posicionamiento de la cubierta de marca de agua ───────────────────────
+        // Calcula dónde empieza el contenido del video dentro del elemento <video>
+        // con object-fit: contain (puede haber barras a los lados o arriba/abajo).
+        // Se llama cuando el video carga sus metadatos y al redimensionar.
+        function positionWmCover() {
+            const video = document.getElementById('video');
+            const cover = document.getElementById('wm-cover');
+            if (!cover) return;
+            if (!video || !video.videoWidth || !video.videoHeight) {
+                // Sin metadatos aún: mantener posición (0,0)
+                cover.style.left = '0px';
+                cover.style.top  = '0px';
+                return;
+            }
+
+            const vW = video.offsetWidth;   // tamaño del elemento en pantalla
+            const vH = video.offsetHeight;
+            const srcRatio = video.videoWidth / video.videoHeight;
+            const boxRatio = vW / vH;
+
+            let contentX = 0, contentY = 0;
+            if (srcRatio < boxRatio) {
+                // Pillarboxed: barras a izquierda y derecha
+                const contentW = vH * srcRatio;
+                contentX = (vW - contentW) / 2;
+            } else {
+                // Letterboxed: barras arriba y abajo
+                const contentH = vW / srcRatio;
+                contentY = (vH - contentH) / 2;
+            }
+
+            cover.style.left = contentX + 'px';
+            cover.style.top  = contentY + 'px';
+            LOG(`[WM] cover en (${Math.round(contentX)}, ${Math.round(contentY)}) ` +
+                `video=${video.videoWidth}x${video.videoHeight} elem=${vW}x${vH}`);
+        }
+
+        // Ejecutar al cargar metadatos del stream y al redimensionar ventana
+        (function setupWmCover() {
+            const video = document.getElementById('video');
+            if (!video) return;
+            video.addEventListener('loadedmetadata', positionWmCover);
+            video.addEventListener('play', positionWmCover);
+            window.addEventListener('resize', positionWmCover);
+            // Intentar posicionar de inmediato por si ya tiene datos
+            positionWmCover();
+        })();
+
     </script>
 </body>
 
