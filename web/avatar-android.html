@@ -37,20 +37,54 @@
             background: #AE1311;
         }
 
-        /* Rectángulo ovalado verde para cubrir marca de agua e indicar estado conectado */
+        /* Badge elegante EN VIVO para cubrir la marca de agua */
         #wm-cover {
             position: absolute;
             top: 0;
             left: 0;
-            background-color: #22c55e;
             display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 0 10px;
+            height: 24px;
+            min-width: 90px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            border: 1px solid rgba(34, 197, 94, 0.4);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
             z-index: 50;
             pointer-events: none;
-            width: 145px;
-            height: 30px;
-            border-radius: 15px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
-            transition: background-color 0.3s ease;
+            user-select: none;
+            transition: border-color 0.3s ease, background 0.3s ease;
+            box-sizing: border-box;
+        }
+
+        #wm-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: #22c55e;
+            box-shadow: 0 0 6px #22c55e;
+            animation: pulse-dot 2s infinite ease-in-out;
+            flex-shrink: 0;
+        }
+
+        #wm-text {
+            color: #f8fafc;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.3); opacity: 0.6; }
         }
 
         /* Pantalla completa: solo en la primera conexión (sin histórico de frame) */
@@ -115,8 +149,11 @@
     <div id="video-container">
         <video id="video" autoplay playsinline webkit-playsinline></video>
 
-        <!-- Rectángulo ovalado verde que cubre marca de agua LiveTalking -->
-        <div id="wm-cover"></div>
+        <!-- Badge elegante EN VIVO que cubre marca de agua LiveTalking -->
+        <div id="wm-cover">
+            <div id="wm-dot"></div>
+            <span id="wm-text">EN VIVO</span>
+        </div>
 
         <!-- Carga inicial: pantalla completa (solo la primera vez) -->
         <div id="loading-indicator">
@@ -185,24 +222,34 @@
                 offsetY = (cH - renderH) / 2;
             }
 
-            // Desplazamiento a la derecha (+16px) y hacia abajo (+8px) para cubrir la marca de agua
-            var shiftX = 16;
-            var shiftY = 8;
+            // Desplazamiento a la esquina (+6px derecha y +6px abajo) para tapar la marca
+            var shiftX = 6;
+            var shiftY = 6;
 
-            cover.style.display = 'block';
+            cover.style.display = 'flex';
             cover.style.left = Math.round(offsetX + shiftX) + 'px';
             cover.style.top = Math.round(offsetY + shiftY) + 'px';
         }
 
         function setWmDotStatus(connected) {
             var cover = document.getElementById('wm-cover');
+            var dot = document.getElementById('wm-dot');
+            var text = document.getElementById('wm-text');
             if (!cover) return;
             if (connected) {
-                cover.style.backgroundColor = '#22c55e';
-                cover.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.35)';
+                if (dot) {
+                    dot.style.backgroundColor = '#22c55e';
+                    dot.style.boxShadow = '0 0 6px #22c55e';
+                }
+                if (text) text.textContent = 'EN VIVO';
+                cover.style.borderColor = 'rgba(34, 197, 94, 0.4)';
             } else {
-                cover.style.backgroundColor = '#64748b';
-                cover.style.boxShadow = 'none';
+                if (dot) {
+                    dot.style.backgroundColor = '#f59e0b';
+                    dot.style.boxShadow = 'none';
+                }
+                if (text) text.textContent = 'CONECTANDO';
+                cover.style.borderColor = 'rgba(245, 158, 11, 0.35)';
             }
         }
 
