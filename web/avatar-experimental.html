@@ -1823,7 +1823,7 @@
                     isSpeaking = false;
                     const wrap = document.getElementById('avatar-wrap');
                     if (wrap) wrap.classList.remove('avatar-speaking');
-                    setState('ready', 'Preparando micrófono…');
+                    setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                     if (_conversationAwake) {
                         scheduleFollowUp();
                     }
@@ -1831,6 +1831,8 @@
                         if (!isListening && isConnected) {
                             _alwaysOnActive = false;
                             startAlwaysOnListening();
+                        } else if (isListening) {
+                            setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                         }
                     }, 80);
                 }
@@ -1878,8 +1880,8 @@
                             _clearSpeakingWatchdog();
                             LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
                             
-                            // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
-                            setState('ready', 'Preparando micrófono…');
+                            // Estado sincronizado: siempre "Esperando activación…" en reposo o "Escuchando pregunta…" en conversación activa
+                            setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                             if (_conversationAwake) {
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
@@ -1894,6 +1896,8 @@
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
+                                } else if (isListening && !isSpeaking) {
+                                    setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                                 }
                             }, 450);
                         }
@@ -2199,6 +2203,8 @@
 
             if (!isSpeaking && !_alwaysOnActive && _conversationAwake) {
                 setState('thinking', 'Pensando…');
+            } else if (!isSpeaking && !_conversationAwake) {
+                setState('ready', 'Esperando activación…');
             }
         }
 
@@ -2213,15 +2219,16 @@
                 return;
             }
             if (isListening) {
-                LOG('startAlwaysOnListening: ya escuchando, ignorando');
+                LOG('startAlwaysOnListening: ya escuchando, asegurando estado UI');
+                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 return;
             }
 
             _alwaysOnActive = true;
             LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
 
-            // Transición suave: estado 'ready' hasta que rec.onstart confirme hardware activo
-            setState('ready', _conversationAwake ? 'Preparando micrófono…' : 'Esperando activación…');
+            // Transición suave: 'Esperando activación…' en reposo o 'Escuchando pregunta…' si despierto
+            setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
             if (_conversationAwake) {
                 resetInactivityTimer();
             }
@@ -2239,10 +2246,21 @@
                     try {
                         recognition.start();
                         LOG('recognition.start() llamado (always-on)');
+
+                        // Watchdog de seguridad (500ms): si rec.onstart tarda o SpeechRecognition está listo, asegurar que pase al estado correspondiente
+                        setTimeout(() => {
+                            if (_alwaysOnActive && !isSpeaking) {
+                                const st = document.getElementById('status-text');
+                                if (st && (st.textContent.includes('Preparando') || st.textContent.includes('Conectando'))) {
+                                    setState(_conversationAwake ? 'listening' : 'ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
+                                }
+                            }
+                        }, 500);
                     } catch (e) {
                         ERR('recognition.start() excepción (always-on):', e.name, e.message);
                         _alwaysOnActive = false;
                         stopListening();
+                        setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                     }
                 } else {
                     WARN('SpeechRecognition no disponible en este navegador');
@@ -2477,7 +2495,7 @@
 
             // 5. Dar paso inmediato al usuario para hablar
             LOG('stopAvatarTalking: activando escucha para el usuario');
-            setState('ready', 'Preparando micrófono…');
+            setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
             if (_conversationAwake) {
                 scheduleFollowUp();
             }
@@ -2487,6 +2505,8 @@
                 if (!isListening && isConnected && !isSpeaking) {
                     _alwaysOnActive = false;
                     startAlwaysOnListening();
+                } else if (isListening && !isSpeaking) {
+                    setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 }
             }, 350);
         }

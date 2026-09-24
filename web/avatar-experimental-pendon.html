@@ -1433,7 +1433,7 @@
             _alwaysOnActive = false;
             _resetInactivityTimer();
 
-            setState('listening', 'Preparando micrófono…');
+            setState('listening', 'Esperando activación…');
             requestMicPermission().then(ok => {
                 if (!ok) { stopListening(); return; }
 
