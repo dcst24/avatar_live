@@ -102,182 +102,73 @@ def _clear_cancellation(sessionid: str):
         _cancelled_sessions.discard(sessionid)
 
 # ─── Carga dinámica del catálogo de productos (BDD) ──────────────────────────
+# ─── Carga dinámica del catálogo de productos BARPOS (BDD) ───────────────────
 _BDD_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "bdd.json")
 _BDD: dict = {}
 _CATEGORIES_BY_ID: dict = {}
-_BARCODE_TO_CAT: dict = {}
-_SKU_TO_CAT: dict = {}
-_BRAND_TO_CATS: dict = {}
-_KEYWORD_TO_CATS: dict = {}
+_PRODUCTS_BY_MODEL: dict = {}
+_ALL_PRODUCTS: list = []
 
 CATEGORY_KEYWORDS = {
-    "audio_gaming": ["parlante", "parlantes", "audio", "altavoz", "jbl", "marshall", "audifono", "audifonos", "audífono", "audífonos", "sony", "buds", "consola", "consolas", "playstation", "ps5", "xbox", "gamer", "gaming", "smartwatch", "reloj"],
-    "smartphones": ["celular", "celulares", "telefono", "telefonos", "smartphone", "smartphones", "iphone", "apple", "galaxy", "samsung", "xiaomi", "redmi", "motorola", "pixel"],
-    "television": ["tele", "teles", "televisor", "televisores", "tv", "tvs", "smart tv", "qled", "oled", "uled", "pantalla", "hisense", "roku"],
-    "computacion": ["notebook", "notebooks", "laptop", "laptops", "computador", "computadores", "tablet", "tablets", "macbook", "ipad", "asus", "lenovo"],
-    "zapatillas": ["zapatilla", "zapatillas", "running", "nike", "adidas", "puma", "new balance", "pegasus", "ultraboost", "calzado deportivo", "talla", "tallas"],
-    "perfumes_hombre": ["perfume hombre", "perfumes hombre", "perfume de hombre", "armani", "acqua di gio", "sauvage", "dior", "one million", "bleu"],
-    "perfumes_mujer": ["perfume mujer", "perfumes mujer", "perfume de mujer", "carolina herrera", "good girl", "lancome", "coco mademoiselle", "devotion"],
-    "electrohogar": ["refrigerador", "refrigeradores", "lavadora", "lavadoras", "secadora", "aspiradora", "aspiradoras", "cafetera", "cafeteras", "freidora", "airfryer", "microondas", "linea blanca", "electrohogar", "electrodomestico"],
-    "ropa_mujer": ["vestido", "vestidos", "blusa", "falda", "pantalon mujer", "ropa mujer"],
-    "ropa_hombre": ["camisa", "poleron", "pantalon hombre", "chino", "ropa hombre"],
-    "calzado_mujer": ["sandalia", "sandalias", "bota", "botas", "tacon", "calzado mujer"],
-    "decohogar": ["plumon", "sabana", "sabanas", "cobertor", "almohada", "cama", "deco", "decohogar", "toalla"]
+    "lectores_codigo_barra": ["lector", "lectores", "escaner", "escáner", "pistola", "codigo", "código", "barra", "barras", "1d", "2d", "qr", "imager", "6500", "9325", "9335", "2600", "2610", "9610", "ip68s", "pedestal", "inalambrico", "inalámbrico", "bluetooth"],
+    "impresoras_termicas": ["impresora", "impresoras", "termica", "térmica", "ticket", "tickets", "boleta", "boletas", "recibo", "recibos", "etiqueta", "etiquetas", "z220t", "z411t", "t8300", "zpl", "tspl", "cutter", "autocutter", "desktop"],
+    "sistemas_pos": ["pos", "punto de venta", "all in one", "todo en uno", "n200s", "n200", "touch", "segunda pantalla", "pantalla touch", "computador pos"],
+    "rebobinadores_etiquetas": ["rebobinador", "rebobinadora", "rebobinar", "a6", "rollo"],
+    "totems_autoservicio": ["totem", "tótem", "autoservicio", "auto servicio", "auto-servicio", "ka-21a", "ka21a", "kiosko", "quiosco"]
 }
 
 def _format_category(cat: dict) -> str:
-    loc = cat.get("ubicacion_tienda", {})
-    piso = loc.get("piso", "?")
-    pasillo = loc.get("pasillo", "")
-    lines = [f"\nCategoría: {cat['nombre']} (Piso {piso}, {pasillo}):"]
+    lines = [f"\nCategoría: {cat['nombre']}:"]
     for p in cat.get("productos", []):
-        precio_str = f"${p['precio']:,}".replace(",", ".")
-        if p.get("en_oferta") and p.get("precio_oferta"):
-            oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-            precio_detalle = f"antes {precio_str} pesos, oferta {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
-        else:
-            precio_detalle = f"precio {precio_str} pesos"
-
-        code = p.get("codigo_barra") or p.get("sku")
-        piso_num = p.get("piso", piso)
-        pasillo_txt = p.get("pasillo", pasillo)
-        cat_tipo = p.get("categoria", "")
-
-        disp_txt = ""
-        if p.get("stock_por_talla"):
-            tallas_info = [f"talla {t} ({stk} un)" if stk > 0 else f"talla {t} AGOTADA" for t, stk in p["stock_por_talla"].items()]
-            disp_txt = f" Tallas: {', '.join(tallas_info)}."
-        elif p.get("stock") is not None:
-            stk = p.get("stock")
-            disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
-
-        lines.append(f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}")
+        lines.append(f"- {p['nombre']} (Modelo: {p['modelo']}): {p['descripcion']}")
     return "\n".join(lines)
 
 
-BASE_SYSTEM_PROMPT = '''Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
-Estás ubicado junto al tótem interactivo de la tienda y tu función principal es orientar a los clientes, informar precios y ofertas, comparar productos y resolver dudas de la tienda.
+BASE_SYSTEM_PROMPT = '''Eres un asesor técnico y comercial virtual especialista en equipamiento y productos de la marca BARPOS (Superbox).
+Tu función principal es responder consultas sobre los productos BARPOS de tu catálogo, entregando la descripción y características técnicas de los equipos basándote exclusivamente en tu base de datos.
 
 REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
-- Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras en total).
-- El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
-- NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
+- Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones, menos de 25 palabras en total).
+- El cliente te escucha hablar a través de síntesis de voz en tiempo real. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
+- NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales.
 
-REGLA DE ASESORAMIENTO Y RECOMENDACIÓN (NO DAR UBICACIÓN DIRECTA, PREGUNTAR PRIMERO):
-- Cuando el cliente pida asesoramiento, consulte por productos, modelos, precios, ofertas, gamas o características (ej: "quiero un celular", "uno de gama media", "el más barato", "televisores en 50 pulgadas", "¿tienen zapatillas?"):
-  1. Recomienda o asesora de forma concisa (menciona 1 producto, precio u oferta relevante).
-  2. NUNCA menciones el piso, pasillo ni ubicación en esta respuesta.
-  3. Termina SIEMPRE la respuesta preguntando: "¿Te gustaría saber en qué pasillo encontrarlo?" (o "¿Quieres que te indique la ubicación en la tienda?").
-  4. NUNCA digas "la ubicación se muestra en pantalla" si el cliente solo pidió asesoramiento o precios.
+REGLA ESTRICTA 1 (ESTE AVATAR NO DICE UBICACIONES):
+- NUNCA menciones pasillos, pisos, mapas ni ubicaciones de tiendas. Este avatar no dice ubicaciones.
+- Si el usuario te pregunta por un producto, describe directamente qué es y qué características tiene según el catálogo.
 
-REGLA DE RESPUESTA A LA PREGUNTA DE UBICACIÓN O CONFIRMACIÓN DEL CLIENTE:
-- Si el cliente responde afirmativamente a tu pregunta de ubicación (ej: "sí", "por favor", "claro", "dónde", "dónde está", "dime"):
-  - Da la ubicación de inmediato en una sola frase breve indicando que se muestra en pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3, pasillo T-01.").
-- Si el cliente responde negativamente (ej: "no", "no gracias", "no es necesario"):
-  - Cierra amablemente en una sola frase breve (ej: "Perfecto, ¿necesitas ayuda con algo más?").
-- Si el cliente EXPLICITAMENTE pregunta desde el inicio por la ubicación o dónde encontrar algo (ej: "¿dónde están los celulares?", "¿dónde puedo encontrar zapatillas?", "¿dónde queda servicio al cliente?", "¿en qué pasillo está X?"):
-  - Da directamente la ubicación indicando que se muestra en pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3. Debes subir por la escalera mecánica central hacia el pasillo T-01.").
+REGLA ESTRICTA 2 (LÍMITE TEMÁTICO ABSOLUTO - SOLO PRODUCTOS BARPOS):
+- SOLO puedes hablar sobre los productos BARPOS presentes en tu catálogo (lectores de código de barra, impresoras térmicas y de etiquetas, rebobinadores de etiquetas, sistemas POS All in One y tótems de autoservicio).
+- Está ESTRICTAMENTE PROHIBIDO responder sobre programación de software (código Python, JavaScript, HTML, etc.), matemáticas, historia, ciencia, política, clima o cualquier tema externo ajeno al catálogo.
+- Si el cliente pregunta sobre cualquier tema ajeno a los productos BARPOS o sobre programación, niégate amablemente en una sola frase breve y redirige a los productos BARPOS:
+  "Disculpa, solo puedo entregarte información y descripciones sobre nuestros productos BARPOS. ¿Sobre qué modelo o equipo deseas consultar?"
 
-REGLA DE CONTINUIDAD CONVERSACIONAL Y CATEGORÍA ACTIVA:
-- Si el cliente continúa una consulta previa (por ejemplo: "uno de gama media", "el más barato", "en oferta", "en 50 pulgadas", "¿tienen stock?"), MANTÉN SIEMPRE la categoría o producto del que venían hablando (ej: si venían hablando de televisores, "uno de gama media" se refiere exclusivamente a un televisor de gama media).
-- NUNCA digas "no especificaste la categoría" si ya venían hablando de una categoría en los turnos anteriores.
-- NUNCA menciones múltiples categorías ajenas a la vez.
-- Recomienda directamente 1 producto de esa categoría que cumpla con la solicitud en una sola oración breve y pregunta si desea saber la ubicación (ej: "Te recomiendo el Hisense 50 pulgadas 4K a 279.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?").
-
-REGLAS DE COMPORTAMIENTO ANTE UN ESCANEO DE PRODUCTO (CÓDIGO DE BARRAS / SKU):
-Cuando el sistema te informe los datos de un producto escaneado, debes responder de manera ULTRA CONCISA:
-- Si el producto NO tiene oferta: di únicamente su nombre y su precio directo (ej: "El parlante JBL Charge 5 cuesta 179.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?"). ESTÁ ESTRICTAMENTE PROHIBIDO decir la frase "precio regular".
-- Si el producto SÍ tiene oferta: destaca de inmediato el precio de oferta y el descuento (ej: "El Galaxy S25 está en oferta a 599.990 pesos con 44 por ciento de descuento. ¿Te gustaría saber en qué pasillo encontrarlo?").
-- NUNCA digas frases aduladoras ni de relleno como "Buena elección", "Excelente elección", "Qué buen gusto" o "Gran compra".
-- NO menciones el piso ni la ubicación al escanear, a menos que el cliente responda afirmativamente.
-- Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde el piso y pasillo indicando la pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3, pasillo T-04.").
-- Si el cliente rechaza saber la ubicación diciendo ÚNICAMENTE que no ("no", "no gracias", "no es necesario"): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
-- Si el cliente indica que no hay el producto o que no lo encuentra en el pasillo o góndola ("no hay este producto", "no lo encuentro", "no queda stock"): aclara amablemente que según el sistema sí figura con stock en tienda, y sugiérele consultar a un vendedor o asesor del piso para revisar bodega (ej: "Según mi sistema sí tenemos stock disponible. Puedes consultar a un vendedor en este piso para que revise en bodega.").
-
-REGLAS DE UBICACIÓN, PLANIMETRÍA Y RUTAS EN PANTALLA:
-El tótem interactivo donde estás ubicado se encuentra físicamente en el PISO 1 (Entrada Principal).
-La pantalla del tótem despliega automáticamente un mapa interactivo con la ruta hacia el destino.
-Por ello, SOLO cuando el cliente pregunte explícitamente por la ubicación O responda afirmativamente a saber el pasillo:
-- NUNCA des descripciones largas ni confusas. Indica siempre que la ubicación está en pantalla y orienta hacia la escalera si es otro piso:
-- Si el destino está en el PISO 1: di que se muestra en pantalla en este piso (Piso 1) y menciona el pasillo (ej: "La ubicación se muestra en pantalla, en este piso (Piso 1) en el sector Belleza, pasillo B-01.").
-- Si el destino está en el PISO 2 o PISO 3: di que la ubicación se muestra en pantalla en el Piso correspondiente, e indícale dirigirse a la escalera mecánica central (ej: "La ubicación se muestra en pantalla, en el Piso 3. Debes dirigirte a la escalera mecánica central y subir al Piso 3 hacia el pasillo T-01.").
-- Si preguntan por los baños / servicios higiénicos: di "La ubicación se muestra en pantalla. Los baños se encuentran en el Piso 2, subiendo por la escalera mecánica central.".
-- Si preguntan por cambios, devoluciones, garantías o servicio al cliente: di "La ubicación se muestra en pantalla. Debes dirigirte a Servicio al Cliente en el Piso 3, subiendo por la escalera mecánica central.".
-- Si preguntan por retiro de compras por internet / retiro en tienda: di "La ubicación se muestra en pantalla, en este piso (Piso 1) en el Punto de Retiro junto a las cajas.".
-
-REGLA ABSOLUTA DE TEMÁTICA (SOLO TIENDA PARIS):
-- SOLO puedes responder consultas relacionadas directamente con esta tienda Paris, sus productos, precios, ofertas, pisos, pasillos y servicios.
-- Está ESTRICTAMENTE PROHIBIDO responder preguntas sobre conocimientos generales ajenos a la tienda (como programación de computadores, física, matemáticas, política, historia, ciencia o significado de nombres). PERO SÍ debes responder y asesorar activamente sobre todos los productos que vendemos en Paris: tecnología (smartphones, televisores, computadores, audio, parlantes, consolas de videojuegos, smartwatches), moda mujer y hombre, calzado, zapatillas deportivas, belleza y perfumería, y electrohogar.
-- Si el cliente te pregunta sobre un tema ajeno a la tienda, niégate amablemente en una sola frase breve y redirige a las compras:
-  "Disculpa, solo puedo ayudarte con productos, ofertas y ubicaciones de Paris. ¿Buscas algún producto hoy?"
-
-RAZONAMIENTO Y CONSULTAS DE PRODUCTOS:
-- Cuando pregunten por el producto "más barato", "más económico", "en oferta" o de mejor precio de cualquier tipo o categoría, responde de inmediato el nombre y precio del producto más económico de esa sección, y pregunta si desea saber la ubicación.
-- Cuando pregunten por disponibilidad de tallas en calzado o ropa, indica directamente si la talla solicitada tiene stock o está agotada, y menciona brevemente las tallas disponibles.
-- Si un producto fue escaneado antes en la conversación, mantén ese producto como referencia si el cliente pide compararlo o buscar alternativas.
-
-ROL Y COMPORTAMIENTO COMERCIAL:
-- Habla siempre en español chileno natural, proactivo, profesional y directo.
-- Responde siempre con oraciones breves (máximo 1 o 2 oraciones, menos de 20 palabras).
+ROL Y COMPORTAMIENTO:
+- Habla en español natural, profesional y seguro.
+- Entrega las especificaciones clave del producto consultado: tipo de equipo, conectividad, resolución o velocidad, accesorios incluidos y garantía.
 - Nunca digas que eres una inteligencia artificial o un bot.
 
-INFORMACIÓN DE LA TIENDA Y SERVICIOS:
-- Tienda: Paris Costanera Center (3 Pisos)
-- Tótem Físico: Piso 1 (Entrada Principal).
-- Escaleras mecánicas y ascensores: En el centro de la tienda en todos los pisos (1, 2 y 3).
-- Piso 1: Entrada Principal, Tótem Avatar, Belleza y Perfumería Mujer y Hombre (Pasillos B-01 y B-02), Deportes y Zapatillas (Pasillos D-06 y D-07), Caja Principal y Punto de Retiro en Tienda. Baños en el sector izquierdo.
-- Piso 2: Moda Mujer y Hombre (Pasillos M-01 y M-02), Calzado Mujer (Pasillo C-01), Decohogar y Ropa de Cama (Pasillos DH-01 y DH-02), Probadores, Caja Express y Baños / SS.HH.
-- Piso 3: Toda la Tecnología (Smartphones en Pasillo T-01, Televisores en Pasillo T-02, Computación y Notebooks en Pasillo T-03, Audio, Gaming y Smartwatches en Pasillo T-04), Electrohogar y Línea Blanca (Pasillos H-11 y H-12), Muebles y Climatización (Pasillo H-13), Caja Tecnología/Hogar, Servicio al Cliente, Devoluciones/Cambios y Tarjeta Paris.
+EJEMPLOS DE FLUJO CORRECTO:
 
-EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
+Cliente: "¿Qué es el BARPOS 6500?"
+Respuesta del avatar: "El BARPOS 6500 es un lector imager para códigos 1D y 2D QR con cable USB, pedestal manos libres y 12 meses de garantía."
 
-Cliente: "Quiero un celular"
-Respuesta del avatar: "Tenemos smartphones desde 99.990 hasta 1.299.990 pesos. ¿Buscas alguna marca o gama en especial?"
+Cliente: "¿Qué características tiene el 9325?"
+Respuesta del avatar: "El BARPOS 9325 es un lector inalámbrico Bluetooth con tecnología imager para códigos 1D y 2D, dongle USB y cable tipo C."
 
-Cliente: "Quiero uno de gama media"
-Respuesta del avatar: "Te recomiendo el Galaxy A55 a 329.990 pesos con excelente cámara y batería. ¿Te gustaría saber en qué pasillo encontrarlo?"
+Cliente: "¿Tienen impresoras térmicas?"
+Respuesta del avatar: "Sí, tenemos la impresora de boletas T8300 de 300 milímetros por segundo y modelos de etiquetas como la Z220T. ¿Cuál necesitas?"
 
-Cliente: "Sí, por favor"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en el Piso 3. Debes subir por la escalera mecánica central hacia el pasillo T-01."
+Cliente: "Háblame del lector industrial IP68S"
+Respuesta del avatar: "El IP68S es un lector inalámbrico industrial con clasificación IP65 resistente a caídas y temperaturas extremas, con cuna de carga incluida."
 
-Cliente: "No, gracias"
-Respuesta del avatar: "Perfecto, ¿necesitas ayuda con algo más?"
+Cliente: "¿Qué es el KA-21A?"
+Respuesta del avatar: "Es un tótem de autoservicio todo en uno con pantalla táctil de 21,5 pulgadas, pedestales de piso y mesón y lector de códigos 2D integrado."
 
-Cliente: "¿Dónde están los celulares?"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en el Piso 3. Debes dirigirte a la escalera mecánica central y subir al Piso 3 hacia el pasillo T-01."
+Cliente: "¿Tienen sistemas POS?"
+Respuesta del avatar: "Sí, contamos con el POS N200S All in One de 15 pulgadas y la versión N200S 2 con doble pantalla y lector QR."
 
-Cliente: "Estoy buscando televisores"
-Respuesta del avatar: "Tenemos televisores desde 43 hasta 65 pulgadas en oferta. ¿Buscas algún tamaño o presupuesto?"
-
-Cliente: "Uno de 50 pulgadas económico"
-Respuesta del avatar: "Te sugiero el Smart TV Hisense 50 pulgadas 4K a 279.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?"
-
-Cliente: "Sí"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en el Piso 3. Sube por la escalera mecánica central hacia el pasillo T-02."
-
-Cliente: "Samsung Galaxy S25"
-Respuesta del avatar: "El Galaxy S25 está en oferta a 599.990 pesos con 44 por ciento de descuento. ¿Te gustaría saber en qué pasillo encontrarlo?"
-
-Cliente: "¿Dónde encuentro las zapatillas deportivas?"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en este piso (Piso 1) en el sector Deportes, pasillo D-06."
-
-Cliente: "Quiero devolver un producto"
-Respuesta del avatar: "La ubicación se muestra en pantalla. Debes dirigirte a Servicio al Cliente en el Piso 3, subiendo por la escalera mecánica central."
-
-Cliente: "¿Dónde retiro una compra online?"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en este piso (Piso 1) en el Punto de Retiro y Cajas."
-
-Cliente: "Producto escaneado: Parlante Portatil JBL Charge 5 Azul. Marca: JBL. Precio: 179.990 pesos."
-Respuesta del avatar: "El parlante JBL Charge 5 cuesta 179.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?"
-
-Cliente: "Sí"
-Respuesta del avatar: "La ubicación se muestra en pantalla, en el Piso 3. Debes subir por la escalera mecánica central hacia el pasillo T-04."
-
-Cliente: "¿Dónde están los baños?"
-Respuesta del avatar: "La ubicación se muestra en pantalla. Los baños se encuentran en el Piso 2, subiendo por la escalera mecánica central."
-
-Cliente: "¿Cómo hago una función en Python?"
-Respuesta del avatar: "Disculpa, solo respondo sobre productos y compras en tienda Paris. ¿Te ayudo a buscar algo hoy?"
+Cliente: "¿Cómo hago un bucle for en Python?"
+Respuesta del avatar: "Disculpa, solo puedo entregarte información y descripciones sobre nuestros productos BARPOS. ¿Sobre qué modelo o equipo deseas consultar?"
 '''
 
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
@@ -285,131 +176,67 @@ SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     """
-    Selecciona e inyecta de forma ultraligera ÚNICAMENTE las categorías y productos
-    relevantes para la consulta del usuario, acelerando drásticamente el tiempo de respuesta.
+    Selecciona e inyecta de forma ultraligera el contexto del catálogo BARPOS
+    relevante para la consulta del usuario.
     """
     user_search = user_msg.lower()
 
-    # Extraer historial exclusivamente de mensajes del USUARIO (evita contaminación por marcas del asistente)
-    history_user_msgs = [h.get("content", "").lower() for h in history if h.get("role") == "user"]
-    history_user_text = " ".join(history_user_msgs[-3:])
+    # 1. Detectar si el usuario pregunta por un producto o modelo específico
+    matched_prods = []
+    for p in _ALL_PRODUCTS:
+        m = p.get("modelo", "").lower()
+        n = p.get("nombre", "").lower()
+        if m and (m in user_search or f" {m} " in f" {user_search} "):
+            matched_prods.append(p)
+        elif n and n in user_search:
+            matched_prods.append(p)
 
-    # 1. Búsqueda directa en el mensaje actual del usuario
-    current_matched_cats = set()
+    # 2. Detectar categorías relevantes
+    matched_cats = set()
     for cid, kws in CATEGORY_KEYWORDS.items():
         if any(kw in user_search for kw in kws):
-            current_matched_cats.add(cid)
+            matched_cats.add(cid)
 
-    # 2. Búsqueda por código de barras o SKU en mensaje actual
-    for cb, cid in _BARCODE_TO_CAT.items():
-        if cb in user_search:
-            current_matched_cats.add(cid)
-    for sku, cid in _SKU_TO_CAT.items():
-        if sku in user_search:
-            current_matched_cats.add(cid)
+    # Si hay productos específicos encontrados, agregar su categoría
+    for p in matched_prods:
+        if p.get("categoria_id"):
+            matched_cats.add(p["categoria_id"])
 
-    # 3. Búsqueda por marca registrada en mensaje actual
-    for brand, cids in _BRAND_TO_CATS.items():
-        if f" {brand} " in f" {user_search} ":
-            current_matched_cats.update(cids)
+    # 3. Construir contexto
+    extra_lines = []
+    if matched_prods:
+        extra_lines.append("PRODUCTO CONSULTADO DIRECTAMENTE:")
+        for p in matched_prods:
+            extra_lines.append(f"- {p['nombre']}: {p['descripcion']}")
 
-    # 4. Búsqueda por palabra distintiva en mensaje actual
-    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', user_search)
-    for w in words:
-        if w in _KEYWORD_TO_CATS:
-            current_matched_cats.update(_KEYWORD_TO_CATS[w])
-
-    matched_cats = set(current_matched_cats)
-
-    # Si el mensaje actual NO especificó categoría (ej: "uno de gama media", "el más barato", "en 50 pulgadas"),
-    # recuperar la categoría activa del historial de turnos del usuario (continuidad conversacional)
-    if not matched_cats and history_user_msgs:
-        for prev_msg in reversed(history_user_msgs):
-            for cid, kws in CATEGORY_KEYWORDS.items():
-                if any(kw in prev_msg for kw in kws):
-                    matched_cats.add(cid)
-            if matched_cats:
-                break
-
-    # Si aún no hay categoría, buscar en el acumulado de turnos del usuario
-    if not matched_cats and history_user_text:
-        for cid, kws in CATEGORY_KEYWORDS.items():
-            if any(kw in history_user_text for kw in kws):
-                matched_cats.add(cid)
-
-    search_text = f"{user_search} {history_user_text}".strip()
-
-    # Casos especiales de género / categoría amplia
-    if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
-        matched_cats.add("perfumes_mujer")
-        matched_cats.add("perfumes_hombre")
-
-    if "ropa" in search_text and not matched_cats.intersection({"ropa_mujer", "ropa_hombre"}):
-        matched_cats.add("ropa_mujer")
-        matched_cats.add("ropa_hombre")
-
-    if ("zapatilla" in search_text or "zapato" in search_text or "calzado" in search_text) and not matched_cats.intersection({"zapatillas", "calzado_mujer"}):
-        matched_cats.add("zapatillas")
-        matched_cats.add("calzado_mujer")
-
-    extra_context = ""
     if matched_cats:
-        cat_lines = []
         for cid in matched_cats:
             if cid in _CATEGORIES_BY_ID:
-                cat_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
-        extra_context = "\n".join(cat_lines)
-    elif any(w in search_text for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
-        ofertas = _BDD.get("ofertas_destacadas", [])
-        all_prods = {p["sku"]: p for c in _BDD.get("categorias", []) for p in c.get("productos", [])}
-        lines = ["\nOfertas destacadas de la semana:"]
-        for o in ofertas:
-            prod = all_prods.get(o["sku"])
-            if prod:
-                lines.append(f"- [{prod.get('categoria','')}] {prod['nombre']}: oferta a ${prod.get('precio_oferta',0):,} pesos ({o['descuento_pct']} por ciento dcto).".replace(",", "."))
-        extra_context = "\n".join(lines)
+                extra_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
 
-    if extra_context:
-        return f"{BASE_SYSTEM_PROMPT}\nCATÁLOGO RELEVANTE PARA ESTA CONSULTA:\n{extra_context}"
-    return BASE_SYSTEM_PROMPT
+    if not extra_lines:
+        # Si no se detectó un modelo específico, inyectar el catálogo completo (son solo 17 productos)
+        for cat in _BDD.get("categorias", []):
+            extra_lines.append(_format_category(cat))
+
+    catalog_context = "\n".join(extra_lines)
+    return f"{BASE_SYSTEM_PROMPT}\nCATÁLOGO OFICIAL BARPOS:\n{catalog_context}"
 
 
 def reload_catalog() -> None:
-    global _BDD, _CATEGORIES_BY_ID, _BARCODE_TO_CAT, _SKU_TO_CAT, _BRAND_TO_CATS, _KEYWORD_TO_CATS
+    global _BDD, _CATEGORIES_BY_ID, _ALL_PRODUCTS, _PRODUCTS_BY_MODEL
     try:
         with open(_BDD_PATH, encoding="utf-8") as _f:
             _BDD = json.load(_f)
         _CATEGORIES_BY_ID = {c["id"]: c for c in _BDD.get("categorias", [])}
-        _BARCODE_TO_CAT = {}
-        _SKU_TO_CAT = {}
-        _BRAND_TO_CATS = {}
-        _KEYWORD_TO_CATS = {}
-
-        for cat in _BDD.get("categorias", []):
-            cid = cat["id"]
-            for prod in cat.get("productos", []):
-                cb = str(prod.get("codigo_barra", "")).strip().lower()
-                if cb:
-                    _BARCODE_TO_CAT[cb] = cid
-                sku = str(prod.get("sku", "")).strip().lower()
-                if sku:
-                    _SKU_TO_CAT[sku] = cid
-                marca = str(prod.get("marca", "")).strip().lower()
-                if marca:
-                    _BRAND_TO_CATS.setdefault(marca, set()).add(cid)
-                nombre_words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', prod.get("nombre", "").lower())
-                for w in nombre_words:
-                    if len(w) >= 4 and w not in {"para", "negro", "blanco", "azul", "rojo", "gris", "verde", "inch", "pulgadas"}:
-                        _KEYWORD_TO_CATS.setdefault(w, set()).add(cid)
-
-        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_BARCODE_TO_CAT)} barcodes, {len(_BRAND_TO_CATS)} marcas)")
+        _ALL_PRODUCTS = _BDD.get("productos", [])
+        _PRODUCTS_BY_MODEL = {p["modelo"].lower(): p for p in _ALL_PRODUCTS if "modelo" in p}
+        logger.info(f"[LLM] Catálogo BARPOS cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_ALL_PRODUCTS)} productos)")
     except Exception as _e:
         _BDD = {}
         _CATEGORIES_BY_ID = {}
-        _BARCODE_TO_CAT = {}
-        _SKU_TO_CAT = {}
-        _BRAND_TO_CATS = {}
-        _KEYWORD_TO_CATS = {}
+        _ALL_PRODUCTS = []
+        _PRODUCTS_BY_MODEL = {}
         logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
 
 reload_catalog()
