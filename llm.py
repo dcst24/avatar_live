@@ -36,6 +36,29 @@ def normalizar(text: str) -> str:
     # 2. Convertir precios con signo $ a pesos (ej: $599.990 -> 599.990 pesos)
     text = re.sub(r'\$(\d[\d\.]*)\s*(?:pesos)?', r'\1 pesos', text)
 
+    # 2b. Reemplazo fonético de unidades técnicas y medidas para TTS:
+    # Velocidades (ej: 5” /seg. -> 5 pulgadas por segundo, 300mm/seg -> 300 milímetros por segundo)
+    text = re.sub(r'(\d+)\s*(?:”|"|\'\')\s*/\s*seg\.?', r'\1 pulgadas por segundo', text)
+    text = re.sub(r'(\d+)\s*mm\s*/\s*seg\.?', r'\1 milímetros por segundo', text)
+    text = re.sub(r'(\d+)\s*/\s*seg\.?', r'\1 por segundo', text)
+
+    # Pulgadas (ej: 4” -> 4 pulgadas, 15" -> 15 pulgadas, 21,5" -> 21 coma 5 pulgadas)
+    text = re.sub(r'(\d+)(?:[,\.]\s*(\d+))?\s*(?:”|"|\'\')', lambda m: f'{m.group(1)} coma {m.group(2)} pulgadas' if m.group(2) else f'{m.group(1)} pulgadas', text)
+
+    # Centímetros y milímetros
+    text = re.sub(r'(\d+)\s*cm\b', r'\1 centímetros', text)
+    text = re.sub(r'(\d+)\s*mm\b', r'\1 milímetros', text)
+
+    # Grados Celsius
+    text = re.sub(r'-(\d+)\s*°C\b', r'menos \1 grados Celsius', text)
+    text = re.sub(r'(\d+)\s*°C\b', r'\1 grados Celsius', text)
+
+    # Abreviaturas comunes
+    text = re.sub(r'\bS\.O\.?(?=\s|$|[.,;])', 'sistema operativo', text, flags=re.IGNORECASE)
+
+    # Slashes como separadores entre oraciones
+    text = re.sub(r'\s*/\s*', '. ', text)
+
     # 3. Reemplazar flechas de cualquier tipo por un espacio
     text = re.sub(r'[→⇒➜➞➝➔]|->|=>|<-|<=|↔', ' ', text)
 
@@ -131,6 +154,11 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones, menos de 25 palabras en total).
 - El cliente te escucha hablar a través de síntesis de voz en tiempo real. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales.
+
+REGLA FONÉTICA PARA SÍNTESIS DE VOZ:
+- NUNCA uses comillas para pulgadas (no escribas 4", escribe siempre "4 pulgadas").
+- NUNCA uses abreviaturas como "cm", "mm", "/seg" o "S.O.". Escribe siempre "centímetros", "milímetros", "por segundo" y "sistema operativo".
+- NUNCA uses barras inclinadas (/) como separadores. Usa puntos (.) o comas (,).
 
 REGLA ESTRICTA 1 (ESTE AVATAR NO DICE UBICACIONES):
 - NUNCA menciones pasillos, pisos, mapas ni ubicaciones de tiendas. Este avatar no dice ubicaciones.

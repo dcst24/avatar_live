@@ -40,6 +40,29 @@ def normalize_text_for_tts(text: str) -> str:
     text = re.sub(r'(?:CLP|clp)\s*(\d[\d\.]*)', r'\1 pesos', text)
     text = re.sub(r'(\d[\d\.]*)\s*(?:CLP|clp)', r'\1 pesos', text)
 
+    # 2b. Reemplazo fonético de unidades técnicas y medidas para Kokoro TTS:
+    # Velocidades (ej: 5” /seg. -> 5 pulgadas por segundo, 300mm/seg -> 300 milímetros por segundo)
+    text = re.sub(r'(\d+)\s*(?:”|"|\'\')\s*/\s*seg\.?', r'\1 pulgadas por segundo', text)
+    text = re.sub(r'(\d+)\s*mm\s*/\s*seg\.?', r'\1 milímetros por segundo', text)
+    text = re.sub(r'(\d+)\s*/\s*seg\.?', r'\1 por segundo', text)
+
+    # Pulgadas (ej: 4” -> 4 pulgadas, 15" -> 15 pulgadas, 21,5" -> 21 coma 5 pulgadas)
+    text = re.sub(r'(\d+)(?:[,\.]\s*(\d+))?\s*(?:”|"|\'\')', lambda m: f'{m.group(1)} coma {m.group(2)} pulgadas' if m.group(2) else f'{m.group(1)} pulgadas', text)
+
+    # Centímetros y milímetros
+    text = re.sub(r'(\d+)\s*cm\b', r'\1 centímetros', text)
+    text = re.sub(r'(\d+)\s*mm\b', r'\1 milímetros', text)
+
+    # Grados Celsius
+    text = re.sub(r'-(\d+)\s*°C\b', r'menos \1 grados Celsius', text)
+    text = re.sub(r'(\d+)\s*°C\b', r'\1 grados Celsius', text)
+
+    # Abreviaturas comunes
+    text = re.sub(r'\bS\.O\.?(?=\s|$|[.,;])', 'sistema operativo', text, flags=re.IGNORECASE)
+
+    # Slashes como separadores entre oraciones
+    text = re.sub(r'\s*/\s*', '. ', text)
+
     # 3. Flechas
     text = re.sub(r'[→⇒➜➞➝➔]|->|=>|<-|<=|↔', ' ', text)
 
