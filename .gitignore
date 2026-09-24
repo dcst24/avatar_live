@@ -29,3 +29,6 @@ consultaPasillo/
 # Cache de TTS y archivos temporales
 tts/cache/
 *.npy
+
+# xlxs
+*.xlsx

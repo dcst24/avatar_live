@@ -692,6 +692,7 @@
 
         /* ── Carrusel de ofertas (parte superior, superpuesto) ── */
         #offers-carousel {
+            display: none; /* Oculto para futura reutilización */
             position: absolute;
             top: 0;
             left: 0;
@@ -2498,6 +2499,11 @@
         // CARRUSEL DE OFERTAS
         // ══════════════════════════════════════════════════════════════════════════════
         (function initCarousel() {
+            const carouselEl = document.getElementById('offers-carousel');
+            if (carouselEl && getComputedStyle(carouselEl).display === 'none') {
+                return;
+            }
+
             const slides = document.querySelectorAll('.carousel-slide');
             const dotsContainer = document.getElementById('carousel-dots');
             let current = 0;
