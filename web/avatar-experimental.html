@@ -2491,13 +2491,14 @@
                                 }
                             }
 
-                            // Activación inmediata del micrófono con guardia acústica mínima (50ms)
+                            // Margen acústico seguro (450ms): garantiza que los buffers de audio WebRTC
+                            // y los altavoces del dispositivo hayan terminado de sonar por completo antes de abrir el micrófono
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 50);
+                            }, 450);
                         }
                     }
                 } catch (e) {
@@ -3062,7 +3063,7 @@
                 videoEl.muted = true;
                 setTimeout(() => {
                     if (videoEl && _audioUnlocked) videoEl.muted = false;
-                }, 150);
+                }, 250);
             }
 
             // Asegurar que el micrófono esté detenido de inmediato
@@ -3087,13 +3088,13 @@
                 scheduleFollowUp();
             }
 
-            // Pausa acústica mínima (150ms) para que el audio corte en seco antes de abrir el micrófono
+            // Pausa acústica limpia (350ms) para que el audio corte en seco antes de abrir el micrófono
             setTimeout(() => {
                 if (!isListening && isConnected && !isSpeaking) {
                     _alwaysOnActive = false;
                     startAlwaysOnListening();
                 }
-            }, 150);
+            }, 350);
         }
 
         // ══════════════════════════════════════════════════════════════════════════════

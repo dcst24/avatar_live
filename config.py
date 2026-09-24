@@ -34,8 +34,8 @@ def parse_args():
                         help="avatar model: musetalk/wav2lip/ultralight")
     parser.add_argument('--avatar_id', type=str, default='wav2lip256_avatar1',
                         help="avatar id in data/avatars")
-    parser.add_argument('--batch_size', type=int, default=16,
-                        help="infer batch (16 para mayor throughput GPU, 8 para menor latencia inicial de respuesta)")
+    parser.add_argument('--batch_size', type=int, default=8,
+                        help="infer batch (8 para menor latencia inicial y flujo continuo sin ráfagas, 16 para mayor batch)")
     parser.add_argument('--fp16', action='store_true', default=True,
                         help="usar precisión media (FP16) con autocast en GPU para mayor velocidad y menor latencia")
     parser.add_argument('--no_fp16', dest='fp16', action='store_false',
@@ -54,8 +54,8 @@ def parse_args():
                         help="参考文件名或语音模型ID (edgetts: nombre de voz, ej: es-CL-CatalinaNeural)")
     parser.add_argument('--REF_TEXT', type=str, default=None)
     parser.add_argument('--TTS_SERVER', type=str, default='http://127.0.0.1:9880')
-    parser.add_argument('--tts_speed', type=float, default=1.10,
-                        help="velocidad del TTS (por defecto 1.10 para mayor fluidez)")
+    parser.add_argument('--tts_speed', type=float, default=1.00,
+                        help="velocidad del TTS (1.00 para cadencia 100% natural y máxima articulación)")
 
     # ─── 传输 ─────────────────────────────────────────────────────────
     parser.add_argument('--transport', type=str, default='webrtc',
