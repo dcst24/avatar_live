@@ -25,3 +25,7 @@ dist
 # Apps separadas — solo locales para referencia, no forman parte del repo del backend
 avatar/
 consultaPasillo/
+
+# Cache de TTS y archivos temporales
+tts/cache/
+*.npy

@@ -25,29 +25,26 @@ class EdgeTTS(BaseTTS):
         self.input_stream.seek(0)
         stream = self.__create_bytes_stream(self.input_stream)
         streamlen = stream.shape[0]
-        first_chunk_sent = False
+        idx = 0
         while streamlen >= self.chunk and self.state == State.RUNNING:
             eventpoint = {}
-            if not first_chunk_sent:
+            if idx == 0:
                 eventpoint = {'status': 'start', 'text': text}
-                first_chunk_sent = True
+            elif streamlen - self.chunk < self.chunk and len(stream[idx + self.chunk:]) == 0:
+                eventpoint = {'status': 'end', 'text': text}
             eventpoint.update(**textevent)
             self.parent.put_audio_frame(stream[idx:idx + self.chunk], eventpoint)
             idx += self.chunk
             streamlen -= self.chunk
 
-        # Drenar cualquier muestra sobrante con zero-padding (evita cortar consonantes o números finales)
+        # Drenar cualquier residuo menor a self.chunk con zero-padding y marcar fin
         leftover = stream[idx:]
         if len(leftover) > 0 and self.state == State.RUNNING:
             pad_len = self.chunk - len(leftover)
             padded_tail = np.pad(leftover, (0, pad_len), mode='constant')
-            self.parent.put_audio_frame(padded_tail, textevent)
-
-        # Señalizar fin de habla explícito
-        if self.state == State.RUNNING:
             eventpoint = {'status': 'end', 'text': text}
             eventpoint.update(**textevent)
-            self.parent.put_audio_frame(np.zeros(self.chunk, dtype=np.float32), eventpoint)
+            self.parent.put_audio_frame(padded_tail, eventpoint)
 
         self.input_stream.seek(0)
         self.input_stream.truncate() 

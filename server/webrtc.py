@@ -235,9 +235,6 @@ class HumanPlayer:
     def get_buffer_size(self) -> int:
         return self.__video._queue.qsize()
 
-    def get_audio_buffer_size(self) -> int:
-        return self.__audio._queue.qsize() if self.__audio else 0
-
     def notify(self, eventpoint):
         if self.__container is not None:
             self.__container.notify(eventpoint)

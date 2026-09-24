@@ -218,15 +218,6 @@ class BaseAvatar:
         if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
-        # 4. Si la cola de salida de WebRTC aún tiene frames de audio pendientes de emisión
-        if hasattr(self, 'output') and hasattr(self.output, 'get_audio_buffer_size'):
-            if self.output.get_audio_buffer_size() > 0:
-                return True
-
-        # 5. Margen de guardia acústica post-habla (350ms) para que el audio termine de sonar en parlantes
-        if self._last_speech_time > 0 and (time.time() - self._last_speech_time) < 0.35:
-            return True
-
         return False
     
     def __loadcustom(self):
@@ -411,18 +402,14 @@ class BaseAvatar:
         while not quit_event.is_set():
             try:
                 audio_frames: list[AudioFrameData]
-                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=0.04)
+                res_frame,audio_frames,idx = self.res_frame_queue.get(block=True, timeout=1.0)
             except queue.Empty:
-                # Si la cola está vacía (ej: tras purga por STOP), emitir un frame idle de video
-                # Y frames de audio en silencio para mantener a WebRTC con flujo continuo a 25 fps sin desconectar
+                # Si la cola está vacía (ej: tras purga por STOP), emitir un frame idle para no dejar a WebRTC sin frames
                 if hasattr(self, 'frame_list_cycle') and len(self.frame_list_cycle) > 0:
                     fallback_idx = (fallback_idx + 1) % len(self.frame_list_cycle)
                     idle_frame = self.frame_list_cycle[fallback_idx].copy()
                     cv2.putText(idle_frame, "LiveTalking", (10, 20), cv2.FONT_HERSHEY_SIMPLEX, 0.3, (128,128,128), 1)
                     self.output.push_video_frame(idle_frame)
-                    silence_chunk = np.zeros(self.chunk, dtype=np.int16)
-                    self.output.push_audio_frame(silence_chunk)
-                    self.output.push_audio_frame(silence_chunk)
                 continue
             
             # 检测状态变化
