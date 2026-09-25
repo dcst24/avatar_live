@@ -505,7 +505,7 @@ class BaseAvatar:
             buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
             if buffer_size >= 5:
                 logger.debug('sleep qsize=%d', buffer_size)
-                time.sleep(0.04 * buffer_size * 0.8)
+                time.sleep(0.04 * buffer_size * 1.0)
         logger.info('baseavatar render thread stop')
 
         infer_quit_event.set()
