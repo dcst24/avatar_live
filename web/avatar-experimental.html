@@ -291,9 +291,12 @@
         }
 
         @keyframes pulse-stop-glow {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.2);
             }
+
             50% {
                 box-shadow: 0 4px 26px rgba(239, 68, 68, 0.55), 0 0 16px rgba(239, 68, 68, 0.4);
             }
@@ -556,16 +559,17 @@
             flex-shrink: 0;
         }
 
-        
 
-        
 
-        
 
-        
+
+
+
+
 
         /* ── Responsividad en dispositivos móviles y tabletas ── */
         @media (max-width: 768px) {
+
             /* Video cubre toda la pantalla en móviles, recortando lados si el video es horizontal */
             #video {
                 object-fit: cover;
@@ -581,6 +585,7 @@
                 gap: 6px;
                 border-radius: 12px;
             }
+
             #btn-connect svg {
                 width: 12px;
                 height: 12px;
@@ -598,9 +603,11 @@
                 bottom: 48px;
                 width: 90vw;
             }
+
             .transcript-text {
                 font-size: 15px;
             }
+
             .transcript-label {
                 font-size: 11px;
                 width: 36px;
@@ -610,15 +617,19 @@
             #dbg-panel {
                 padding-bottom: 20px;
             }
+
             #dbg-toolbar span {
                 font-size: 14px;
             }
-            #dbg-clear, #dbg-close {
+
+            #dbg-clear,
+            #dbg-close {
                 padding: 6px 14px;
                 font-size: 12px;
             }
-            #dbg-mic-row, 
-            #dbg-mic-select, 
+
+            #dbg-mic-row,
+            #dbg-mic-select,
             #dbg-list {
                 font-size: 12px;
             }
@@ -639,9 +650,11 @@
             pointer-events: auto;
             scrollbar-width: none;
         }
+
         #chat-container::-webkit-scrollbar {
             display: none;
         }
+
         .chat-bubble {
             padding: 10px 14px;
             border-radius: 16px;
@@ -656,15 +669,18 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #f4f4f5;
         }
+
         .chat-bubble.user {
             align-self: flex-end;
             background: rgba(99, 102, 241, 0.25);
             border-color: rgba(99, 102, 241, 0.4);
             color: #e0e7ff;
         }
+
         .chat-bubble.avatar {
             align-self: flex-start;
         }
+
         .chat-bubble.system {
             align-self: center;
             background: rgba(24, 24, 27, 0.35);
@@ -678,21 +694,47 @@
             box-shadow: none;
             max-width: 90%;
         }
+
         @keyframes bubble-appear {
-            from { opacity: 0; transform: translateY(10px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
+
         .chat-bubble.fade-out {
             animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
         @keyframes bubble-fadeout {
-            from { opacity: 1; transform: translateY(0) scale(1); }
-            to { opacity: 0; transform: translateY(-10px) scale(0.95); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; opacity: 0; }
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.95);
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                border-top-width: 0;
+                border-bottom-width: 0;
+                opacity: 0;
+            }
         }
 
         /* ── Carrusel de ofertas (parte superior, superpuesto) ── */
         #offers-carousel {
-            display: none; /* Oculto para futura reutilización */
+            display: none;
+            /* Oculto para futura reutilización */
             position: absolute;
             top: 0;
             left: 0;
@@ -711,10 +753,11 @@
             left: 0;
             right: 0;
             height: 28px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent);
+            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), transparent);
             z-index: 2;
             pointer-events: none;
         }
+
         #offers-carousel::after {
             content: '';
             position: absolute;
@@ -722,7 +765,7 @@
             left: 0;
             right: 0;
             height: 52px;
-            background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
             z-index: 2;
             pointer-events: none;
         }
@@ -737,13 +780,15 @@
             z-index: 3;
             pointer-events: none;
         }
+
         #carousel-fade-left {
             left: 0;
-            background: linear-gradient(to right, rgba(0,0,0,0.7), transparent);
+            background: linear-gradient(to right, rgba(0, 0, 0, 0.7), transparent);
         }
+
         #carousel-fade-right {
             right: 0;
-            background: linear-gradient(to left, rgba(0,0,0,0.7), transparent);
+            background: linear-gradient(to left, rgba(0, 0, 0, 0.7), transparent);
         }
 
         .carousel-track {
@@ -801,12 +846,12 @@
             width: 5px;
             height: 5px;
             border-radius: 50%;
-            background: rgba(255,255,255,0.35);
+            background: rgba(255, 255, 255, 0.35);
             transition: background 0.4s, transform 0.4s;
         }
 
         .carousel-dot.active {
-            background: rgba(255,255,255,0.95);
+            background: rgba(255, 255, 255, 0.95);
             transform: scale(1.4);
         }
 
@@ -900,8 +945,15 @@
         }
 
         @keyframes offer-pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.06); }
+
+            0%,
+            100% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.06);
+            }
         }
 
         .product-card-aisle {
@@ -935,8 +987,15 @@
         }
 
         @keyframes card-appear {
-            from { opacity: 0; transform: translateY(20px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(20px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
 
         .product-card.fade-out {
@@ -944,10 +1003,16 @@
         }
 
         @keyframes card-fadeout {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0; transform: scale(0.95); }
-        }
+            from {
+                opacity: 1;
+                transform: scale(1);
+            }
 
+            to {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+        }
     </style>
 </head>
 
@@ -961,7 +1026,9 @@
     <button id="stop" style="display:none"></button>
 
     <!-- Input Oculto para Lector de Código de Barras (Escáner USB/Bluetooth) -->
-    <input type="text" id="barcode-input" autocomplete="off" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; top: -100px; left: -100px;" aria-hidden="true" />
+    <input type="text" id="barcode-input" autocomplete="off"
+        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; top: -100px; left: -100px;"
+        aria-hidden="true" />
 
     <div id="app">
 
@@ -1084,7 +1151,7 @@
             </select>
             <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
         </div>
-        
+
         <div id="dbg-list"></div>
     </div>
 
@@ -1255,7 +1322,7 @@
         }
 
         function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "").trim();
             // Frases exactas de despedida o cierre negativo
             const exactSleepPhrases = [
                 'no', 'no gracias', 'no muchas gracias', 'no por ahora', 'no nada mas',
@@ -1393,7 +1460,7 @@
                         bubble.parentNode.removeChild(bubble);
                     }
                 }, 500);
-            }, 30000);
+            }, 15000);
 
             return bubble;
         }
@@ -1401,13 +1468,13 @@
         function queueAvatarBubble(text) {
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = text;
-            
+
             if (isSpeaking) {
                 addChatBubble('avatar', _pendingAvatarBubbleText);
                 _pendingAvatarBubbleText = null;
                 return;
             }
-            
+
             _pendingAvatarBubbleTimeout = setTimeout(() => {
                 if (_pendingAvatarBubbleText) {
                     addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -1425,10 +1492,10 @@
                 LOG("30 segundos de silencio → Preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más?";
                 _waitingFollowUpAck = true;
-                
+
                 queueAvatarBubble(followUpText);
                 stopAlwaysOnListening();
-                
+
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -1439,7 +1506,7 @@
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 30000);
+            }, 15000);
         }
 
         function scheduleFollowUpAckTimeout() {
@@ -1472,7 +1539,7 @@
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('ready', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 20000);
+            }, 10000);
         }
 
         // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
@@ -1536,7 +1603,7 @@
 
                     try {
                         if (_activeLLMAbortController) {
-                            try { _activeLLMAbortController.abort(); } catch (e) {}
+                            try { _activeLLMAbortController.abort(); } catch (e) { }
                         }
                         _activeLLMAbortController = new AbortController();
 
@@ -1881,7 +1948,7 @@
                             if (wrap) wrap.classList.remove('avatar-speaking');
                             _clearSpeakingWatchdog();
                             LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
-                            
+
                             // Estado sincronizado: siempre "Esperando activación…" en reposo o "Escuchando pregunta…" en conversación activa
                             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                             if (_conversationAwake) {
@@ -2123,7 +2190,7 @@
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
                             LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
                             const txt = _lastInterimText;
-                            try { rec.stop(); } catch (e) {}
+                            try { rec.stop(); } catch (e) { }
                             _dispatchQuestion(txt);
                         }
                     }, delayMs);
@@ -2365,7 +2432,7 @@
 
             if (isSleepWord) {
                 closeStoreMap();
-                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
                 let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
                     farewellText = "De nada. ¡Que tengas un excelente día!";
@@ -2401,7 +2468,7 @@
 
             try {
                 if (_activeLLMAbortController) {
-                    try { _activeLLMAbortController.abort(); } catch (e) {}
+                    try { _activeLLMAbortController.abort(); } catch (e) { }
                 }
                 _activeLLMAbortController = new AbortController();
 
@@ -2418,7 +2485,7 @@
                     signal: _activeLLMAbortController.signal
                 });
                 LOG('sendToLLM: respuesta status', res.status);
-                
+
                 if (!res.body) {
                     throw new Error("Respuesta del servidor no soporta streaming.");
                 }
@@ -2476,7 +2543,7 @@
                 try {
                     _activeLLMAbortController.abort();
                     LOG('stopAvatarTalking: LLM stream abortado');
-                } catch (e) {}
+                } catch (e) { }
                 _activeLLMAbortController = null;
             }
 
@@ -2533,8 +2600,8 @@
         }
 
         // Stubs de compatibilidad (mapa desactivado)
-        function closeStoreMap() {}
-        function openMapForProduct() {}
+        function closeStoreMap() { }
+        function openMapForProduct() { }
 
         // ══════════════════════════════════════════════════════════════════════════════
         // CARRUSEL DE OFERTAS
@@ -2663,4 +2730,5 @@
         });
     </script>
 </body>
+
 </html>
