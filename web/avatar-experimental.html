@@ -1302,6 +1302,7 @@
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
             clearServerHistory();
+            setUserText('', false);
             if (isListening) {
                 setState('listening', 'Esperando activación…');
             } else {
@@ -1330,6 +1331,7 @@
                 closeStoreMap();
                 _conversationAwake = false;
                 _wakeDetected = false;
+                setUserText('', false);
                 if (isListening) {
                     setState('listening', 'Esperando activación…');
                 } else {
@@ -1976,6 +1978,7 @@
             rec.maxAlternatives = 1;
 
             let _pendingCommitTimeout = null;
+            let _standbyTextTimeout = null;
             let _lastInterimText = '';
             let _questionDispatched = false;
 
@@ -1983,6 +1986,7 @@
                 if (_questionDispatched) return;
                 _questionDispatched = true;
                 clearTimeout(_pendingCommitTimeout);
+                clearTimeout(_standbyTextTimeout);
                 _lastInterimText = '';
 
                 let question = _extractQuestion(rawText);
@@ -2019,6 +2023,7 @@
                 _lastInterimText = '';
                 _questionDispatched = false;
                 clearTimeout(_pendingCommitTimeout);
+                clearTimeout(_standbyTextTimeout);
                 LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
@@ -2052,6 +2057,7 @@
 
                 if (!_conversationAwake) {
                     if (_containsWakeWord(rawText)) {
+                        clearTimeout(_standbyTextTimeout);
                         wakeUpModel();
                         LOG(`Wake-word detectada en: "${rawText}" → Modelo despierto`);
                         setState('listening', 'Escuchando pregunta…');
@@ -2064,9 +2070,16 @@
                         }, BUFFER_MS);
                     } else {
                         setUserText(final || interim, true);
+                        clearTimeout(_standbyTextTimeout);
+                        _standbyTextTimeout = setTimeout(() => {
+                            if (!_conversationAwake) {
+                                setUserText('', false);
+                            }
+                        }, 1800);
                         return;
                     }
                 } else {
+                    clearTimeout(_standbyTextTimeout);
                     resetInactivityTimer();
                     clearTimeout(_followUpTimeoutId);
                     clearTimeout(_followUpAckTimeoutId);
@@ -2079,8 +2092,9 @@
                     clearTimeout(_pendingCommitTimeout);
                     _dispatchQuestion(final);
                 } else if (_conversationAwake && interim && !_questionDispatched) {
-                    _lastInterimText = interim.trim();
-                    clearTimeout(_pendingCommitTimeout);
+                    const cleanInterim = interim.trim();
+                    const textChanged = (cleanInterim !== _lastInterimText);
+                    _lastInterimText = cleanInterim;
 
                     const tokens = _lastInterimText.toLowerCase().split(/\s+/);
                     const words = tokens.length;
@@ -2092,12 +2106,19 @@
                     ];
                     const isConnector = connectors.includes(lastWord);
                     // Calibración natural de pausas de voz:
-                    // Frases cortas (1-2 palabras): 850ms
-                    // Frases medias (3-5 palabras): 1150ms
-                    // Frases largas (6+ palabras): 1400ms
-                    let delayMs = (words <= 2) ? 850 : ((words <= 5) ? 1150 : 1400);
-                    if (isConnector) delayMs += 700; // Dar más margen si el usuario terminó en conector
+                    // Frases cortas (1-2 palabras): 750ms
+                    // Frases medias (3-5 palabras): 950ms
+                    // Frases largas (6+ palabras): 1200ms
+                    let delayMs = (words <= 2) ? 750 : ((words <= 5) ? 950 : 1200);
+                    if (isConnector) delayMs += 400; // Margen si terminó en conector
 
+                    // Si el texto intermedio no cambió (evento duplicado o ruido de fondo repetido),
+                    // no reiniciamos el timer para evitar que el buffer quede tomado indefinidamente
+                    if (!textChanged && _pendingCommitTimeout) {
+                        return;
+                    }
+
+                    clearTimeout(_pendingCommitTimeout);
                     _pendingCommitTimeout = setTimeout(() => {
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
                             LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);

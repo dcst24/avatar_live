@@ -90,10 +90,15 @@ class PlayerStreamTrack(MediaStreamTrack):
                     self._start = time.time()
                     if self._player:
                         self._player._shared_start = self._start
-                self._timestamp = 0
-                self.current_frame_count = 0
+                
+                # Alinear el primer frame de video con el tiempo real transcurrido desde _shared_start
+                # Esto garantiza sincronización perfecta con el audio y evita ráfagas iniciales a 40+ FPS
+                now = time.time()
+                elapsed = max(0.0, now - self._start)
+                self.current_frame_count = int(elapsed / VIDEO_PTIME)
+                self._timestamp = int(self.current_frame_count * VIDEO_PTIME * VIDEO_CLOCK_RATE)
                 self.timelist.append(self._start)
-                mylogger.info('video start:%f', self._start)
+                mylogger.info('video start:%f (frame_offset=%d, pts_offset=%d)', self._start, self.current_frame_count, self._timestamp)
             return self._timestamp, VIDEO_TIME_BASE
         else: # audio
             if hasattr(self, "_timestamp"):
@@ -109,10 +114,12 @@ class PlayerStreamTrack(MediaStreamTrack):
                     self._start = time.time()
                     if self._player:
                         self._player._shared_start = self._start
-                self._timestamp = 0
-                self.current_frame_count = 0
+                now = time.time()
+                elapsed = max(0.0, now - self._start)
+                self.current_frame_count = int(elapsed / AUDIO_PTIME)
+                self._timestamp = int(self.current_frame_count * AUDIO_PTIME * SAMPLE_RATE)
                 self.timelist.append(self._start)
-                mylogger.info('audio start:%f', self._start)
+                mylogger.info('audio start:%f (chunk_offset=%d, pts_offset=%d)', self._start, self.current_frame_count, self._timestamp)
             return self._timestamp, AUDIO_TIME_BASE
 
     async def recv(self) -> Union[Frame, Packet]:
