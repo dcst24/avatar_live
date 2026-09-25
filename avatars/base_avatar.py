@@ -503,11 +503,9 @@ class BaseAvatar:
             self.asr.run_step()
 
             buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            if buffer_size >= 4:
+            if buffer_size >= 5:
                 logger.debug('sleep qsize=%d', buffer_size)
-                # Regulación suave de flujo: micropausa corta de 25ms para mantener un colchón
-                # estable de 3-5 frames en cola sin congelar el hilo ni provocar vaciado a cero
-                time.sleep(0.025)
+                time.sleep(0.04 * buffer_size * 1.0)
         logger.info('baseavatar render thread stop')
 
         infer_quit_event.set()
