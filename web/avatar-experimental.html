@@ -1410,6 +1410,13 @@
             }, INACTIVITY_TIMEOUT_MS);
         }
 
+        function formatUserSpeechText(text) {
+            if (!text) return '';
+            return text
+                .replace(/\b(barpos|bar pos|barco|barcos|varpos|var pos|varco|varcos|barpost|bar post|barbox|bar box|barpox|bar pox|barpors|bar pors)\b/gi, 'BARPOS')
+                .replace(/\bbarpos\s+(\d+)/gi, 'BARPOS $1');
+        }
+
         function normalizarTexto(text) {
             if (!text) return '';
             return text
@@ -1435,7 +1442,7 @@
             const container = document.getElementById('chat-container');
             if (!container) return;
 
-            const cleanText = (role === 'avatar') ? normalizarTexto(text) : text;
+            const cleanText = (role === 'avatar') ? normalizarTexto(text) : formatUserSpeechText(text);
 
             // Evitar duplicar burbujas de sistema consecutivas idénticas
             if (role === 'system' && container.lastElementChild && container.lastElementChild.textContent.trim() === text.trim()) {
@@ -1768,7 +1775,7 @@
             const line = document.getElementById('user-line');
             const span = document.getElementById('user-text');
             line.style.display = text ? 'flex' : 'none';
-            span.textContent = text;
+            span.textContent = formatUserSpeechText(text);
             span.className = 'transcript-text' + (dim ? ' dim' : '');
         }
 
@@ -2065,6 +2072,8 @@
                 } else if (!question) {
                     question = rawText.trim();
                 }
+
+                question = formatUserSpeechText(question);
 
                 LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
 
@@ -2422,6 +2431,7 @@
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
+            text = formatUserSpeechText(text);
             stopAlwaysOnListening();
             LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');

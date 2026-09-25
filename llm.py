@@ -133,7 +133,7 @@ _PRODUCTS_BY_MODEL: dict = {}
 _ALL_PRODUCTS: list = []
 
 CATEGORY_KEYWORDS = {
-    "lectores_codigo_barra": ["lector", "lectores", "escaner", "escáner", "pistola", "codigo", "código", "barra", "barras", "1d", "2d", "qr", "imager", "6500", "9325", "9335", "2600", "2610", "9610", "ip68s", "pedestal", "inalambrico", "inalámbrico", "bluetooth"],
+    "lectores_codigo_barra": ["lector", "lectores", "escaner", "escáner", "pistola", "codigo", "código", "barra", "barras", "1d", "2d", "qr", "imagen", "6500", "9325", "9335", "2600", "2610", "9610", "ip68s", "pedestal", "inalambrico", "inalámbrico", "bluetooth"],
     "impresoras_termicas": ["impresora", "impresoras", "termica", "térmica", "ticket", "tickets", "boleta", "boletas", "recibo", "recibos", "etiqueta", "etiquetas", "z220t", "z411t", "t8300", "zpl", "tspl", "cutter", "autocutter", "desktop"],
     "sistemas_pos": ["pos", "punto de venta", "all in one", "todo en uno", "n200s", "n200", "touch", "segunda pantalla", "pantalla touch", "computador pos"],
     "rebobinadores_etiquetas": ["rebobinador", "rebobinadora", "rebobinar", "a6", "rollo"],
@@ -200,7 +200,7 @@ Cliente: "¿Qué lectores de código de barra tienen?"
 Respuesta del avatar: "Tenemos los modelos 6500, 9325, 9335, 2600, 2610, 9610 y el industrial IP68S. ¿De cuál te gustaría saber más?"
 
 Cliente: "¿Qué es el BARPOS 6500?"
-Respuesta del avatar: "El BARPOS 6500 es un lector imager para códigos 1D y 2D QR con cable USB, pedestal manos libres y 12 meses de garantía."
+Respuesta del avatar: "El BARPOS 6500 es un lector imagen para códigos 1D y 2D QR con cable USB, pedestal manos libres y 12 meses de garantía."
 
 Cliente: "¿Cuáles son sus sistemas POS?"
 Respuesta del avatar: "Contamos con el POS N200S y el N200S 2 con doble pantalla. ¿De cuál deseas conocer los detalles?"
@@ -220,7 +220,7 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
     Selecciona e inyecta de forma ultraligera el contexto del catálogo BARPOS
     relevante para la consulta del usuario.
     """
-    user_search = user_msg.lower()
+    user_search = re.sub(r'\b(barco|barcos|bar pos|varpos|varco)\b', 'barpos', user_msg.lower())
 
     # 1. Detectar si el usuario pregunta por un producto o modelo específico
     matched_prods = []
