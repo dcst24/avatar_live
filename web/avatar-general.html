@@ -272,7 +272,7 @@
             50% { opacity: 0.25; transform: scale(0.8); }
         }
 
-        /* ── Floating Action Buttons (Top & Bottom Bars) ────── */
+        /* ── Floating Action Buttons ─────────────────────────── */
         #top-actions {
             position: absolute;
             top: 18px;
@@ -319,7 +319,7 @@
             transform: translateY(-2px);
         }
 
-        /* ── Botón RUT Esquina Inferior Derecha (Gran Llamado de Acción) ── */
+        /* ── Botón RUT Esquina Inferior Derecha ──────────────── */
         #btn-rut-trigger {
             position: absolute;
             bottom: 24px;
@@ -504,7 +504,7 @@
 
         .modal-card {
             width: 100%;
-            max-width: 520px;
+            max-width: 540px;
             background: var(--surface-glass);
             border: 1px solid var(--border-glow);
             border-radius: var(--radius-lg);
@@ -520,7 +520,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .modal-title-group {
@@ -675,7 +675,6 @@
             transform: translateY(-2px);
         }
 
-        /* Demo RUT quick pills */
         .demo-rut-pills {
             display: flex;
             align-items: center;
@@ -853,13 +852,13 @@
             box-shadow: 0 4px 14px rgba(236, 0, 0, 0.5);
         }
 
-        /* ── MODAL MEDIOS DE PAGO & SANTANDER PROMO ───────────── */
+        /* ── MODAL MEDIOS DE PAGO & CUOTAS ───────────────────── */
         #santander-promo-banner {
             background: linear-gradient(135deg, rgba(236, 0, 0, 0.25), rgba(185, 28, 28, 0.35));
             border: 1px solid rgba(236, 0, 0, 0.5);
             border-radius: var(--radius-md);
-            padding: 16px;
-            margin-bottom: 20px;
+            padding: 14px 16px;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 14px;
@@ -875,44 +874,125 @@
         }
 
         .santander-logo-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
             background: #ec0000;
             display: flex;
             align-items: center;
             justify-content: center;
             color: #ffffff;
             font-weight: 800;
-            font-size: 22px;
+            font-size: 20px;
             box-shadow: 0 4px 16px rgba(236, 0, 0, 0.5);
             flex-shrink: 0;
         }
 
         .santander-promo-text h4 {
             font-family: var(--font-title);
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             color: #ffffff;
         }
 
         .santander-promo-text p {
-            font-size: 12px;
+            font-size: 11px;
             color: #fecaca;
             margin-top: 2px;
+        }
+
+        /* Selector de Cuotas */
+        #cuotas-section {
+            margin-bottom: 18px;
+            background: rgba(14, 14, 18, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: var(--radius-md);
+            padding: 14px;
+        }
+
+        .cuotas-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #d4d4d8;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .cuotas-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+        }
+
+        @media (max-width: 520px) {
+            .cuotas-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .cuota-card {
+            background: rgba(28, 28, 34, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            padding: 10px 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+        }
+
+        .cuota-card:hover {
+            background: rgba(45, 45, 55, 0.95);
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .cuota-card.active {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.35), rgba(67, 56, 202, 0.45));
+            border-color: #818cf8;
+            box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+        }
+
+        .cuota-num {
+            font-family: var(--font-title);
+            font-size: 13px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .cuota-val {
+            font-size: 11px;
+            font-weight: 600;
+            color: #34d399;
+        }
+
+        .cuota-tag {
+            font-size: 9px;
+            font-weight: 700;
+            color: #a1a1aa;
+            text-transform: uppercase;
+        }
+
+        .cuota-card.active .cuota-tag {
+            color: #c7d2fe;
         }
 
         .banks-list {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 8px;
         }
 
         .bank-item {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 16px;
+            padding: 10px 14px;
             background: rgba(28, 28, 34, 0.7);
             border: 1px solid rgba(255, 255, 255, 0.08);
             border-radius: var(--radius-md);
@@ -943,13 +1023,13 @@
         }
 
         .bank-bullet {
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
         }
 
         .bank-name {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 600;
             color: #fff;
         }
@@ -961,12 +1041,6 @@
             border-radius: 999px;
             background: rgba(255, 255, 255, 0.1);
             color: #a1a1aa;
-        }
-
-        .bank-badge.promo {
-            background: rgba(236, 0, 0, 0.25);
-            color: #fca5a5;
-            border: 1px solid rgba(236, 0, 0, 0.4);
         }
 
         /* ── MODAL SIMULADOR POS / CONTACTLESS ────────────────── */
@@ -987,13 +1061,13 @@
             background: #000;
             border: 1px solid rgba(255, 255, 255, 0.1);
             border-radius: 16px;
-            padding: 20px;
-            margin-bottom: 22px;
+            padding: 18px;
+            margin-bottom: 20px;
             box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
 
         .pos-screen-header {
@@ -1017,6 +1091,12 @@
             font-weight: 500;
         }
 
+        .pos-screen-cuotas {
+            font-size: 12px;
+            color: #93c5fd;
+            font-weight: 600;
+        }
+
         .pos-santander-alert {
             font-size: 11px;
             color: #f87171;
@@ -1029,12 +1109,12 @@
         /* NFC Contactless Animation */
         .nfc-animation-wrap {
             position: relative;
-            width: 120px;
-            height: 120px;
+            width: 110px;
+            height: 110px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 10px 0 20px 0;
+            margin: 6px 0 16px 0;
         }
 
         .nfc-wave {
@@ -1079,13 +1159,13 @@
             font-size: 14px;
             font-weight: 600;
             color: #f4f4f5;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
 
         .pos-subinstruction {
             font-size: 12px;
             color: var(--text-muted);
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .btn-simulate-tap {
@@ -1126,21 +1206,21 @@
         .voucher-header {
             text-align: center;
             border-bottom: 2px dashed #e4e4e7;
-            padding-bottom: 18px;
-            margin-bottom: 18px;
+            padding-bottom: 16px;
+            margin-bottom: 16px;
         }
 
         .voucher-success-icon {
-            width: 52px;
-            height: 52px;
+            width: 48px;
+            height: 48px;
             border-radius: 50%;
             background: #dcfce7;
             color: #16a34a;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin: 0 auto 10px auto;
-            font-size: 26px;
+            margin: 0 auto 8px auto;
+            font-size: 24px;
         }
 
         .voucher-title {
@@ -1159,9 +1239,9 @@
         .voucher-details {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 9px;
             font-size: 13px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .voucher-row {
@@ -1189,13 +1269,13 @@
             background: #eff6ff;
             border: 1px solid #bfdbfe;
             border-radius: var(--radius-sm);
-            padding: 12px;
+            padding: 10px 12px;
             font-size: 12px;
             color: #1e40af;
             display: flex;
             align-items: center;
             gap: 10px;
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
 
         .voucher-email-banner svg {
@@ -1416,7 +1496,7 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL 3: SELECCIÓN DE BANCO Y MEDIO DE PAGO                            -->
+    <!-- MODAL 3: SELECCIÓN DE BANCO Y MEDIO DE PAGO & CUOTAS                   -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <div id="modal-payment-methods" class="modal-backdrop">
         <div class="modal-card">
@@ -1424,8 +1504,8 @@
                 <div class="modal-title-group">
                     <div class="modal-title-icon" style="background: linear-gradient(135deg, #ec0000, #b91c1c);">💳</div>
                     <div>
-                        <div class="modal-title">Medio de Pago</div>
-                        <div class="modal-subtitle" id="payment-modal-subtitle">Selecciona tu banco o medio de pago</div>
+                        <div class="modal-title">Medio de Pago y Cuotas</div>
+                        <div class="modal-subtitle" id="payment-modal-subtitle">Selecciona tu modalidad de pago y banco</div>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closePaymentMethodsModal()">✕</button>
@@ -1436,7 +1516,37 @@
                 <div class="santander-logo-icon">S</div>
                 <div class="santander-promo-text">
                     <h4>Banco Santander (Recomendado)</h4>
-                    <p>🔥 20% Dcto Exclusivo y hasta 12 cuotas sin interés</p>
+                    <p>🔥 20% Dcto Exclusivo y 3, 6 hasta 12 cuotas sin interés</p>
+                </div>
+            </div>
+
+            <!-- Selector de Cuotas -->
+            <div id="cuotas-section">
+                <div class="cuotas-section-title">
+                    <span>💳 Modalidad de Cuotas:</span>
+                    <span id="cuotas-selected-label" style="color:#818cf8; font-size:12px;">3 Cuotas Sin Interés</span>
+                </div>
+                <div class="cuotas-grid">
+                    <div class="cuota-card" id="cuota-btn-1" onclick="selectCuotas(1)">
+                        <div class="cuota-num">1 Pago</div>
+                        <div class="cuota-val" id="cuota-val-1">$0</div>
+                        <div class="cuota-tag">Contado</div>
+                    </div>
+                    <div class="cuota-card active" id="cuota-btn-3" onclick="selectCuotas(3)">
+                        <div class="cuota-num">3 Cuotas</div>
+                        <div class="cuota-val" id="cuota-val-3">$0</div>
+                        <div class="cuota-tag" style="color:#34d399;">Sin Interés</div>
+                    </div>
+                    <div class="cuota-card" id="cuota-btn-6" onclick="selectCuotas(6)">
+                        <div class="cuota-num">6 Cuotas</div>
+                        <div class="cuota-val" id="cuota-val-6">$0</div>
+                        <div class="cuota-tag" style="color:#34d399;">Sin Interés</div>
+                    </div>
+                    <div class="cuota-card" id="cuota-btn-12" onclick="selectCuotas(12)">
+                        <div class="cuota-num">12 Cuotas</div>
+                        <div class="cuota-val" id="cuota-val-12">$0</div>
+                        <div class="cuota-tag">Santander</div>
+                    </div>
                 </div>
             </div>
 
@@ -1446,7 +1556,7 @@
                         <div class="bank-bullet" style="background: #002b66;"></div>
                         <span class="bank-name">Banco de Chile / Edwards</span>
                     </div>
-                    <span class="bank-badge">Hasta 6 Cuotas</span>
+                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('banco_estado')">
@@ -1462,7 +1572,7 @@
                         <div class="bank-bullet" style="background: #007a33;"></div>
                         <span class="bank-name">BCI</span>
                     </div>
-                    <span class="bank-badge">3 a 6 Cuotas</span>
+                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('scotiabank')">
@@ -1470,7 +1580,7 @@
                         <div class="bank-bullet" style="background: #ed0722;"></div>
                         <span class="bank-name">Scotiabank</span>
                     </div>
-                    <span class="bank-badge">Débito / Crédito</span>
+                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('transbank')">
@@ -1494,6 +1604,7 @@
                     <div class="pos-screen-header">FITLIFE POS TERMINAL #01</div>
                     <div class="pos-amount" id="pos-screen-total">$0</div>
                     <div class="pos-screen-plan" id="pos-screen-plan-name">Plan Seleccionado</div>
+                    <div class="pos-screen-cuotas" id="pos-screen-cuotas-text">Modalidad: 3 Cuotas Sin Interés</div>
                     <div class="pos-santander-alert" id="pos-screen-discount-tag" style="display:none;">20% DCTO SANTANDER APLICADO</div>
                 </div>
 
@@ -1550,6 +1661,10 @@
                         <span class="voucher-value" id="v-plan">Plan Semestral (6 Meses)</span>
                     </div>
                     <div class="voucher-row">
+                        <span class="voucher-label">Modalidad (Cuotas):</span>
+                        <span class="voucher-value" id="v-cuotas" style="color:#2563eb;">3 Cuotas Sin Interés</span>
+                    </div>
+                    <div class="voucher-row">
                         <span class="voucher-label">Medio de Pago:</span>
                         <span class="voucher-value" id="v-bank">Banco Santander</span>
                     </div>
@@ -1592,7 +1707,8 @@
                 email: "cliente@correo.cl"
             },
             selectedPlan: null,
-            selectedBank: null,
+            selectedBank: "santander",
+            selectedCuotas: 3,
             rutDigits: "",
             isRutIdentified: false,
             inPaymentFlow: false
@@ -1605,7 +1721,7 @@
         let _audioUnlocked = false;
 
         // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
-        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenas tardes', 'rut', 'plan', 'pagar'];
+        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenas tardes', 'rut', 'plan', 'pagar', 'cuotas'];
         let _conversationAwake = false;
         let _inactivityTimeoutId = null;
         let _followUpTimeoutId = null;
@@ -1625,6 +1741,7 @@
                     gymState.plans = json.data.planes || [];
                     gymState.banks = json.data.bancos || [];
                     renderPlansGrid();
+                    updateCuotasDisplay();
                     console.log('[FitLife] Datos cargados con éxito:', gymState.plans.length, 'planes');
                 }
             } catch (e) {
@@ -1685,7 +1802,6 @@
 
         function keypadPress(char) {
             if (gymState.rutDigits.length >= 9) return;
-            // Si presiona K, solo puede ser al final si ya tiene al menos 7 dígitos
             if (char === 'K') {
                 if (gymState.rutDigits.length >= 7 && !gymState.rutDigits.includes('K')) {
                     gymState.rutDigits += 'K';
@@ -1749,7 +1865,6 @@
                     showClientBadge(gymState.client);
                     closeRutModal();
 
-                    // Notificar al avatar y al LLM de la identificación de la cuenta
                     const msg = `Mi RUT es ${gymState.client.rut}`;
                     wakeUpModel();
                     sendToLLM(msg);
@@ -1772,7 +1887,7 @@
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // SELECCIÓN DE PLANES Y FLUJO DE COMPRA / PAGO
+        // SELECCIÓN DE PLANES, CUOTAS Y MEDIOS DE PAGO
         // ══════════════════════════════════════════════════════════════════════
         function openPlansModal() {
             const modal = document.getElementById('modal-plans');
@@ -1790,9 +1905,45 @@
             gymState.selectedPlan = plan;
             closePlansModal();
 
-            // Preguntar al avatar / LLM sobre la contratación del plan
+            updateCuotasDisplay();
+
             wakeUpModel();
             sendToLLM(`Quiero contratar el ${plan.nombre}`);
+        }
+
+        function selectCuotas(num) {
+            gymState.selectedCuotas = num;
+            [1, 3, 6, 12].forEach(n => {
+                const el = document.getElementById(`cuota-btn-${n}`);
+                if (el) {
+                    if (n === num) el.classList.add('active');
+                    else el.classList.remove('active');
+                }
+            });
+
+            const labelEl = document.getElementById('cuotas-selected-label');
+            if (labelEl) {
+                if (num === 1) labelEl.textContent = "1 Pago (Contado)";
+                else if (num === 3) labelEl.textContent = "3 Cuotas Sin Interés";
+                else if (num === 6) labelEl.textContent = "6 Cuotas Sin Interés";
+                else if (num === 12) labelEl.textContent = "12 Cuotas (Santander Sin Interés)";
+            }
+        }
+
+        function updateCuotasDisplay() {
+            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { precio: 34990, precio_santander: 27990 });
+            const isSantander = gymState.selectedBank === 'santander';
+            const baseAmount = isSantander ? plan.precio_santander : plan.precio;
+
+            const c1 = document.getElementById('cuota-val-1');
+            const c3 = document.getElementById('cuota-val-3');
+            const c6 = document.getElementById('cuota-val-6');
+            const c12 = document.getElementById('cuota-val-12');
+
+            if (c1) c1.textContent = `$${Number(baseAmount).toLocaleString('es-CL')}`;
+            if (c3) c3.textContent = `3x $${Number(Math.round(baseAmount / 3)).toLocaleString('es-CL')}`;
+            if (c6) c6.textContent = `6x $${Number(Math.round(baseAmount / 6)).toLocaleString('es-CL')}`;
+            if (c12) c12.textContent = `12x $${Number(Math.round(baseAmount / 12)).toLocaleString('es-CL')}`;
         }
 
         function openPaymentMethodsModal() {
@@ -1801,6 +1952,7 @@
             if (gymState.selectedPlan && subtitle) {
                 subtitle.textContent = `Pagando ${gymState.selectedPlan.nombre}`;
             }
+            updateCuotasDisplay();
             if (modal) modal.classList.add('open');
         }
 
@@ -1811,16 +1963,17 @@
 
         function selectPaymentBank(bankId) {
             gymState.selectedBank = bankId;
+            updateCuotasDisplay();
             closePaymentMethodsModal();
 
             const isSantander = bankId === 'santander';
             const bankName = isSantander ? "Banco Santander" : "otro banco";
+            const cuotas = gymState.selectedCuotas;
+            const cuotasText = cuotas === 1 ? "al contado" : `en ${cuotas} cuotas`;
 
-            // Enviar confirmación al avatar para que de la instrucción de pago
             wakeUpModel();
-            sendToLLM(`Voy a pagar con ${bankName}`);
+            sendToLLM(`Voy a pagar con ${bankName} ${cuotasText}`);
 
-            // Abrir simulador de POS
             setTimeout(() => {
                 openPosSimulator();
             }, 1000);
@@ -1833,15 +1986,27 @@
             const modal = document.getElementById('modal-pos-simulator');
             const totalEl = document.getElementById('pos-screen-total');
             const planEl = document.getElementById('pos-screen-plan-name');
+            const cuotasEl = document.getElementById('pos-screen-cuotas-text');
             const discountTag = document.getElementById('pos-screen-discount-tag');
             const cardGraphic = document.getElementById('pos-card-color');
 
             const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
             const isSantander = gymState.selectedBank === 'santander';
             const finalAmount = isSantander ? plan.precio_santander : plan.precio;
+            const cuotas = gymState.selectedCuotas || 1;
+            const montoCuota = Math.round(finalAmount / cuotas);
 
             if (totalEl) totalEl.textContent = `$${Number(finalAmount).toLocaleString('es-CL')}`;
             if (planEl) planEl.textContent = plan.nombre;
+            if (cuotasEl) {
+                if (cuotas === 1) {
+                    cuotasEl.textContent = "Modalidad: 1 Pago (Contado)";
+                } else if (cuotas === 3 || cuotas === 6 || (cuotas === 12 && isSantander)) {
+                    cuotasEl.textContent = `Modalidad: ${cuotas} Cuotas Sin Interés (${cuotas}x $${Number(montoCuota).toLocaleString('es-CL')})`;
+                } else {
+                    cuotasEl.textContent = `Modalidad: ${cuotas} Cuotas (${cuotas}x $${Number(montoCuota).toLocaleString('es-CL')})`;
+                }
+            }
             if (discountTag) discountTag.style.display = isSantander ? 'block' : 'none';
 
             if (cardGraphic) {
@@ -1878,6 +2043,7 @@
                     body: JSON.stringify({
                         plan_id: plan.id,
                         banco_id: gymState.selectedBank || 'santander',
+                        cuotas: gymState.selectedCuotas || 1,
                         rut: gymState.client.rut || '12.345.678-5',
                         nombre: gymState.client.nombre || 'Socio FitLife',
                         email: gymState.client.email || 'cliente@correo.cl'
@@ -1885,7 +2051,6 @@
                 });
                 const json = await res.json();
 
-                // Esperar 3 segundos para una simulación ultra realista
                 setTimeout(() => {
                     closePosSimulator();
                     if (btn) {
@@ -1909,6 +2074,7 @@
             document.getElementById('v-datetime').textContent = data.fecha;
             document.getElementById('v-rut').textContent = data.cliente.rut;
             document.getElementById('v-plan').textContent = data.plan.nombre;
+            document.getElementById('v-cuotas').textContent = data.texto_cuotas || `${data.cuotas} Cuotas`;
             document.getElementById('v-bank').textContent = data.banco;
             document.getElementById('v-total').textContent = `$${Number(data.monto_pagado).toLocaleString('es-CL')}`;
             document.getElementById('v-email').textContent = data.email_comprobante;
@@ -1926,7 +2092,6 @@
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.add('open');
 
-            // El avatar confirma verbalmente que el pago fue exitoso
             const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas realizar alguna otra consulta?`;
             queueAvatarBubble(confirmationSpeech);
             sendEchoSpeech(confirmationSpeech);
@@ -2153,7 +2318,6 @@
 
                 const lower = rawText.toLowerCase();
 
-                // Detección de Wake-word o intención
                 if (!_conversationAwake) {
                     if (WAKE_WORDS.some(w => lower.includes(w))) {
                         wakeUpModel();
@@ -2246,13 +2410,36 @@
                 return;
             }
 
-            // 4. Intención de selección de Santander
+            // 4. Intención de selección de Cuotas por voz
+            if (clean.includes('1 cuota') || clean.includes('al contado') || clean.includes('un pago') || clean.includes('sin cuota') || clean.includes('0 cuota')) {
+                selectCuotas(1);
+            } else if (clean.includes('3 cuotas') || clean.includes('tres cuotas')) {
+                selectCuotas(3);
+            } else if (clean.includes('6 cuotas') || clean.includes('seis cuotas')) {
+                selectCuotas(6);
+            } else if (clean.includes('12 cuotas') || clean.includes('doce cuotas')) {
+                selectCuotas(12);
+            }
+
+            // 5. Intención de selección de Banco por voz
             if (clean.includes('santander') || clean.includes('tarjeta santander')) {
                 selectPaymentBank('santander');
                 return;
+            } else if (clean.includes('banco chile') || clean.includes('banco de chile') || clean.includes('edwards')) {
+                selectPaymentBank('banco_chile');
+                return;
+            } else if (clean.includes('banco estado') || clean.includes('cuenta rut') || clean.includes('cuenta_rut') || clean.includes('cuentarut')) {
+                selectPaymentBank('banco_estado');
+                return;
+            } else if (clean.includes('bci')) {
+                selectPaymentBank('bci');
+                return;
+            } else if (clean.includes('scotiabank')) {
+                selectPaymentBank('scotiabank');
+                return;
             }
 
-            // 5. Intención de selección de Plan por voz
+            // 6. Intención de selección de Plan por voz
             if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual')) {
                 gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
             } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral')) {
@@ -2263,7 +2450,6 @@
                 gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
             }
 
-            // Enviar al LLM normalmente
             wakeUpModel();
             sendToLLM(text);
         }
@@ -2405,7 +2591,6 @@
                 setTimeout(connectRTC, 800);
             }
 
-            // Desbloqueo global de audio con cualquier toque
             const _globalUnlockAudio = () => {
                 const videoEl = document.getElementById('video');
                 if (videoEl && videoEl.muted) {

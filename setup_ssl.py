@@ -1,4 +1,4 @@
-"""
+r"""
 setup_ssl.py  –  Arranca el servidor con HTTPS usando certificado de CA local
                  (confiable por cualquier PC de la red, micrófono funciona sin advertencias)
 

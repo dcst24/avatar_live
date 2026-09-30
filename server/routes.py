@@ -305,7 +305,7 @@ async def get_gym_cliente(request):
 
 
 async def post_simular_pago(request):
-    """Simular transacción de pago POS / Webpay para FitLife Gym"""
+    """Simular transacción de pago POS / Webpay para FitLife Gym con cuotas"""
     try:
         import datetime
         import random
@@ -316,6 +316,12 @@ async def post_simular_pago(request):
         rut = params.get('rut', '12.345.678-5')
         cliente_nombre = params.get('nombre', 'Socio FitLife')
         cliente_email = params.get('email', 'cliente@correo.cl')
+        cuotas_solicitadas = int(params.get('cuotas', 1))
+
+        if cuotas_solicitadas not in [1, 3, 6, 12]:
+            cuotas = 1
+        else:
+            cuotas = cuotas_solicitadas
 
         path = 'web/data/gym_data.json' if os.path.exists('web/data/gym_data.json') else 'data/gym_data.json'
         with open(path, 'r', encoding='utf-8') as f:
@@ -334,6 +340,14 @@ async def post_simular_pago(request):
         monto_original = plan.get('precio', 34990)
         descuento = int(monto_original * 0.20) if es_santander else 0
         monto_pagado = monto_original - descuento
+        monto_cuota = int(round(monto_pagado / cuotas))
+
+        if cuotas == 1:
+            texto_cuotas = "1 Pago (Contado)"
+        elif cuotas in [3, 6] or (cuotas == 12 and es_santander):
+            texto_cuotas = f"{cuotas} Cuotas Sin Interés ({cuotas}x ${monto_cuota:,})".replace(',', '.')
+        else:
+            texto_cuotas = f"{cuotas} Cuotas ({cuotas}x ${monto_cuota:,})".replace(',', '.')
 
         now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         op_num = f"OP-{random.randint(100000, 999999)}"
@@ -359,10 +373,13 @@ async def post_simular_pago(request):
             "monto_original": monto_original,
             "descuento": descuento,
             "monto_pagado": monto_pagado,
+            "cuotas": cuotas,
+            "monto_cuota": monto_cuota,
+            "texto_cuotas": texto_cuotas,
             "fecha": now_str,
             "email_comprobante": cliente_email
         }
-        logger.info(f"[Pago Simulado] Plan: {plan['nombre']} | RUT: {rut} | Banco: {banco_nombre} | Monto: ${monto_pagado:,}")
+        logger.info(f"[Pago Simulado] Plan: {plan['nombre']} | Cuotas: {texto_cuotas} | RUT: {rut} | Banco: {banco_nombre} | Monto: ${monto_pagado:,}")
         return json_ok(data=comprobante)
     except Exception as e:
         logger.exception('post_simular_pago exception:')

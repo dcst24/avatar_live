@@ -5,6 +5,33 @@
     "descripcion": "Centro de entrenamiento integral con tecnología de punta, salas de musculación, cardio, spinning, yoga, funcional y asesoría personalizada.",
     "horarios": "Lunes a Viernes 06:00 a 23:00 hrs. Sábados y Domingos 08:00 a 20:00 hrs."
   },
+  "opciones_cuotas": [
+    {
+      "cuotas": 1,
+      "nombre": "1 Pago (Contado)",
+      "sin_interes": true,
+      "badge": "0 Cuotas / Contado"
+    },
+    {
+      "cuotas": 3,
+      "nombre": "3 Cuotas Sin Interés",
+      "sin_interes": true,
+      "badge": "3x Sin Interés"
+    },
+    {
+      "cuotas": 6,
+      "nombre": "6 Cuotas Sin Interés",
+      "sin_interes": true,
+      "badge": "6x Sin Interés"
+    },
+    {
+      "cuotas": 12,
+      "nombre": "12 Cuotas",
+      "sin_interes": false,
+      "badge": "Hasta 12 Cuotas",
+      "santander_sin_interes": true
+    }
+  ],
   "planes": [
     {
       "id": "plan_1m",
@@ -38,7 +65,7 @@
         "Todos los beneficios del Plan Mensual",
         "1 Escaneo corporal InBody de bioimpedancia",
         "Pauta de entrenamiento personalizada",
-        "Hasta 3 cuotas sin interés con Santander"
+        "Hasta 3 y 6 cuotas sin interés"
       ]
     },
     {
@@ -57,7 +84,7 @@
         "2 Evaluaciones InBody y seguimiento",
         "2 Pases gratis para amigos al mes",
         "Congelamiento de plan hasta 15 días",
-        "Hasta 6 cuotas sin interés"
+        "3 y 6 cuotas sin interés"
       ]
     },
     {
@@ -78,7 +105,7 @@
         "Asesoría nutricional trimestral",
         "Congelamiento de membresía por hasta 30 días",
         "Pack de bienvenida y toalla deportiva FitLife",
-        "Hasta 12 cuotas sin interés"
+        "Hasta 12 cuotas sin interés con Santander"
       ]
     }
   ],
@@ -89,25 +116,25 @@
       "tipo": "destacado",
       "descuento_pct": 20,
       "badge": "20% DCTO EXCLUSIVO",
-      "cuotas": "Hasta 12 Cuotas Sin Interés",
+      "cuotas": "3, 6 y 12 Cuotas Sin Interés",
       "color": "#ec0000",
-      "descripcion": "20% de descuento automático y hasta 12 cuotas sin interés con tarjetas de débito o crédito Santander."
+      "descripcion": "20% de descuento automático y 3, 6 hasta 12 cuotas sin interés con tarjetas Santander."
     },
     {
       "id": "banco_chile",
       "nombre": "Banco de Chile / Edwards",
       "tipo": "banco",
       "descuento_pct": 0,
-      "cuotas": "Hasta 6 Cuotas Sin Interés",
+      "cuotas": "3 y 6 Cuotas Sin Interés",
       "color": "#002b66",
-      "descripcion": "Pago con tarjetas de crédito y débito Banco de Chile y Edwards."
+      "descripcion": "Pago al contado, 3 y 6 cuotas sin interés o hasta 12 cuotas."
     },
     {
       "id": "banco_estado",
       "nombre": "BancoEstado / CuentaRUT",
       "tipo": "banco",
       "descuento_pct": 0,
-      "cuotas": "Débito y Crédito",
+      "cuotas": "Débito / Crédito 3 y 6 Cuotas Sin Interés",
       "color": "#ff6600",
       "descripcion": "Pago directo con CuentaRUT o tarjetas de crédito BancoEstado."
     },
@@ -116,7 +143,7 @@
       "nombre": "BCI",
       "tipo": "banco",
       "descuento_pct": 0,
-      "cuotas": "Hasta 6 Cuotas Sin Interés",
+      "cuotas": "3 y 6 Cuotas Sin Interés",
       "color": "#007a33",
       "descripcion": "Pago con tarjetas de crédito y débito BCI."
     },
@@ -125,7 +152,7 @@
       "nombre": "Scotiabank",
       "tipo": "banco",
       "descuento_pct": 0,
-      "cuotas": "Débito y Crédito",
+      "cuotas": "3 y 6 Cuotas Sin Interés",
       "color": "#ed0722",
       "descripcion": "Pago con tarjetas Scotiabank."
     },
@@ -134,7 +161,7 @@
       "nombre": "Itaú",
       "tipo": "banco",
       "descuento_pct": 0,
-      "cuotas": "Débito y Crédito",
+      "cuotas": "3 y 6 Cuotas Sin Interés",
       "color": "#ec7000",
       "descripcion": "Pago con tarjetas Itaú."
     },
@@ -143,7 +170,7 @@
       "nombre": "Webpay / Tarjeta General",
       "tipo": "general",
       "descuento_pct": 0,
-      "cuotas": "Redcompra y Crédito",
+      "cuotas": "Contado, 3, 6 y 12 Cuotas",
       "color": "#2563eb",
       "descripcion": "Cualquier otra tarjeta de crédito o débito nacional o internacional."
     }
