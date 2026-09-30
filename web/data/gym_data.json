@@ -41,7 +41,7 @@
       "precio": 34990,
       "precio_santander": 27990,
       "descuento_santander_pct": 20,
-      "descripcion": "Acceso ilimitado a sala de musculación, cardio y todas las clases dirigidas del gimnasio durante 1 mes.",
+      "descripcion": "Acceso ilimitado a sala de musculación, cardio y todas las clases dirigidas del gimnasio durante un mes.",
       "caracteristicas": [
         "Acceso ilimitado a máquinas y cardio",
         "Clases dirigidas: Spinning, Funcional, Yoga",
@@ -60,10 +60,10 @@
       "descuento_santander_pct": 20,
       "precio_mensual_aprox": 29990,
       "ahorro_texto": "Ahorras $14.980 vs mes a mes ($29.990/mes)",
-      "descripcion": "3 meses de acceso total con 1 escaneo corporal InBody y plan de entrenamiento personalizado.",
+      "descripcion": "3 meses de acceso total con un escaneo corporal InBody y plan de entrenamiento personalizado.",
       "caracteristicas": [
         "Todos los beneficios del Plan Mensual",
-        "1 Escaneo corporal InBody de bioimpedancia",
+        "Un escaneo corporal InBody de bioimpedancia",
         "Pauta de entrenamiento personalizada",
         "Hasta 3 y 6 cuotas sin interés"
       ]

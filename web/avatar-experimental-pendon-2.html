@@ -2421,6 +2421,48 @@
             isListening = false;
         }
 
+        function isAskingForPlansOrPrices(clean) {
+            // Verbos de consulta o solicitud
+            const showVerbs = [
+                'muestrame', 'muéstrame', 'mostrar', 'mostrame', 'mostra', 'ver', 'enseña', 'enseñame',
+                'muestramelo', 'muéstramelo', 'muestramelos', 'muéstramelos', 'dime', 'saber', 'conocer',
+                'quiero saber', 'quiero ver', 'quiero conocer', 'cuentame', 'cuéntame', 'darme', 'dar'
+            ];
+            // Temas relacionados con membresías, planes y valores
+            const planTopics = [
+                'plan', 'planes', 'precio', 'precios', 'valor', 'valores', 'tarifa', 'tarifas',
+                'costo', 'costos', 'membresia', 'membresía', 'membresias', 'opcion', 'opciones',
+                'promocion', 'promociones', 'oferta', 'ofertas', 'catalogo', 'catálogo'
+            ];
+
+            // Coincidencia combinada de verbo + tema (ej: "si muestrame", "quiero saber los precios")
+            const hasShowVerb = showVerbs.some(v => clean.includes(v));
+            const hasPlanTopic = planTopics.some(t => clean.includes(t));
+            if (hasShowVerb && hasPlanTopic) return true;
+
+            // Frases típicas directas
+            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('muestrame') ||
+                clean.includes('muéstrame') || clean.includes('que planes') || clean.includes('cuales son los planes') ||
+                clean.includes('cuales planes') || clean.includes('cuanto cuesta') || clean.includes('cuánto cuesta') ||
+                clean.includes('cuanto vale') || clean.includes('cuánto vale') || clean.includes('que precio') ||
+                clean.includes('los precios') || clean.includes('saber los precios') || clean.includes('ver los precios') ||
+                clean.includes('valores de los planes') || clean.includes('tarifas') ||
+                clean === 'planes' || clean === 'precios' || clean === 'tarifas' || clean === 'valores' ||
+                clean === 'membresias' || clean === 'membresías') {
+                return true;
+            }
+
+            // Respuestas afirmativas que confirman querer ver los planes (ej: "si", "si muestrame", "si por favor", "claro", "dale")
+            const affirmativeStarts = ['si', 'sí', 'claro', 'por supuesto', 'bueno', 'dale', 'ok', 'okay', 'por favor', 'obvio', 'ya', 'vale', 'muéstramelos', 'muestramelos', 'adelante', 'perfecto'];
+            for (const aff of affirmativeStarts) {
+                if (clean === aff || clean.startsWith(aff + ' ') || clean.endsWith(' ' + aff)) {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         // ─── Procesar entrada del usuario (Voz & Intenciones UI) ────────────────
         function processUserSpeechInput(text) {
             const clean = text.toLowerCase().trim();
@@ -2450,7 +2492,7 @@
                 return;
             }
 
-            // 3. Intenciones de apertura de modales por voz
+            // 3. Intenciones de apertura de modales por voz (RUT)
             if (clean.includes('abrir rut') || clean.includes('digitar rut') || clean.includes('poner rut') || clean.includes('escribir rut') || clean.includes('teclado')) {
                 openRutModal();
                 wakeUpModel();
@@ -2458,30 +2500,15 @@
                 return;
             }
 
-            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('muestrame los planes') || clean.includes('muéstrame los planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes') || clean.includes('ver los planes') || clean.includes('planes y membresias') || clean === 'planes' || clean === 'membresias' || clean === 'membresías') {
-                openPlansModal();
-                wakeUpModel();
-                sendToLLM(text);
-                return;
-            }
-
-            // Si responde que sí o afirmativo cuando el avatar ofrece ver los planes
-            if (clean === 'si' || clean === 'sí' || clean === 'si por favor' || clean === 'sí por favor' || clean === 'claro' || clean === 'bueno' || clean === 'dale' || clean === 'muéstramelos' || clean === 'muestramelos') {
-                openPlansModal();
-                wakeUpModel();
-                sendToLLM(text);
-                return;
-            }
-
-            // 4. Intención de selección de Plan por voz
+            // 4. Intención de selección de Plan específico por voz (prioridad antes de abrir catálogo general)
             let planSelectedByVoice = null;
-            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual')) {
+            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual') || clean.includes('el de un') || clean.includes('el de 1')) {
                 planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
-            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral')) {
+            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral') || clean.includes('el de 3') || clean.includes('el de tres')) {
                 planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
-            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral')) {
+            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral') || clean.includes('el de 6') || clean.includes('el de seis')) {
                 planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
-            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año') || clean.includes('vip')) {
+            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año') || clean.includes('vip') || clean.includes('el de 12') || clean.includes('el de doce')) {
                 planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
             }
 
@@ -2489,9 +2516,20 @@
                 gymState.selectedPlan = planSelectedByVoice;
                 closePlansModal();
                 updateCuotasDisplay();
+                wakeUpModel();
+                sendToLLM(text);
+                return;
             }
 
-            // 5. Intención de selección de Cuotas por voz
+            // 5. Intención de ver planes, consultar precios o respuesta afirmativa
+            if (isAskingForPlansOrPrices(clean)) {
+                openPlansModal();
+                wakeUpModel();
+                sendToLLM(text);
+                return;
+            }
+
+            // 6. Intención de selección de Cuotas por voz
             if (clean.includes('1 cuota') || clean.includes('al contado') || clean.includes('un pago') || clean.includes('sin cuota') || clean.includes('0 cuota')) {
                 selectCuotas(1);
             } else if (clean.includes('3 cuotas') || clean.includes('tres cuotas')) {
@@ -2502,7 +2540,7 @@
                 selectCuotas(12);
             }
 
-            // 6. Intención de selección de Banco por voz
+            // 7. Intención de selección de Banco por voz
             if (clean.includes('santander') || clean.includes('tarjeta santander')) {
                 selectPaymentBank('santander');
                 return;
@@ -2608,6 +2646,10 @@
                         if (!gymState.isRutIdentified) {
                             setTimeout(openRutModal, 1200);
                         }
+                    }
+
+                    if (lowerReply.includes('tenemos planes') || lowerReply.includes('ofrecemos planes') || lowerReply.includes('los precios son') || lowerReply.includes('nuestros planes son') || lowerReply.includes('aquí están los planes') || lowerReply.includes('aqui estan los planes')) {
+                        setTimeout(openPlansModal, 800);
                     }
 
                     if (lowerReply.includes('medio de pago') || lowerReply.includes('número de cuotas') || (lowerReply.includes('cuotas') && lowerReply.includes('selecciona')) || (lowerReply.includes('santander') && lowerReply.includes('descuento') && lowerReply.includes('selecciona'))) {
