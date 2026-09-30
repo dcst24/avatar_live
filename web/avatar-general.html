@@ -2294,14 +2294,26 @@
 
             let _pendingCommitTimeout = null;
             let _lastInterim = '';
+            let _questionDispatched = false;
+
+            const _dispatchQuestion = (rawText) => {
+                if (_questionDispatched) return;
+                _questionDispatched = true;
+                clearTimeout(_pendingCommitTimeout);
+                _lastInterim = '';
+                stopAlwaysOnListening();
+                processUserSpeechInput(rawText);
+            };
 
             rec.onstart = () => {
                 isListening = true;
+                _questionDispatched = false;
+                _lastInterim = '';
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
             };
 
             rec.onresult = (event) => {
-                if (isSpeaking) return;
+                if (isSpeaking || _questionDispatched) return;
 
                 let interim = '';
                 let final = '';
@@ -2330,24 +2342,42 @@
 
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
-                    processUserSpeechInput(final);
-                } else if (_conversationAwake && interim) {
-                    _lastInterim = interim.trim();
+                    _dispatchQuestion(final);
+                } else if (_conversationAwake && interim && !_questionDispatched) {
+                    const cleanInterim = interim.trim();
+                    _lastInterim = cleanInterim;
+
+                    const words = cleanInterim.split(/\s+/).length;
+                    const delayMs = (words <= 2) ? 750 : ((words <= 5) ? 950 : 1200);
+
                     clearTimeout(_pendingCommitTimeout);
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && _lastInterim) {
+                        if (_conversationAwake && _lastInterim && !_questionDispatched) {
                             try { rec.stop(); } catch (e) {}
-                            processUserSpeechInput(_lastInterim);
+                            _dispatchQuestion(_lastInterim);
                         }
-                    }, 1000);
+                    }, delayMs);
                 }
             };
 
-            rec.onerror = () => { isListening = false; };
+            rec.onerror = () => {
+                isListening = false;
+            };
+
             rec.onend = () => {
                 isListening = false;
-                if (!isSpeaking && isConnected) {
-                    setTimeout(startAlwaysOnListening, 250);
+                clearTimeout(_pendingCommitTimeout);
+                if (_conversationAwake && _lastInterim && !_questionDispatched) {
+                    const txt = _lastInterim;
+                    _dispatchQuestion(txt);
+                    return;
+                }
+                if (!isSpeaking && isConnected && !_questionDispatched) {
+                    setTimeout(() => {
+                        if (!isSpeaking && isConnected && !isListening) {
+                            startAlwaysOnListening();
+                        }
+                    }, 250);
                 }
             };
 
@@ -2378,7 +2408,7 @@
             console.log("[FitLife User Speech]:", clean);
 
             // 1. Detección de despedida / cierre
-            const sleepWords = ['no', 'no gracias', 'nada mas', 'chao', 'adios', 'eso es todo', 'muchas gracias'];
+            const sleepWords = ['no', 'no gracias', 'nada mas', 'nada más', 'chao', 'adios', 'adiós', 'eso es todo', 'muchas gracias'];
             if (sleepWords.some(w => clean === w || clean.startsWith(w + ' '))) {
                 sendToLLM(text, true);
                 sleepModel();
@@ -2391,6 +2421,7 @@
                 const foundRut = rutMatch[1].replace(/\./g, '').replace(/-/g, '').toUpperCase();
                 gymState.rutDigits = foundRut;
                 updateRutDisplay();
+                closeRutModal();
                 submitRutKeypad();
                 return;
             }
@@ -2403,14 +2434,32 @@
                 return;
             }
 
-            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes')) {
+            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('muestrame los planes') || clean.includes('muéstrame los planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes')) {
                 openPlansModal();
                 wakeUpModel();
                 sendToLLM(text);
                 return;
             }
 
-            // 4. Intención de selección de Cuotas por voz
+            // 4. Intención de selección de Plan por voz
+            let planSelectedByVoice = null;
+            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual')) {
+                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
+            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral')) {
+                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
+            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral')) {
+                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
+            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año') || clean.includes('vip')) {
+                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
+            }
+
+            if (planSelectedByVoice) {
+                gymState.selectedPlan = planSelectedByVoice;
+                closePlansModal();
+                updateCuotasDisplay();
+            }
+
+            // 5. Intención de selección de Cuotas por voz
             if (clean.includes('1 cuota') || clean.includes('al contado') || clean.includes('un pago') || clean.includes('sin cuota') || clean.includes('0 cuota')) {
                 selectCuotas(1);
             } else if (clean.includes('3 cuotas') || clean.includes('tres cuotas')) {
@@ -2421,7 +2470,7 @@
                 selectCuotas(12);
             }
 
-            // 5. Intención de selección de Banco por voz
+            // 6. Intención de selección de Banco por voz
             if (clean.includes('santander') || clean.includes('tarjeta santander')) {
                 selectPaymentBank('santander');
                 return;
@@ -2439,24 +2488,25 @@
                 return;
             }
 
-            // 6. Intención de selección de Plan por voz
-            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual')) {
-                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
-            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral')) {
-                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
-            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral')) {
-                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
-            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año')) {
-                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
-            }
-
             wakeUpModel();
             sendToLLM(text);
         }
 
         // ─── Enviar al LLM con Streaming ─────────────────────────────────────────
+        let _lastSentLLMText = '';
+        let _lastSentLLMTime = 0;
+
         async function sendToLLM(text, isSleep = false) {
             if (!text) return;
+            const now = Date.now();
+            const cleanText = text.trim().toLowerCase();
+            if (cleanText === _lastSentLLMText && (now - _lastSentLLMTime) < 1500) {
+                console.warn("[FitLife] Descartando texto duplicado:", text);
+                return;
+            }
+            _lastSentLLMText = cleanText;
+            _lastSentLLMTime = now;
+
             stopAlwaysOnListening();
             setState('thinking', 'Pensando…');
             addChatBubble('user', text);
@@ -2524,7 +2574,7 @@
                     setTimeout(openPlansModal, 1500);
                 }
 
-                if (lowerReply.includes('santander') && lowerReply.includes('otro banco')) {
+                if (lowerReply.includes('santander') && (lowerReply.includes('otro banco') || lowerReply.includes('deseas pagar'))) {
                     setTimeout(openPaymentMethodsModal, 1200);
                 }
 

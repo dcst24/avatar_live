@@ -117,12 +117,8 @@ async def human(request):
                     async for chunk in async_gen:
                         await response.write(chunk.encode('utf-8'))
                     await response.write_eof()
-                except (asyncio.CancelledError, ConnectionResetError):
-                    logger.info(f"[Routes] Streaming SSE cancelado por cliente para sesión: {sessionid}")
-                    abort_gen = request.app.get("abort_generation")
-                    if abort_gen and sessionid:
-                        abort_gen(sessionid)
-                    raise
+                except (asyncio.CancelledError, ConnectionResetError, Exception) as stream_err:
+                    logger.info(f"[Routes] Streaming SSE cerrado/cancelado para sesión {sessionid}: {type(stream_err).__name__}")
                 return response
             else:
                 llm_response = request.app.get("llm_response")

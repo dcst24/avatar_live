@@ -82,28 +82,29 @@ OLLAMA_MODEL = "qwen3-vl:32b-instruct"
 OLLAMA_NUM_CTX = int(os.environ.get("OLLAMA_NUM_CTX", "4096"))
 
 # ─── Control cooperativo de cancelación de streaming por sesión ──────────────
-_cancelled_sessions: set = set()
-_cancelled_sessions_lock = threading.Lock()
+_generation_counters: dict = {}
+_generation_lock = threading.Lock()
 
 def abort_generation(sessionid: str):
-    """Marca la sesión para abortar inmediatamente el streaming del LLM."""
+    """Marca la sesión para abortar inmediatamente cualquier streaming activo del LLM."""
     if not sessionid:
         return
-    with _cancelled_sessions_lock:
-        _cancelled_sessions.add(sessionid)
+    with _generation_lock:
+        _generation_counters[sessionid] = _generation_counters.get(sessionid, 0) + 1
     logger.info(f"[LLM] Generación abortada para sesión: {sessionid}")
 
-def _is_cancelled(sessionid: str) -> bool:
+def start_new_generation(sessionid: str) -> int:
+    """Inicia una nueva generación y retorna el identificador único de generación."""
+    with _generation_lock:
+        gen_id = _generation_counters.get(sessionid, 0) + 1
+        _generation_counters[sessionid] = gen_id
+        return gen_id
+
+def _is_cancelled(sessionid: str, gen_id: int) -> bool:
     if not sessionid:
         return False
-    with _cancelled_sessions_lock:
-        return sessionid in _cancelled_sessions
-
-def _clear_cancellation(sessionid: str):
-    if not sessionid:
-        return
-    with _cancelled_sessions_lock:
-        _cancelled_sessions.discard(sessionid)
+    with _generation_lock:
+        return _generation_counters.get(sessionid, 0) != gen_id
 
 # ─── Carga dinámica de datos del Gimnasio ────────────────────────────────────
 _GYM_DATA_PATH = os.path.join(os.path.dirname(__file__), "web", "data", "gym_data.json")
@@ -321,10 +322,10 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
     Mantiene historial de conversación por sesión.
     """
     sessionid: str = datainfo.get("sessionid", "")
-    _clear_cancellation(sessionid)
+    gen_id = start_new_generation(sessionid) if sessionid else 0
     try:
         start = time.perf_counter()
-        logger.info(f"[LLM Stream] Enviando mensaje (sesión={sessionid}): {message}")
+        logger.info(f"[LLM Stream] Enviando mensaje (sesión={sessionid}, gen={gen_id}): {message}")
 
         payload = {
             "model": OLLAMA_MODEL,
@@ -345,8 +346,8 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         full_text = ""
 
         for line in response.iter_lines():
-            if _is_cancelled(sessionid):
-                logger.info(f"[LLM Stream] Cancelación detectada en iteración para sesión: {sessionid}")
+            if _is_cancelled(sessionid, gen_id):
+                logger.info(f"[LLM Stream] Cancelación detectada en iteración para sesión: {sessionid} (gen={gen_id})")
                 break
             if not line:
                 continue
@@ -360,13 +361,13 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                 full_text += content
                 yield content
 
-                if _is_cancelled(sessionid):
+                if _is_cancelled(sessionid, gen_id):
                     break
 
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        if not _is_cancelled(sessionid) and full_text.strip():
+        if not _is_cancelled(sessionid, gen_id) and full_text.strip():
             clean_text = normalizar(full_text.strip())
             if clean_text:
                 logger.info(f"[LLM Stream] -> avatar (completo fluido): {clean_text}")
@@ -374,9 +375,10 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
             _append_to_history(sessionid, message, clean_text)
 
         elapsed = time.perf_counter() - start
-        logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s (cancelado={_is_cancelled(sessionid)}), total chars={len(full_text)}")
+        cancelled = _is_cancelled(sessionid, gen_id)
+        logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s (cancelado={cancelled}), total chars={len(full_text)}")
 
     except Exception as e:
-        if not _is_cancelled(sessionid):
+        if not _is_cancelled(sessionid, gen_id):
             logger.exception("[LLM Stream] Error:")
             yield f"Disculpa, ocurrió un error al procesar tu solicitud: {str(e)}"
