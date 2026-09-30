@@ -1983,6 +1983,10 @@
         // SIMULADOR TERMINAL POS / CONTACTLESS
         // ══════════════════════════════════════════════════════════════════════
         function openPosSimulator() {
+            closePaymentMethodsModal();
+            closePlansModal();
+            closeRutModal();
+
             const modal = document.getElementById('modal-pos-simulator');
             const totalEl = document.getElementById('pos-screen-total');
             const planEl = document.getElementById('pos-screen-plan-name');
@@ -2070,6 +2074,11 @@
 
         let _voucherAutoCloseTimer = null;
         function showVoucher(data) {
+            closePaymentMethodsModal();
+            closePlansModal();
+            closeRutModal();
+            closePosSimulator();
+
             document.getElementById('v-op-num').textContent = data.codigo_operacion;
             document.getElementById('v-auth-code').textContent = data.codigo_autorizacion;
             document.getElementById('v-datetime').textContent = data.fecha;
@@ -2576,22 +2585,27 @@
 
                 // Detección de disparadores inteligentes en la respuesta del avatar
                 const lowerReply = fullText.toLowerCase();
-                if (lowerReply.includes('digita tu rut') || lowerReply.includes('indícame o digita') || lowerReply.includes('digitar tu rut') || lowerReply.includes('teclado en pantalla')) {
-                    if (!gymState.isRutIdentified) {
-                        setTimeout(openRutModal, 1200);
+                const isRedirectingToPayment = lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta') || lowerReply.includes('lector');
+
+                if (isRedirectingToPayment) {
+                    closePaymentMethodsModal();
+                    closePlansModal();
+                    closeRutModal();
+                    setTimeout(openPosSimulator, 600);
+                } else {
+                    if (lowerReply.includes('digita tu rut') || lowerReply.includes('indícame o digita') || lowerReply.includes('digitar tu rut') || lowerReply.includes('teclado en pantalla')) {
+                        if (!gymState.isRutIdentified) {
+                            setTimeout(openRutModal, 1200);
+                        }
                     }
-                }
 
-                if (lowerReply.includes('planes') && (lowerReply.includes('tenemos') || lowerReply.includes('ofrecemos'))) {
-                    setTimeout(openPlansModal, 1500);
-                }
+                    if (lowerReply.includes('planes') && (lowerReply.includes('tenemos') || lowerReply.includes('ofrecemos') || lowerReply.includes('conocer'))) {
+                        setTimeout(openPlansModal, 1200);
+                    }
 
-                if (lowerReply.includes('medio de pago') || lowerReply.includes('cuotas') || lowerReply.includes('santander')) {
-                    setTimeout(openPaymentMethodsModal, 1000);
-                }
-
-                if (lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta')) {
-                    setTimeout(openPosSimulator, 1000);
+                    if (lowerReply.includes('medio de pago') || lowerReply.includes('número de cuotas') || (lowerReply.includes('cuotas') && lowerReply.includes('selecciona')) || (lowerReply.includes('santander') && lowerReply.includes('descuento'))) {
+                        setTimeout(openPaymentMethodsModal, 1000);
+                    }
                 }
 
             } catch (err) {
