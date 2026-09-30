@@ -1393,7 +1393,7 @@
             <!-- Status Badge -->
             <div id="status-badge">
                 <div id="status-dot"></div>
-                <span id="status-text">Conectando…</span>
+                <span id="status-text">Esperando activación…</span>
             </div>
 
             <!-- Stop Talk Button -->
@@ -1721,8 +1721,8 @@
         let _audioUnlocked = false;
 
         // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
-        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenas tardes', 'rut', 'plan', 'pagar', 'cuotas'];
-        let _conversationAwake = true;
+        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenos días', 'buenas tardes', 'buenas noches', 'fitlife'];
+        let _conversationAwake = false;
         let _inactivityTimeoutId = null;
         let _followUpTimeoutId = null;
         let _waitingFollowUpAck = false;
@@ -2253,6 +2253,7 @@
             }, 500);
 
             setTimeout(() => {
+                setState(_conversationAwake ? 'listening' : 'ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 startSpeakingMonitor();
                 startAlwaysOnListening();
             }, 2500);
@@ -2325,7 +2326,7 @@
                 isListening = true;
                 _questionDispatched = false;
                 _lastInterim = '';
-                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
+                setState(_conversationAwake ? 'listening' : 'ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
             };
 
             rec.onresult = (event) => {
@@ -2349,7 +2350,9 @@
                 if (!_conversationAwake) {
                     if (WAKE_WORDS.some(w => lower.includes(w))) {
                         wakeUpModel();
+                        setState('listening', 'Escuchando pregunta…');
                     } else {
+                        // Modo reposo: ignorar cualquier audio que no contenga un saludo/wake-word
                         return;
                     }
                 }
@@ -2455,7 +2458,15 @@
                 return;
             }
 
-            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('muestrame los planes') || clean.includes('muéstrame los planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes')) {
+            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('muestrame los planes') || clean.includes('muéstrame los planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes') || clean.includes('ver los planes') || clean.includes('planes y membresias') || clean === 'planes' || clean === 'membresias' || clean === 'membresías') {
+                openPlansModal();
+                wakeUpModel();
+                sendToLLM(text);
+                return;
+            }
+
+            // Si responde que sí o afirmativo cuando el avatar ofrece ver los planes
+            if (clean === 'si' || clean === 'sí' || clean === 'si por favor' || clean === 'sí por favor' || clean === 'claro' || clean === 'bueno' || clean === 'dale' || clean === 'muéstramelos' || clean === 'muestramelos') {
                 openPlansModal();
                 wakeUpModel();
                 sendToLLM(text);
@@ -2599,11 +2610,7 @@
                         }
                     }
 
-                    if (lowerReply.includes('planes') && (lowerReply.includes('tenemos') || lowerReply.includes('ofrecemos') || lowerReply.includes('conocer'))) {
-                        setTimeout(openPlansModal, 1200);
-                    }
-
-                    if (lowerReply.includes('medio de pago') || lowerReply.includes('número de cuotas') || (lowerReply.includes('cuotas') && lowerReply.includes('selecciona')) || (lowerReply.includes('santander') && lowerReply.includes('descuento'))) {
+                    if (lowerReply.includes('medio de pago') || lowerReply.includes('número de cuotas') || (lowerReply.includes('cuotas') && lowerReply.includes('selecciona')) || (lowerReply.includes('santander') && lowerReply.includes('descuento') && lowerReply.includes('selecciona'))) {
                         setTimeout(openPaymentMethodsModal, 1000);
                     }
                 }
