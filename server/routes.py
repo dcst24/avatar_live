@@ -249,6 +249,11 @@ async def avatar_experimental_pendon(request):
     return web.FileResponse('web/avatar-experimental-pendon.html')
 
 
+async def avatar_experimental_pendon_2(request):
+    """Servir la página avatar-experimental-pendon-2.html directamente"""
+    return web.FileResponse('web/avatar-experimental-pendon-2.html')
+
+
 async def get_gym_data(request):
     """Obtener información completa de FitLife Gym, planes y bancos"""
     try:
@@ -375,8 +380,6 @@ def setup_routes(app):
     app.router.add_post("/interrupt_talk", interrupt_talk)
     app.router.add_post("/is_speaking", is_speaking)
     app.router.add_post("/clear_history", clear_history)
-    app.router.add_get("/api/productos", get_productos)
-    app.router.add_get("/api/producto/barcode/{codigo}", get_producto_barcode)
     app.router.add_get("/api/gym/data", get_gym_data)
     app.router.add_get("/api/gym/planes", get_gym_data)
     app.router.add_get("/api/gym/cliente/{rut}", get_gym_cliente)
@@ -386,4 +389,5 @@ def setup_routes(app):
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
     app.router.add_static('/', path='web')
+
 
