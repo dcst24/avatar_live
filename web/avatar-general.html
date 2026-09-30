@@ -1722,7 +1722,7 @@
 
         // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
         const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenas tardes', 'rut', 'plan', 'pagar', 'cuotas'];
-        let _conversationAwake = false;
+        let _conversationAwake = true;
         let _inactivityTimeoutId = null;
         let _followUpTimeoutId = null;
         let _waitingFollowUpAck = false;
@@ -2068,6 +2068,7 @@
             }
         }
 
+        let _voucherAutoCloseTimer = null;
         function showVoucher(data) {
             document.getElementById('v-op-num').textContent = data.codigo_operacion;
             document.getElementById('v-auth-code').textContent = data.codigo_autorizacion;
@@ -2092,12 +2093,18 @@
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.add('open');
 
+            clearTimeout(_voucherAutoCloseTimer);
+            _voucherAutoCloseTimer = setTimeout(() => {
+                closeVoucherModal();
+            }, 8000);
+
             const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas realizar alguna otra consulta?`;
             queueAvatarBubble(confirmationSpeech);
             sendEchoSpeech(confirmationSpeech);
         }
 
         function closeVoucherModal() {
+            clearTimeout(_voucherAutoCloseTimer);
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.remove('open');
         }
@@ -2407,11 +2414,16 @@
             const clean = text.toLowerCase().trim();
             console.log("[FitLife User Speech]:", clean);
 
-            // 1. Detección de despedida / cierre
-            const sleepWords = ['no', 'no gracias', 'nada mas', 'nada más', 'chao', 'adios', 'adiós', 'eso es todo', 'muchas gracias'];
-            if (sleepWords.some(w => clean === w || clean.startsWith(w + ' '))) {
-                sendToLLM(text, true);
-                sleepModel();
+            // 1. Detección de agradecimiento o despedida (cerrar modales y responder cordialmente sin desconectarse)
+            const farewellWords = ['gracias', 'muchas gracias', 'no gracias', 'nada mas', 'nada más', 'chao', 'adios', 'adiós', 'eso es todo'];
+            if (farewellWords.some(w => clean === w || clean.startsWith(w + ' '))) {
+                closeVoucherModal();
+                closePaymentMethodsModal();
+                closePosSimulator();
+                closePlansModal();
+                closeRutModal();
+                wakeUpModel();
+                sendToLLM(text);
                 return;
             }
 
@@ -2574,8 +2586,8 @@
                     setTimeout(openPlansModal, 1500);
                 }
 
-                if (lowerReply.includes('santander') && (lowerReply.includes('otro banco') || lowerReply.includes('deseas pagar'))) {
-                    setTimeout(openPaymentMethodsModal, 1200);
+                if (lowerReply.includes('medio de pago') || lowerReply.includes('cuotas') || lowerReply.includes('santander')) {
+                    setTimeout(openPaymentMethodsModal, 1000);
                 }
 
                 if (lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta')) {
