@@ -249,60 +249,118 @@ async def avatar_experimental_pendon(request):
     return web.FileResponse('web/avatar-experimental-pendon.html')
 
 
-async def avatar_experimental_pendon_2(request):
-    """Servir la página avatar-experimental-pendon-2.html directamente"""
-    return web.FileResponse('web/avatar-experimental-pendon-2.html')
-
-
-async def get_productos(request):
-    """Obtener el catálogo completo y planimetría de productos"""
+async def get_gym_data(request):
+    """Obtener información completa de FitLife Gym, planes y bancos"""
     try:
-        path = 'web/data/bdd.json' if os.path.exists('web/data/bdd.json') else 'data/productos.json'
+        path = 'web/data/gym_data.json' if os.path.exists('web/data/gym_data.json') else 'data/gym_data.json'
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         return json_ok(data=data)
     except Exception as e:
-        logger.exception('get_productos exception:')
+        logger.exception('get_gym_data exception:')
         return json_error(str(e))
 
 
-async def get_producto_barcode(request):
-    """Buscar un producto por código de barras o SKU"""
-    raw_code = request.match_info.get('codigo', '')
-    codigo = raw_code.strip()
+async def get_gym_cliente(request):
+    """Buscar o auto-generar datos de cliente por RUT"""
+    raw_rut = request.match_info.get('rut', '').strip()
+    clean_rut = raw_rut.replace('.', '').replace('-', '').upper()
     try:
-        path = 'web/data/bdd.json' if os.path.exists('web/data/bdd.json') else 'data/productos.json'
+        path = 'web/data/gym_data.json' if os.path.exists('web/data/gym_data.json') else 'data/gym_data.json'
         with open(path, 'r', encoding='utf-8') as f:
             data = json.load(f)
 
-        # Si es formato bdd.json (por categorías)
-        if 'categorias' in data:
-            for cat in data.get('categorias', []):
-                cat_nombre = cat.get('nombre', '')
-                loc = cat.get('ubicacion_tienda', {})
-                for prod in cat.get('productos', []):
-                    prod_barcode = str(prod.get('codigo_barra', '')).strip()
-                    prod_sku = str(prod.get('sku', '')).strip()
-                    if prod_barcode == codigo or prod_sku.lower() == codigo.lower():
-                        res = dict(prod)
-                        res['categoria_nombre'] = cat_nombre
-                        res['piso'] = prod.get('piso', loc.get('piso', 1))
-                        res['sector'] = loc.get('sector', '')
-                        res['pasillo'] = prod.get('pasillo', loc.get('pasillo', ''))
-                        res['referencia'] = loc.get('referencia', '')
-                        res['oferta'] = 'SI' if prod.get('en_oferta') else 'NO'
-                        res['etiquetas'] = prod.get('tags_recomendacion', [])
-                        return json_ok(data=res)
+        for c in data.get('clientes_demo', []):
+            if c.get('rut_limpio', '').upper() == clean_rut or c.get('rut', '').replace('.', '').replace('-', '').upper() == clean_rut:
+                return json_ok(data=c)
 
-        # Si es formato plano (productos.json)
-        elif 'productos' in data:
-            for prod in data.get('productos', []):
-                if str(prod.get('codigo_barra', '')).strip() == codigo:
-                    return json_ok(data=prod)
+        # Si no existe en demo, generar cliente nuevo válido
+        formatted_rut = raw_rut
+        if len(clean_rut) >= 8:
+            cuerpo = clean_rut[:-1]
+            dv = clean_rut[-1]
+            try:
+                cuerpo_fmt = f"{int(cuerpo):,}".replace(',', '.')
+                formatted_rut = f"{cuerpo_fmt}-{dv}"
+            except Exception:
+                formatted_rut = f"{cuerpo}-{dv}"
 
-        return json_error("Producto no encontrado", code=404)
+        nuevo_cliente = {
+            "rut": formatted_rut,
+            "rut_limpio": clean_rut,
+            "nombre": "Socio Gimnasio",
+            "email": f"socio.{clean_rut.lower()}@fitlife-gym.cl",
+            "telefono": "+56 9 9000 1234",
+            "estado": "Nuevo Socio"
+        }
+        return json_ok(data=nuevo_cliente)
     except Exception as e:
-        logger.exception('get_producto_barcode exception:')
+        logger.exception('get_gym_cliente exception:')
+        return json_error(str(e))
+
+
+async def post_simular_pago(request):
+    """Simular transacción de pago POS / Webpay para FitLife Gym"""
+    try:
+        import datetime
+        import random
+
+        params = await request.json()
+        plan_id = params.get('plan_id', 'plan_1m')
+        banco_id = params.get('banco_id', 'santander')
+        rut = params.get('rut', '12.345.678-5')
+        cliente_nombre = params.get('nombre', 'Socio FitLife')
+        cliente_email = params.get('email', 'cliente@correo.cl')
+
+        path = 'web/data/gym_data.json' if os.path.exists('web/data/gym_data.json') else 'data/gym_data.json'
+        with open(path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+
+        # Buscar plan
+        plan = next((p for p in data.get('planes', []) if p['id'] == plan_id), None)
+        if not plan:
+            plan = data.get('planes', [])[0]
+
+        # Buscar banco
+        banco = next((b for b in data.get('bancos', []) if b['id'] == banco_id), None)
+        banco_nombre = banco['nombre'] if banco else "Banco Santander"
+        es_santander = "santander" in banco_id.lower()
+
+        monto_original = plan.get('precio', 34990)
+        descuento = int(monto_original * 0.20) if es_santander else 0
+        monto_pagado = monto_original - descuento
+
+        now_str = datetime.datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        op_num = f"OP-{random.randint(100000, 999999)}"
+        auth_code = f"AUTH-{random.randint(10000, 99999)}"
+
+        comprobante = {
+            "codigo_operacion": op_num,
+            "codigo_autorizacion": auth_code,
+            "estado": "APROBADO",
+            "mensaje": "Transacción aprobada exitosamente",
+            "plan": {
+                "id": plan["id"],
+                "nombre": plan["nombre"],
+                "meses": plan["meses"]
+            },
+            "cliente": {
+                "rut": rut,
+                "nombre": cliente_nombre,
+                "email": cliente_email
+            },
+            "banco": banco_nombre,
+            "es_santander": es_santander,
+            "monto_original": monto_original,
+            "descuento": descuento,
+            "monto_pagado": monto_pagado,
+            "fecha": now_str,
+            "email_comprobante": cliente_email
+        }
+        logger.info(f"[Pago Simulado] Plan: {plan['nombre']} | RUT: {rut} | Banco: {banco_nombre} | Monto: ${monto_pagado:,}")
+        return json_ok(data=comprobante)
+    except Exception as e:
+        logger.exception('post_simular_pago exception:')
         return json_error(str(e))
 
 
@@ -319,8 +377,13 @@ def setup_routes(app):
     app.router.add_post("/clear_history", clear_history)
     app.router.add_get("/api/productos", get_productos)
     app.router.add_get("/api/producto/barcode/{codigo}", get_producto_barcode)
+    app.router.add_get("/api/gym/data", get_gym_data)
+    app.router.add_get("/api/gym/planes", get_gym_data)
+    app.router.add_get("/api/gym/cliente/{rut}", get_gym_cliente)
+    app.router.add_post("/api/gym/pago/simular", post_simular_pago)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
     app.router.add_static('/', path='web')
+

@@ -4,10 +4,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Asistente BARPOS</title>
+    <title>FitLife Gym - Asistente Virtual & Pagos</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         *,
         *::before,
@@ -21,17 +21,23 @@
             --accent: #6366f1;
             --accent-glow: #818cf8;
             --accent-dim: #4338ca;
+            --gym-neon: #10b981;
+            --gym-glow: #34d399;
+            --santander-red: #ec0000;
+            --santander-glow: rgba(236, 0, 0, 0.4);
             --danger: #ef4444;
             --bg: #09090b;
-            --surface: #18181b;
-            --border: rgba(255, 255, 255, 0.08);
+            --surface: #121216;
+            --surface-glass: rgba(18, 18, 22, 0.85);
+            --border: rgba(255, 255, 255, 0.1);
+            --border-glow: rgba(99, 102, 241, 0.35);
             --text: #f4f4f5;
-            --text-muted: #71717a;
-            --radius: 16px;
-            /* mic verde */
-            --mic-green: #22c55e;
-            --mic-green-dim: #15803d;
-            --mic-green-glow: rgba(34, 197, 94, 0.55);
+            --text-muted: #a1a1aa;
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 8px;
+            --font-title: 'Outfit', 'Inter', system-ui, sans-serif;
+            --font-body: 'Inter', system-ui, sans-serif;
         }
 
         html,
@@ -39,9 +45,11 @@
             height: 100%;
             width: 100%;
             background: var(--bg);
-            font-family: 'Inter', system-ui, sans-serif;
+            font-family: var(--font-body);
             color: var(--text);
             overflow: hidden;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
         /* ── Fullscreen wrapper ──────────────────────────────── */
@@ -68,79 +76,185 @@
         #video {
             width: 100%;
             height: 100%;
-            /* position: absolute;
-            top: 25%; */
             object-fit: contain;
-            /* muestra el avatar completo sin recortar */
             object-position: center center;
             display: block;
             background: #000;
         }
 
-        /* Gradient overlay at bottom (para legibilidad del mic) */
+        /* Gradient overlay at bottom */
         #avatar-wrap::after {
             content: '';
             position: absolute;
             inset: auto 0 0 0;
-            height: 30%;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.65), transparent);
+            height: 35%;
+            background: linear-gradient(to top, rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.3) 60%, transparent);
             pointer-events: none;
+            z-index: 5;
         }
 
-        /* Speaking indicator (ring desactivado) */
-        #speaking-ring {
+        /* ── Header Gym Branding ─────────────────────────────── */
+        #gym-header {
+            position: absolute;
+            top: 18px;
+            left: 20px;
+            z-index: 30;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: rgba(18, 18, 22, 0.75);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid var(--border);
+            border-radius: 999px;
+            padding: 8px 18px 8px 12px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            transition: transform 0.2s ease;
+        }
+
+        #gym-logo-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #047857);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 16px;
+            box-shadow: 0 0 14px rgba(16, 185, 129, 0.5);
+        }
+
+        #gym-title-wrap {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #gym-title {
+            font-family: var(--font-title);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            color: #ffffff;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        #gym-title span.tag {
+            font-size: 9px;
+            background: rgba(236, 0, 0, 0.2);
+            border: 1px solid rgba(236, 0, 0, 0.4);
+            color: #fca5a5;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+        }
+
+        #gym-subtitle {
+            font-size: 11px;
+            color: var(--text-muted);
+        }
+
+        /* ── Active Client Account Badge ─────────────────────── */
+        #client-badge {
             display: none;
+            position: absolute;
+            top: 18px;
+            right: 80px;
+            z-index: 30;
+            align-items: center;
+            gap: 10px;
+            background: rgba(18, 18, 22, 0.85);
+            backdrop-filter: blur(14px);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            border-radius: 999px;
+            padding: 6px 14px 6px 10px;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 12px rgba(16, 185, 129, 0.2);
+            animation: fadeInScale 0.3s ease;
+        }
+
+        #client-badge.active {
+            display: flex;
+        }
+
+        #client-avatar {
+            width: 26px;
+            height: 26px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #6366f1, #4338ca);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #fff;
+            font-weight: 700;
+        }
+
+        #client-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        #client-name {
+            font-size: 12px;
+            font-weight: 600;
+            color: #fff;
+            line-height: 1.2;
+        }
+
+        #client-rut {
+            font-size: 10px;
+            color: #34d399;
+            font-weight: 500;
         }
 
         /* ── Status badge ─────────────────────────────────────── */
         #status-badge {
             position: absolute;
-            bottom: 20px;
+            bottom: 22px;
             left: 50%;
             transform: translateX(-50%);
             z-index: 20;
             display: flex;
             align-items: center;
-            gap: 7px;
-            background: rgba(9, 9, 11, 0.75);
-            backdrop-filter: blur(12px);
+            gap: 8px;
+            background: rgba(9, 9, 11, 0.85);
+            backdrop-filter: blur(14px);
             border: 1px solid var(--border);
             border-radius: 999px;
-            padding: 6px 14px;
+            padding: 7px 18px;
             font-size: 12px;
             font-weight: 500;
             letter-spacing: 0.02em;
             white-space: nowrap;
-            transition: opacity 0.3s;
+            transition: all 0.3s ease;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
         }
 
         #status-dot {
-            width: 7px;
-            height: 7px;
+            width: 8px;
+            height: 8px;
             border-radius: 50%;
             background: var(--text-muted);
-            transition: background 0.3s;
+            transition: background 0.3s, transform 0.3s;
             flex-shrink: 0;
         }
 
-        /* Status variants */
         body.state-connecting #status-dot {
             background: #f59e0b;
             animation: dot-blink 1s ease-in-out infinite;
         }
 
         body.state-ready #status-dot {
-            background: #22c55e;
+            background: #10b981;
         }
 
         body.state-listening #status-dot {
             background: var(--accent-glow);
             animation: dot-blink 0.6s ease-in-out infinite;
-        }
-
-        body.state-processing #status-dot {
-            background: #f59e0b;
-            animation: dot-blink 0.4s linear infinite;
         }
 
         body.state-thinking #status-dot {
@@ -149,79 +263,116 @@
         }
 
         body.state-speaking #status-dot {
-            background: #22c55e;
+            background: #10b981;
             animation: dot-blink 0.8s ease-in-out infinite;
         }
 
         @keyframes dot-blink {
-
-            0%,
-            100% {
-                opacity: 1;
-            }
-
-            50% {
-                opacity: 0.2;
-            }
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.25; transform: scale(0.8); }
         }
 
-        /* ── Transcript overlay (sobre el video, arriba del botón stop) */
-        #transcript-wrap {
+        /* ── Floating Action Buttons (Top & Bottom Bars) ────── */
+        #top-actions {
             position: absolute;
-            bottom: 74px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 20;
-            width: min(500px, 88vw);
+            top: 18px;
+            right: 20px;
+            z-index: 30;
             display: flex;
-            flex-direction: column;
-            gap: 6px;
-            pointer-events: none;
-        }
-
-        .transcript-line {
-            display: flex;
-            align-items: flex-start;
+            align-items: center;
             gap: 10px;
-            animation: fadein 0.3s ease;
         }
 
-        @keyframes fadein {
-            from {
-                opacity: 0;
-                transform: translateY(4px);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        .transcript-label {
-            font-size: 10px;
+        .action-pill-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 8px 14px;
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            background: rgba(24, 24, 27, 0.8);
+            backdrop-filter: blur(12px);
+            color: #f4f4f5;
+            font-family: inherit;
+            font-size: 12px;
             font-weight: 600;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            color: var(--text-muted);
-            margin-top: 2px;
-            flex-shrink: 0;
-            width: 32px;
-            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+            text-decoration: none;
         }
 
-        .transcript-text {
+        .action-pill-btn:hover {
+            background: rgba(39, 39, 42, 0.95);
+            border-color: rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+
+        .action-pill-btn.primary {
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
+            border-color: rgba(129, 140, 248, 0.5);
+            box-shadow: 0 4px 18px rgba(79, 70, 229, 0.4);
+        }
+
+        .action-pill-btn.primary:hover {
+            box-shadow: 0 6px 22px rgba(79, 70, 229, 0.6);
+            transform: translateY(-2px);
+        }
+
+        /* ── Botón RUT Esquina Inferior Derecha (Gran Llamado de Acción) ── */
+        #btn-rut-trigger {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            z-index: 35;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            border-radius: 999px;
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            background: rgba(18, 18, 22, 0.88);
+            backdrop-filter: blur(16px);
+            color: #ffffff;
+            font-family: var(--font-title);
             font-size: 13px;
-            color: var(--text);
-            line-height: 1.5;
-            text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            cursor: pointer;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(16, 185, 129, 0.25);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            animation: pulse-rut-border 3s ease-in-out infinite;
         }
 
-        .transcript-text.dim {
-            color: var(--text-muted);
+        #btn-rut-trigger .rut-icon-wrap {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
         }
 
-        /* ── Botón STOP Avatar (corte manual inmediato) ───────────── */
+        #btn-rut-trigger:hover {
+            transform: translateY(-3px) scale(1.03);
+            border-color: #10b981;
+            box-shadow: 0 12px 36px rgba(0, 0, 0, 0.8), 0 0 24px rgba(16, 185, 129, 0.45);
+            background: rgba(24, 24, 30, 0.95);
+        }
+
+        #btn-rut-trigger:active {
+            transform: translateY(0) scale(0.97);
+        }
+
+        @keyframes pulse-rut-border {
+            0%, 100% { border-color: rgba(16, 185, 129, 0.4); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 12px rgba(16, 185, 129, 0.2); }
+            50% { border-color: rgba(16, 185, 129, 0.85); box-shadow: 0 8px 30px rgba(0, 0, 0, 0.7), 0 0 22px rgba(16, 185, 129, 0.45); }
+        }
+
+        /* ── Botón STOP Avatar ────────────────────────────────── */
         #btn-stop-talk {
             position: absolute;
             bottom: 24px;
@@ -234,414 +385,42 @@
             padding: 9px 20px;
             border-radius: 999px;
             border: 1px solid rgba(239, 68, 68, 0.45);
-            background: rgba(24, 15, 20, 0.82);
+            background: rgba(24, 15, 20, 0.85);
             backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
             color: #ffffff;
             font-family: inherit;
             font-size: 13px;
             font-weight: 600;
-            letter-spacing: 0.02em;
             cursor: pointer;
             opacity: 0;
             pointer-events: none;
             visibility: hidden;
-            transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+            transition: all 0.25s ease;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.2);
-            user-select: none;
-            -webkit-user-select: none;
         }
 
-        #btn-stop-talk .stop-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ef4444;
-            transition: transform 0.2s ease;
-        }
-
-        #btn-stop-talk .stop-label {
-            line-height: 1;
-        }
-
-        /* Cuando el avatar está hablando o pensando, el botón se activa con animación */
         body.state-speaking #btn-stop-talk,
         body.state-thinking #btn-stop-talk {
             opacity: 1;
             pointer-events: auto;
             visibility: visible;
             transform: translateX(-50%) scale(1);
-            animation: pulse-stop-glow 2s ease-in-out infinite;
         }
 
         #btn-stop-talk:hover {
             background: rgba(239, 68, 68, 0.35);
             border-color: rgba(239, 68, 68, 0.8);
-            box-shadow: 0 6px 28px rgba(239, 68, 68, 0.45), 0 0 12px rgba(239, 68, 68, 0.3);
+            box-shadow: 0 6px 28px rgba(239, 68, 68, 0.45);
             transform: translateX(-50%) scale(1.05);
         }
 
-        #btn-stop-talk:hover .stop-icon {
-            transform: scale(1.15);
-        }
-
-        #btn-stop-talk:active {
-            transform: translateX(-50%) scale(0.96);
-            background: rgba(239, 68, 68, 0.5);
-        }
-
-        @keyframes pulse-stop-glow {
-
-            0%,
-            100% {
-                box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.2);
-            }
-
-            50% {
-                box-shadow: 0 4px 26px rgba(239, 68, 68, 0.55), 0 0 16px rgba(239, 68, 68, 0.4);
-            }
-        }
-
-        /* ── Botón MIC: oculto en modo always-on wake-word ─────────── */
-        #btn-mic {
-            display: none !important;
-        }
-
-        /* ── Botón conectar (top-left, discreto) ────────────── */
-        #btn-connect {
-            position: absolute;
-            top: 2px;
-            left: 2px;
-            z-index: 30;
-
-            height: 18px;
-            padding: 0 5px;
-            border-radius: 999px;
-            border: 1px solid var(--border);
-            background: rgba(24, 24, 27, 0.70);
-            backdrop-filter: blur(8px);
-            color: var(--text-muted);
-            font-family: inherit;
-            font-size: 8px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background 0.2s, border-color 0.2s, color 0.2s;
-            display: flex;
-            align-items: center;
-            gap: 4px;
-        }
-
-        #btn-connect:hover {
-            background: rgba(39, 39, 42, 0.9);
-            border-color: rgba(255, 255, 255, 0.15);
-            color: var(--text);
-        }
-
-        #btn-connect.connected {
-            border-color: rgba(34, 197, 94, 0.3);
-            color: #86efac;
-        }
-
-        /* ── Botón PANTALLA COMPLETA (esquina sup-derecha, invisible) */
-        #btn-fullscreen {
-            position: absolute;
-            top: 0;
-            right: 0;
-            z-index: 50;
-            width: 56px;
-            height: 56px;
-            background: transparent;
-            border: none;
-            cursor: pointer;
-            opacity: 0;
-            /* invisible */
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        /* Pequeño hover hint opcional — quítalo si prefieres que sea 100% invisible */
-        /* #btn-fullscreen:hover { opacity: 0.15; background: white; border-radius: 0 0 0 8px; } */
-
-        /* ── Tap overlay animation ───────────────────────────── */
-        @keyframes tap-pulse {
-
-            0%,
-            100% {
-                box-shadow: 0 0 30px rgba(99, 102, 241, 0.5), 0 0 0 0 rgba(99, 102, 241, 0.4);
-            }
-
-            50% {
-                box-shadow: 0 0 50px rgba(99, 102, 241, 0.8), 0 0 0 18px rgba(99, 102, 241, 0);
-            }
-        }
-
-        /* ── Hidden audio / inputs ──────────────────────────── */
-        audio {
-            display: none;
-        }
-
-        input[type=hidden] {
-            display: none;
-        }
-
-        /* ── Debug log panel ────────────────────────────────── */
-        #dbg-btn {
-            position: fixed;
-            top: 20px;
-            right: 20px;
-            z-index: 200;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(9, 9, 11, 0.75);
-            backdrop-filter: blur(10px);
-            color: #f4f4f5;
-            font-size: 16px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s ease;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        #dbg-btn:hover {
-            background: rgba(39, 39, 42, 0.9);
-            transform: scale(1.08);
-        }
-
-        #dbg-panel {
-            position: fixed;
-            inset: 0;
-            z-index: 199;
-            background: rgba(0, 0, 0, 0.88);
-            backdrop-filter: blur(6px);
-            display: none;
-            flex-direction: column;
-            font-family: 'Menlo', 'Consolas', monospace;
-            font-size: 11px;
-        }
-
-        #dbg-panel.open {
-            display: flex;
-        }
-
-        #dbg-toolbar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 10px 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-            flex-shrink: 0;
-        }
-
-        #dbg-toolbar span {
-            color: #a1a1aa;
-            font-size: 12px;
-            font-family: inherit;
-        }
-
-        #dbg-clear {
-            padding: 4px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(39, 39, 42, 0.8);
-            color: #f4f4f5;
-            font-size: 11px;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        #dbg-close {
-            padding: 4px 12px;
-            border-radius: 6px;
-            border: 1px solid rgba(239, 68, 68, 0.4);
-            background: rgba(127, 29, 29, 0.5);
-            color: #fca5a5;
-            font-size: 11px;
-            cursor: pointer;
-            font-family: inherit;
-            margin-left: 8px;
-        }
-
-        #dbg-list {
-            flex: 1;
-            overflow-y: auto;
-            padding: 8px 14px;
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-
-        .dbg-entry {
-            display: flex;
-            gap: 8px;
-            line-height: 1.5;
-            word-break: break-all;
-        }
-
-        .dbg-ts {
-            color: #52525b;
-            flex-shrink: 0;
-        }
-
-        .dbg-log .dbg-msg {
-            color: #d4d4d8;
-        }
-
-        .dbg-warn .dbg-msg {
-            color: #fbbf24;
-        }
-
-        .dbg-err .dbg-msg {
-            color: #f87171;
-        }
-
-        .dbg-label-log {
-            color: #6366f1;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .dbg-label-warn {
-            color: #f59e0b;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        .dbg-label-err {
-            color: #ef4444;
-            font-weight: 600;
-            flex-shrink: 0;
-        }
-
-        /* Fila de selector de mic */
-        #dbg-mic-row {
-            padding: 8px 14px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            flex-wrap: wrap;
-            flex-shrink: 0;
-        }
-
-        #dbg-mic-row label {
-            color: #a1a1aa;
-            font-size: 11px;
-            font-family: inherit;
-            flex-shrink: 0;
-        }
-
-        #dbg-mic-select {
-            flex: 1;
-            min-width: 160px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(39, 39, 42, 0.9);
-            color: #f4f4f5;
-            font-size: 11px;
-            font-family: inherit;
-            cursor: pointer;
-            outline: none;
-        }
-
-        #dbg-mic-refresh {
-            padding: 4px 10px;
-            border-radius: 6px;
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            background: rgba(39, 39, 42, 0.8);
-            color: #f4f4f5;
-            font-size: 11px;
-            cursor: pointer;
-            font-family: inherit;
-            flex-shrink: 0;
-        }
-
-
-
-
-
-
-
-
-
-        /* ── Responsividad en dispositivos móviles y tabletas ── */
-        @media (max-width: 768px) {
-
-            /* Video cubre toda la pantalla en móviles, recortando lados si el video es horizontal */
-            #video {
-                object-fit: cover;
-            }
-
-            /* Botón de conectar más accesible al tacto */
-            #btn-connect {
-                top: 16px;
-                left: 16px;
-                height: 36px;
-                padding: 0 16px;
-                font-size: 13px;
-                gap: 6px;
-                border-radius: 12px;
-            }
-
-            #btn-connect svg {
-                width: 12px;
-                height: 12px;
-            }
-
-            /* Indicador de estado más visible */
-            #status-badge {
-                bottom: 16px;
-                font-size: 13px;
-                padding: 8px 16px;
-            }
-
-            /* Transcripción más legible */
-            #transcript-wrap {
-                bottom: 48px;
-                width: 90vw;
-            }
-
-            .transcript-text {
-                font-size: 15px;
-            }
-
-            .transcript-label {
-                font-size: 11px;
-                width: 36px;
-            }
-
-            /* Panel de depuración móvil */
-            #dbg-panel {
-                padding-bottom: 20px;
-            }
-
-            #dbg-toolbar span {
-                font-size: 14px;
-            }
-
-            #dbg-clear,
-            #dbg-close {
-                padding: 6px 14px;
-                font-size: 12px;
-            }
-
-            #dbg-mic-row,
-            #dbg-mic-select,
-            #dbg-list {
-                font-size: 12px;
-            }
-        }
-
-        /* ── Burbujas de chat sobrepuestas ── */
+        /* ── Chat & Transcripts ───────────────────────────────── */
         #chat-container {
             position: absolute;
-            left: 20px;
-            bottom: 140px;
-            width: min(350px, 85vw);
-            max-height: 40vh;
+            left: 24px;
+            bottom: 120px;
+            width: min(380px, 86vw);
+            max-height: 42vh;
             overflow-y: auto;
             display: flex;
             flex-direction: column;
@@ -660,20 +439,19 @@
             border-radius: 16px;
             font-size: 13px;
             line-height: 1.45;
-            max-width: 85%;
+            max-width: 88%;
             word-break: break-word;
             animation: bubble-appear 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            background: rgba(24, 24, 27, 0.55);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
+            background: rgba(24, 24, 27, 0.65);
+            backdrop-filter: blur(12px);
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #f4f4f5;
         }
 
         .chat-bubble.user {
             align-self: flex-end;
-            background: rgba(99, 102, 241, 0.25);
-            border-color: rgba(99, 102, 241, 0.4);
+            background: rgba(99, 102, 241, 0.3);
+            border-color: rgba(99, 102, 241, 0.5);
             color: #e0e7ff;
         }
 
@@ -683,476 +461,1118 @@
 
         .chat-bubble.system {
             align-self: center;
-            background: rgba(24, 24, 27, 0.35);
+            background: rgba(24, 24, 27, 0.4);
             border-color: rgba(255, 255, 255, 0.05);
             color: var(--text-muted);
             font-size: 11px;
-            padding: 6px 12px;
+            padding: 5px 12px;
             border-radius: 12px;
-            text-align: center;
             font-style: italic;
-            box-shadow: none;
-            max-width: 90%;
         }
 
         @keyframes bubble-appear {
-            from {
-                opacity: 0;
-                transform: translateY(10px) scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+            from { opacity: 0; transform: translateY(10px) scale(0.95); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
         }
 
         .chat-bubble.fade-out {
-            animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: bubble-fadeout 0.5s ease forwards;
         }
 
         @keyframes bubble-fadeout {
-            from {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
-
-            to {
-                opacity: 0;
-                transform: translateY(-10px) scale(0.95);
-                max-height: 0;
-                padding-top: 0;
-                padding-bottom: 0;
-                margin-top: 0;
-                margin-bottom: 0;
-                border-top-width: 0;
-                border-bottom-width: 0;
-                opacity: 0;
-            }
+            to { opacity: 0; transform: translateY(-8px) scale(0.95); max-height: 0; padding: 0; margin: 0; }
         }
 
-        /* ── Carrusel de ofertas (parte superior, superpuesto) ── */
-        #offers-carousel {
-            display: none;
-            /* Oculto para futura reutilización */
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 160px;
-            z-index: 40;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        /* Fade superior e inferior para integrarse al video */
-        #offers-carousel::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 28px;
-            background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), transparent);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        #offers-carousel::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 52px;
-            background: linear-gradient(to top, rgba(0, 0, 0, 0.85), transparent);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Fade lateral izquierdo y derecho */
-        #carousel-fade-left,
-        #carousel-fade-right {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 60px;
-            z-index: 3;
-            pointer-events: none;
-        }
-
-        #carousel-fade-left {
-            left: 0;
-            background: linear-gradient(to right, rgba(0, 0, 0, 0.7), transparent);
-        }
-
-        #carousel-fade-right {
-            right: 0;
-            background: linear-gradient(to left, rgba(0, 0, 0, 0.7), transparent);
-        }
-
-        .carousel-track {
-            display: flex;
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        .carousel-slide {
-            position: absolute;
+        /* ── MODALS (General Glassmorphic System) ─────────────── */
+        .modal-backdrop {
+            position: fixed;
             inset: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.78);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            animation: fadeIn 0.25s ease;
+        }
+
+        .modal-backdrop.open {
+            display: flex;
+        }
+
+        .modal-card {
             width: 100%;
-            height: 100%;
-            opacity: 0;
-            transition: opacity 0.9s ease;
+            max-width: 520px;
+            background: var(--surface-glass);
+            border: 1px solid var(--border-glow);
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(99, 102, 241, 0.15);
+            animation: modalPop 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
             display: flex;
-            align-items: stretch;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 20px;
         }
 
-        .carousel-slide.active {
-            opacity: 1;
-        }
-
-        .carousel-slide img {
-            width: 100%;
-            height: 100%;
-            object-fit: fill;
-            display: block;
-            flex-shrink: 0;
-        }
-
-        /* Slide con dos imágenes angostas, 50% cada una */
-        .carousel-slide.dual img {
-            width: 50%;
-            height: 100%;
-            object-fit: fill;
-            display: block;
-            flex-shrink: 0;
-        }
-
-        /* Dots indicadores */
-        #carousel-dots {
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 5;
+        .modal-title-group {
             display: flex;
-            gap: 6px;
-            pointer-events: none;
-        }
-
-        .carousel-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.35);
-            transition: background 0.4s, transform 0.4s;
-        }
-
-        .carousel-dot.active {
-            background: rgba(255, 255, 255, 0.95);
-            transform: scale(1.4);
-        }
-
-        /* ─── Tarjeta de Producto (Escáner de Código de Barras) ────────── */
-        #product-card-container {
-            position: absolute;
-            right: 30px;
-            bottom: 120px;
-            z-index: 40;
-            width: min(380px, 90vw);
-            pointer-events: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .product-card {
-            background: rgba(18, 18, 22, 0.88);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(99, 102, 241, 0.35);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 18px 20px;
-            color: #f4f4f5;
-            animation: card-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            display: flex;
-            flex-direction: column;
+            align-items: center;
             gap: 10px;
         }
 
-        .product-card-badge {
-            align-self: flex-start;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(67, 56, 202, 0.4));
-            border: 1px solid rgba(129, 140, 248, 0.4);
-            color: #c7d2fe;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 4px 10px;
-            border-radius: 999px;
+        .modal-title-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            background: linear-gradient(135deg, #4f46e5, #4338ca);
             display: flex;
             align-items: center;
-            gap: 6px;
+            justify-content: center;
+            color: #fff;
+            font-size: 18px;
         }
 
-        .product-card-title {
+        .modal-title {
+            font-family: var(--font-title);
             font-size: 18px;
             font-weight: 700;
-            line-height: 1.25;
             color: #ffffff;
         }
 
-        .product-card-category {
+        .modal-subtitle {
             font-size: 12px;
-            color: #a1a1aa;
-            margin-top: -4px;
-        }
-
-        .product-card-prices {
-            display: flex;
-            align-items: baseline;
-            gap: 12px;
-            margin-top: 4px;
-        }
-
-        .product-card-price-main {
-            font-size: 24px;
-            font-weight: 800;
-            color: #34d399;
-            text-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
-        }
-
-        .product-card-price-regular {
-            font-size: 15px;
-            color: #a1a1aa;
-            text-decoration: line-through;
-        }
-
-        .product-card-offer-tag {
-            background: #ef4444;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 800;
-            padding: 2px 8px;
-            border-radius: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            animation: offer-pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes offer-pulse {
-
-            0%,
-            100% {
-                transform: scale(1);
-            }
-
-            50% {
-                transform: scale(1.06);
-            }
-        }
-
-        .product-card-aisle {
-            background: rgba(39, 39, 42, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 10px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #e4e4e7;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .product-card-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
+            color: var(--text-muted);
             margin-top: 2px;
         }
 
-        .product-tag-pill {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.07);
+        .modal-close-btn {
+            background: rgba(255, 255, 255, 0.08);
             border: 1px solid rgba(255, 255, 255, 0.1);
+            color: #a1a1aa;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .modal-close-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.4);
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes modalPop { from { opacity: 0; transform: scale(0.92) translateY(16px); } to { opacity: 1; transform: scale(1) translateY(0); } }
+
+        /* ── MODAL TECLADO RUT ───────────────────────────────── */
+        #rut-display-box {
+            background: rgba(9, 9, 11, 0.85);
+            border: 2px solid rgba(99, 102, 241, 0.5);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+            box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+        }
+
+        #rut-input-value {
+            font-family: var(--font-title);
+            font-size: 28px;
+            font-weight: 800;
+            letter-spacing: 0.1em;
+            color: #ffffff;
+            min-height: 38px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #rut-input-value.placeholder {
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 20px;
+            letter-spacing: 0.05em;
+        }
+
+        #rut-status-msg {
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+
+        .keypad-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 18px;
+        }
+
+        .keypad-btn {
+            height: 52px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 255, 255, 0.09);
+            background: rgba(28, 28, 34, 0.8);
+            color: #f4f4f5;
+            font-family: var(--font-title);
+            font-size: 20px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .keypad-btn:hover {
+            background: rgba(45, 45, 55, 0.95);
+            border-color: rgba(99, 102, 241, 0.5);
+            transform: translateY(-2px);
+        }
+
+        .keypad-btn:active {
+            transform: translateY(1px) scale(0.96);
+            background: rgba(99, 102, 241, 0.3);
+        }
+
+        .keypad-btn.action {
+            background: rgba(40, 40, 48, 0.6);
+            font-size: 15px;
+            color: #a1a1aa;
+        }
+
+        .keypad-btn.k-btn {
+            color: #818cf8;
+            font-weight: 800;
+        }
+
+        .keypad-btn.submit {
+            grid-column: span 3;
+            height: 50px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border-color: rgba(52, 211, 153, 0.5);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35);
+        }
+
+        .keypad-btn.submit:hover {
+            box-shadow: 0 6px 24px rgba(16, 185, 129, 0.5);
+            transform: translateY(-2px);
+        }
+
+        /* Demo RUT quick pills */
+        .demo-rut-pills {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .demo-rut-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.04);
+            color: #a1a1aa;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .demo-rut-pill:hover {
+            background: rgba(99, 102, 241, 0.2);
+            color: #c7d2fe;
+            border-color: rgba(99, 102, 241, 0.4);
+        }
+
+        /* ── MODAL PLANES DE GIMNASIO ─────────────────────────── */
+        .plans-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+
+        @media (max-width: 600px) {
+            .plans-grid { grid-template-columns: 1fr; }
+        }
+
+        .plan-card {
+            background: rgba(24, 24, 28, 0.75);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            padding: 18px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .plan-card:hover {
+            border-color: rgba(99, 102, 241, 0.6);
+            background: rgba(30, 30, 38, 0.9);
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.2);
+        }
+
+        .plan-card.highlight {
+            border-color: rgba(236, 0, 0, 0.6);
+            background: linear-gradient(180deg, rgba(236, 0, 0, 0.12), rgba(24, 24, 28, 0.85));
+            box-shadow: 0 8px 24px rgba(236, 0, 0, 0.15);
+        }
+
+        .plan-card.highlight:hover {
+            border-color: #ec0000;
+            box-shadow: 0 12px 36px rgba(236, 0, 0, 0.3);
+        }
+
+        .plan-card-badge {
+            align-self: flex-start;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(99, 102, 241, 0.2);
+            color: #c7d2fe;
+            border: 1px solid rgba(99, 102, 241, 0.35);
+        }
+
+        .plan-card.highlight .plan-card-badge {
+            background: rgba(236, 0, 0, 0.25);
+            color: #fecaca;
+            border-color: rgba(236, 0, 0, 0.5);
+        }
+
+        .plan-name {
+            font-family: var(--font-title);
+            font-size: 16px;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .plan-prices {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            margin: 4px 0;
+        }
+
+        .plan-santander-price {
+            font-family: var(--font-title);
+            font-size: 20px;
+            font-weight: 800;
+            color: #f87171;
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+        }
+
+        .plan-santander-tag {
+            font-size: 10px;
+            font-weight: 700;
+            background: #ec0000;
+            color: #fff;
+            padding: 1px 5px;
+            border-radius: 4px;
+        }
+
+        .plan-regular-price {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-decoration: line-through;
+        }
+
+        .plan-features {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 11px;
             color: #d4d4d8;
+            margin-top: auto;
+            padding-top: 8px;
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
         }
 
-        @keyframes card-appear {
-            from {
-                opacity: 0;
-                transform: translateY(20px) scale(0.95);
-            }
-
-            to {
-                opacity: 1;
-                transform: translateY(0) scale(1);
-            }
+        .plan-features li {
+            display: flex;
+            align-items: center;
+            gap: 6px;
         }
 
-        .product-card.fade-out {
-            animation: card-fadeout 0.5s ease forwards;
+        .plan-features li svg {
+            color: #10b981;
+            flex-shrink: 0;
         }
 
-        @keyframes card-fadeout {
-            from {
-                opacity: 1;
-                transform: scale(1);
-            }
+        .plan-select-btn {
+            margin-top: 10px;
+            width: 100%;
+            padding: 9px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            background: rgba(255, 255, 255, 0.08);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
 
-            to {
-                opacity: 0;
-                transform: scale(0.95);
-            }
+        .plan-card:hover .plan-select-btn {
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-color: rgba(129, 140, 248, 0.5);
+            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
+        }
+
+        .plan-card.highlight:hover .plan-select-btn {
+            background: linear-gradient(135deg, #ec0000, #b91c1c);
+            border-color: rgba(236, 0, 0, 0.6);
+            box-shadow: 0 4px 14px rgba(236, 0, 0, 0.5);
+        }
+
+        /* ── MODAL MEDIOS DE PAGO & SANTANDER PROMO ───────────── */
+        #santander-promo-banner {
+            background: linear-gradient(135deg, rgba(236, 0, 0, 0.25), rgba(185, 28, 28, 0.35));
+            border: 1px solid rgba(236, 0, 0, 0.5);
+            border-radius: var(--radius-md);
+            padding: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            box-shadow: 0 8px 24px rgba(236, 0, 0, 0.2);
+            cursor: pointer;
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        #santander-promo-banner:hover {
+            transform: translateY(-2px);
+            border-color: #ec0000;
+            box-shadow: 0 12px 32px rgba(236, 0, 0, 0.35);
+        }
+
+        .santander-logo-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: #ec0000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-weight: 800;
+            font-size: 22px;
+            box-shadow: 0 4px 16px rgba(236, 0, 0, 0.5);
+            flex-shrink: 0;
+        }
+
+        .santander-promo-text h4 {
+            font-family: var(--font-title);
+            font-size: 15px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+
+        .santander-promo-text p {
+            font-size: 12px;
+            color: #fecaca;
+            margin-top: 2px;
+        }
+
+        .banks-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .bank-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            background: rgba(28, 28, 34, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .bank-item:hover {
+            background: rgba(40, 40, 50, 0.9);
+            border-color: rgba(99, 102, 241, 0.4);
+            transform: translateX(4px);
+        }
+
+        .bank-item.santander-item {
+            border-color: rgba(236, 0, 0, 0.4);
+            background: rgba(236, 0, 0, 0.08);
+        }
+
+        .bank-item.santander-item:hover {
+            background: rgba(236, 0, 0, 0.18);
+            border-color: #ec0000;
+        }
+
+        .bank-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .bank-bullet {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .bank-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .bank-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #a1a1aa;
+        }
+
+        .bank-badge.promo {
+            background: rgba(236, 0, 0, 0.25);
+            color: #fca5a5;
+            border: 1px solid rgba(236, 0, 0, 0.4);
+        }
+
+        /* ── MODAL SIMULADOR POS / CONTACTLESS ────────────────── */
+        #pos-terminal-card {
+            background: linear-gradient(180deg, #181820, #0d0d12);
+            border: 2px solid rgba(99, 102, 241, 0.4);
+            border-radius: 28px;
+            padding: 26px;
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9), 0 0 40px rgba(99, 102, 241, 0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .pos-screen {
+            width: 100%;
+            background: #000;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 22px;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .pos-screen-header {
+            font-size: 11px;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #71717a;
+        }
+
+        .pos-amount {
+            font-family: var(--font-title);
+            font-size: 32px;
+            font-weight: 800;
+            color: #10b981;
+            letter-spacing: 0.02em;
+        }
+
+        .pos-screen-plan {
+            font-size: 13px;
+            color: #e4e4e7;
+            font-weight: 500;
+        }
+
+        .pos-santander-alert {
+            font-size: 11px;
+            color: #f87171;
+            background: rgba(236, 0, 0, 0.15);
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-weight: 600;
+        }
+
+        /* NFC Contactless Animation */
+        .nfc-animation-wrap {
+            position: relative;
+            width: 120px;
+            height: 120px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px 0 20px 0;
+        }
+
+        .nfc-wave {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            border: 2px solid #6366f1;
+            opacity: 0;
+            animation: nfcPulse 2s cubic-bezier(0.25, 1, 0.5, 1) infinite;
+        }
+
+        .nfc-wave:nth-child(2) { animation-delay: 0.6s; }
+        .nfc-wave:nth-child(3) { animation-delay: 1.2s; }
+
+        @keyframes nfcPulse {
+            0% { transform: scale(0.4); opacity: 0.8; }
+            100% { transform: scale(1.3); opacity: 0; }
+        }
+
+        .pos-card-graphic {
+            width: 68px;
+            height: 44px;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #ec0000, #991b1b);
+            box-shadow: 0 8px 24px rgba(236, 0, 0, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 20px;
+            z-index: 2;
+            animation: cardTapMotion 2.5s ease-in-out infinite;
+        }
+
+        @keyframes cardTapMotion {
+            0%, 100% { transform: translateY(0) rotate(0deg); }
+            50% { transform: translateY(-10px) rotate(-6deg) scale(1.08); }
+        }
+
+        .pos-instruction {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f4f4f5;
+            margin-bottom: 6px;
+        }
+
+        .pos-subinstruction {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .btn-simulate-tap {
+            width: 100%;
+            padding: 14px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(16, 185, 129, 0.5);
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: #ffffff;
+            font-family: var(--font-title);
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.35);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-simulate-tap:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(16, 185, 129, 0.5);
+        }
+
+        /* ── MODAL VOUCHER / COMPROBANTE DE PAGO ─────────────── */
+        #voucher-card {
+            background: #ffffff;
+            color: #18181b;
+            border-radius: var(--radius-lg);
+            padding: 28px;
+            box-shadow: 0 24px 60px rgba(0, 0, 0, 0.9);
+            animation: modalPop 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+            position: relative;
+        }
+
+        .voucher-header {
+            text-align: center;
+            border-bottom: 2px dashed #e4e4e7;
+            padding-bottom: 18px;
+            margin-bottom: 18px;
+        }
+
+        .voucher-success-icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 50%;
+            background: #dcfce7;
+            color: #16a34a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 10px auto;
+            font-size: 26px;
+        }
+
+        .voucher-title {
+            font-family: var(--font-title);
+            font-size: 20px;
+            font-weight: 800;
+            color: #18181b;
+        }
+
+        .voucher-subtitle {
+            font-size: 12px;
+            color: #71717a;
+            margin-top: 2px;
+        }
+
+        .voucher-details {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            font-size: 13px;
+            margin-bottom: 20px;
+        }
+
+        .voucher-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .voucher-label {
+            color: #71717a;
+        }
+
+        .voucher-value {
+            font-weight: 600;
+            color: #09090b;
+        }
+
+        .voucher-value.highlight {
+            color: #16a34a;
+            font-size: 16px;
+            font-weight: 800;
+        }
+
+        .voucher-email-banner {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: var(--radius-sm);
+            padding: 12px;
+            font-size: 12px;
+            color: #1e40af;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .voucher-email-banner svg {
+            color: #3b82f6;
+            flex-shrink: 0;
+        }
+
+        .voucher-btn-close {
+            width: 100%;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            background: #09090b;
+            color: #fff;
+            font-family: var(--font-title);
+            font-size: 14px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .voucher-btn-close:hover {
+            background: #27272a;
+        }
+
+        /* ── Tap overlay (autoplay fix) ───────────────────────── */
+        #tap-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 150;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 16px;
+            background: rgba(0, 0, 0, 0.85);
+            cursor: pointer;
+        }
+
+        .tap-pulse-circle {
+            width: 84px;
+            height: 84px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #10b981, #047857);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.6);
+            animation: tapPulseAnim 2s ease-in-out infinite;
+        }
+
+        @keyframes tapPulseAnim {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 40px rgba(16, 185, 129, 0.6); }
+            50% { transform: scale(1.08); box-shadow: 0 0 60px rgba(16, 185, 129, 0.9); }
+        }
+
+        /* Responsive Fixes */
+        @media (max-width: 768px) {
+            #video { object-fit: cover; }
+            #gym-header { top: 12px; left: 12px; padding: 6px 14px 6px 10px; }
+            #gym-title { font-size: 12px; }
+            #gym-subtitle { display: none; }
+            #top-actions { top: 12px; right: 12px; }
+            #btn-rut-trigger { bottom: 16px; right: 16px; padding: 10px 16px; font-size: 12px; }
+            #chat-container { left: 16px; bottom: 100px; width: 90vw; }
+            #client-badge { display: none !important; }
         }
     </style>
 </head>
 
 <body class="state-connecting">
 
-    <!-- Elementos requeridos por client.js -->
+    <!-- Elementos requeridos por client.js WebRTC -->
     <input type="hidden" id="sessionid" value="0">
     <audio id="audio" autoplay></audio>
     <input type="checkbox" id="use-stun" style="display:none">
     <button id="start" style="display:none"></button>
     <button id="stop" style="display:none"></button>
 
-    <!-- Input Oculto para Lector de Código de Barras (Escáner USB/Bluetooth) -->
-    <input type="text" id="barcode-input" autocomplete="off"
-        style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; top: -100px; left: -100px;"
-        aria-hidden="true" />
-
     <div id="app">
-
-        <!-- Avatar fullscreen -->
         <div id="avatar-wrap">
             <video id="video" autoplay playsinline muted></video>
-            <!-- Burbujas de chat sobrepuestas -->
-            <div id="chat-container"></div>
-            <div id="speaking-ring"></div>
 
-            <!-- Contenedor para Tarjetas de Producto por Escaneo -->
-            <div id="product-card-container"></div>
-
-            <!-- Carrusel de ofertas (parte superior) -->
-            <div id="offers-carousel">
-                <div id="carousel-fade-left"></div>
-                <div id="carousel-fade-right"></div>
-                <div class="carousel-track" id="carousel-track">
-                    <!-- Slide 1: imagen ancha, ocupa todo el ancho -->
-                    <div class="carousel-slide active">
-                        <img src="imgs/zapatillas_urbanas_deportivas.jpg" alt="Zapatillas hasta 50% dcto" />
+            <!-- Gym Branding Header -->
+            <div id="gym-header">
+                <div id="gym-logo-badge">⚡</div>
+                <div id="gym-title-wrap">
+                    <div id="gym-title">
+                        FitLife Club & Gym
+                        <span class="tag">Santander 20% OFF</span>
                     </div>
-                    <!-- Slide 2: par de imágenes angostas -->
-                    <div class="carousel-slide dual">
-                        <img src="imgs/perfumes.jpg" alt="Cuidado Capilar 30% dcto" />
-                        <img src="imgs/parlantes.jpg" alt="Parlantes Bluetooth 60% dcto" />
-                    </div>
-                    <!-- Slide 3: par de imágenes angostas -->
-                    <div class="carousel-slide dual">
-                        <img src="imgs/vestuario_hombre_deporte.webp" alt="Vestuario Hombre 30% dcto" />
-                        <img src="imgs/jugueteria_trajes_tipicos.webp" alt="Juguetería 40% dcto" />
-                    </div>
+                    <div id="gym-subtitle">Asistente Virtual de Membresías y Pagos</div>
                 </div>
-                <div id="carousel-dots"></div>
             </div>
 
-            <!-- Status badge (arriba-centro) -->
+            <!-- Active Client Badge -->
+            <div id="client-badge">
+                <div id="client-avatar">👤</div>
+                <div id="client-info">
+                    <span id="client-name">Juan Pérez</span>
+                    <span id="client-rut">RUT: 12.345.678-5</span>
+                </div>
+            </div>
+
+            <!-- Top Action Buttons -->
+            <div id="top-actions">
+                <button class="action-pill-btn primary" onclick="openPlansModal()">
+                    <span>🏋️</span> Ver Planes
+                </button>
+            </div>
+
+            <!-- Chat & Dialogue Bubbles -->
+            <div id="chat-container"></div>
+
+            <!-- Status Badge -->
             <div id="status-badge">
                 <div id="status-dot"></div>
                 <span id="status-text">Conectando…</span>
             </div>
 
-            <!-- Transcript (sobre video, encima del botón stop) -->
-            <div id="transcript-wrap">
-                <div id="user-line" class="transcript-line" style="display:none">
-                    <span class="transcript-label">Tú</span>
-                    <span id="user-text" class="transcript-text dim"></span>
-                </div>
-            </div>
-
-            <!-- Botón STOP Avatar (flotante, visible cuando habla o piensa) -->
+            <!-- Stop Talk Button -->
             <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú">
-                <span class="stop-icon">
-                    <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
-                        <rect x="5" y="5" width="14" height="14" rx="2" />
-                    </svg>
-                </span>
-                <span class="stop-label">Parar avatar</span>
-            </button>
-
-            <!-- Botón conectar (discreto, bottom-left) -->
-            <button id="btn-connect" onclick="connectRTC()">
-                <svg viewBox="0 0 20 20" fill="currentColor" width="9" height="9">
-                    <path d="M10 2a8 8 0 100 16A8 8 0 0010 2zm0 14.5A6.5 6.5 0 1110 3.5a6.5 6.5 0 010 13z" />
-                    <path
-                        d="M10 6a1 1 0 011 1v3.586l2.707 2.707a1 1 0 01-1.414 1.414l-3-3A1 1 0 019 11V7a1 1 0 011-1z" />
+                <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
+                    <rect x="5" y="5" width="14" height="14" rx="2" />
                 </svg>
-                Conectar
+                <span>Parar avatar</span>
             </button>
 
-            <!-- Botón invisible fullscreen (esquina sup-derecha) -->
-            <button id="btn-fullscreen" onclick="toggleFullscreen()" title="Pantalla completa"
-                aria-label="Pantalla completa"></button>
+            <!-- Botón Flotante de RUT en la esquina inferior derecha -->
+            <button id="btn-rut-trigger" onclick="openRutModal()" title="Digitar o Consultar RUT de Cliente">
+                <div class="rut-icon-wrap">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                        <path d="M4 4h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2zm2 4v2h12V8H6zm0 4v2h8v-2H6z"/>
+                    </svg>
+                </div>
+                <span>Ingresar RUT</span>
+            </button>
 
-            <!-- Botón debug log (bottom-right) -->
-            <button id="dbg-btn" onclick="dbgToggle()" title="Ver logs">🪲</button>
-
-            <!-- Overlay tap-to-start (Android / mobile autoplay fix) -->
-            <div id="tap-overlay" onclick="handleTapToStart()" style="
-            position:absolute; inset:0; z-index:100;
-            display:flex; flex-direction:column;
-            align-items:center; justify-content:center; gap:16px;
-            background:rgba(0,0,0,0.72); cursor:pointer;
-        ">
-                <div style="
-                width:80px; height:80px; border-radius:50%;
-                background:linear-gradient(135deg,#6366f1,#4338ca);
-                display:flex; align-items:center; justify-content:center;
-                box-shadow:0 0 40px rgba(99,102,241,0.6);
-                animation: tap-pulse 2s ease-in-out infinite;
-            ">
-                    <!-- Play icon -->
-                    <svg viewBox="0 0 24 24" fill="white" width="36" height="36">
+            <!-- Tap Overlay for Autoplay Permission -->
+            <div id="tap-overlay" onclick="handleTapToStart()">
+                <div class="tap-pulse-circle">
+                    <svg viewBox="0 0 24 24" fill="white" width="38" height="38">
                         <path d="M8 5v14l11-7z" />
                     </svg>
                 </div>
-                <p style="color:#f4f4f5;font-size:15px;font-weight:500;margin:0;text-shadow:0 2px 8px rgba(0,0,0,0.8);">
-                    Toca para iniciar</p>
+                <p style="color:#f4f4f5;font-size:16px;font-weight:600;font-family:var(--font-title);">Toca la pantalla para iniciar FitLife Gym</p>
             </div>
-
         </div>
-
-
     </div>
 
-    <!-- Debug log panel (tap 🪲 to open) -->
-    <div id="dbg-panel">
-        <div id="dbg-toolbar">
-            <span>🪲 Consola de depuración</span>
-            <div style="display:flex;gap:4px">
-                <button id="dbg-clear" onclick="dbgClear()">Limpiar</button>
-                <button id="dbg-close" onclick="dbgToggle()">Cerrar ✕</button>
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 1: TECLADO NUMÉRICO RUT                                           -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-rut" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-title-icon" style="background: linear-gradient(135deg, #10b981, #059669);">🪪</div>
+                    <div>
+                        <div class="modal-title">Identificación de Cliente</div>
+                        <div class="modal-subtitle">Dicta tu RUT o digítalo en el teclado en pantalla</div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closeRutModal()">✕</button>
+            </div>
+
+            <div id="rut-display-box">
+                <div id="rut-input-value" class="placeholder">Ej: 12.345.678-5</div>
+                <div id="rut-status-msg">Ingresa los dígitos de tu RUT chileno</div>
+            </div>
+
+            <div class="keypad-grid">
+                <button class="keypad-btn" onclick="keypadPress('1')">1</button>
+                <button class="keypad-btn" onclick="keypadPress('2')">2</button>
+                <button class="keypad-btn" onclick="keypadPress('3')">3</button>
+                <button class="keypad-btn" onclick="keypadPress('4')">4</button>
+                <button class="keypad-btn" onclick="keypadPress('5')">5</button>
+                <button class="keypad-btn" onclick="keypadPress('6')">6</button>
+                <button class="keypad-btn" onclick="keypadPress('7')">7</button>
+                <button class="keypad-btn" onclick="keypadPress('8')">8</button>
+                <button class="keypad-btn" onclick="keypadPress('9')">9</button>
+                <button class="keypad-btn k-btn" onclick="keypadPress('K')">K</button>
+                <button class="keypad-btn" onclick="keypadPress('0')">0</button>
+                <button class="keypad-btn action" onclick="keypadBackspace()">⌫</button>
+                <button class="keypad-btn submit" onclick="submitRutKeypad()">Confirmar RUT ✓</button>
+            </div>
+
+            <!-- Accesos rápidos de demostración -->
+            <div class="demo-rut-pills">
+                <span style="font-size:11px;color:#71717a;">RUTs Demo:</span>
+                <span class="demo-rut-pill" onclick="fillDemoRut('123456785')">12.345.678-5 (Juan)</span>
+                <span class="demo-rut-pill" onclick="fillDemoRut('187654321')">18.765.432-1 (Valentina)</span>
+                <span class="demo-rut-pill" onclick="fillDemoRut('9876543K')">9.876.543-K (Carlos)</span>
             </div>
         </div>
-        <!-- Selector de micrófono -->
-        <div id="dbg-mic-row">
-            <label>🎤 Micrófono:</label>
-            <select id="dbg-mic-select" onchange="dbgSelectMic(this.value)">
-                <option value="">-- default del sistema --</option>
-            </select>
-            <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
-        </div>
+    </div>
 
-        <div id="dbg-list"></div>
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 2: CATÁLOGO DE PLANES FITLIFE GYM                                -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-plans" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 680px;">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-title-icon" style="background: linear-gradient(135deg, #6366f1, #4338ca);">🏋️</div>
+                    <div>
+                        <div class="modal-title">Planes y Membresías FitLife</div>
+                        <div class="modal-subtitle">20% de descuento exclusivo pagando con Tarjetas Santander</div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closePlansModal()">✕</button>
+            </div>
+
+            <div class="plans-grid" id="plans-container">
+                <!-- Se llena dinámicamente con JS -->
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 3: SELECCIÓN DE BANCO Y MEDIO DE PAGO                            -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-payment-methods" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-group">
+                    <div class="modal-title-icon" style="background: linear-gradient(135deg, #ec0000, #b91c1c);">💳</div>
+                    <div>
+                        <div class="modal-title">Medio de Pago</div>
+                        <div class="modal-subtitle" id="payment-modal-subtitle">Selecciona tu banco o medio de pago</div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closePaymentMethodsModal()">✕</button>
+            </div>
+
+            <!-- Banner Destacado Santander -->
+            <div id="santander-promo-banner" onclick="selectPaymentBank('santander')">
+                <div class="santander-logo-icon">S</div>
+                <div class="santander-promo-text">
+                    <h4>Banco Santander (Recomendado)</h4>
+                    <p>🔥 20% Dcto Exclusivo y hasta 12 cuotas sin interés</p>
+                </div>
+            </div>
+
+            <div class="banks-list">
+                <div class="bank-item" onclick="selectPaymentBank('banco_chile')">
+                    <div class="bank-info">
+                        <div class="bank-bullet" style="background: #002b66;"></div>
+                        <span class="bank-name">Banco de Chile / Edwards</span>
+                    </div>
+                    <span class="bank-badge">Hasta 6 Cuotas</span>
+                </div>
+
+                <div class="bank-item" onclick="selectPaymentBank('banco_estado')">
+                    <div class="bank-info">
+                        <div class="bank-bullet" style="background: #ff6600;"></div>
+                        <span class="bank-name">BancoEstado / CuentaRUT</span>
+                    </div>
+                    <span class="bank-badge">Débito / Crédito</span>
+                </div>
+
+                <div class="bank-item" onclick="selectPaymentBank('bci')">
+                    <div class="bank-info">
+                        <div class="bank-bullet" style="background: #007a33;"></div>
+                        <span class="bank-name">BCI</span>
+                    </div>
+                    <span class="bank-badge">3 a 6 Cuotas</span>
+                </div>
+
+                <div class="bank-item" onclick="selectPaymentBank('scotiabank')">
+                    <div class="bank-info">
+                        <div class="bank-bullet" style="background: #ed0722;"></div>
+                        <span class="bank-name">Scotiabank</span>
+                    </div>
+                    <span class="bank-badge">Débito / Crédito</span>
+                </div>
+
+                <div class="bank-item" onclick="selectPaymentBank('transbank')">
+                    <div class="bank-info">
+                        <div class="bank-bullet" style="background: #2563eb;"></div>
+                        <span class="bank-name">Otras Tarjetas / Webpay</span>
+                    </div>
+                    <span class="bank-badge">Redcompra</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 4: SIMULADOR TERMINAL DE PAGO POS / CONTACTLESS                  -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-pos-simulator" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 440px; padding: 0; background: transparent; border: none; box-shadow: none;">
+            <div id="pos-terminal-card">
+                <div class="pos-screen">
+                    <div class="pos-screen-header">FITLIFE POS TERMINAL #01</div>
+                    <div class="pos-amount" id="pos-screen-total">$0</div>
+                    <div class="pos-screen-plan" id="pos-screen-plan-name">Plan Seleccionado</div>
+                    <div class="pos-santander-alert" id="pos-screen-discount-tag" style="display:none;">20% DCTO SANTANDER APLICADO</div>
+                </div>
+
+                <div class="nfc-animation-wrap">
+                    <div class="nfc-wave"></div>
+                    <div class="nfc-wave"></div>
+                    <div class="nfc-wave"></div>
+                    <div class="pos-card-graphic" id="pos-card-color">
+                        <span id="pos-card-symbol">💳</span>
+                    </div>
+                </div>
+
+                <div class="pos-instruction" id="pos-instruction-text">Acerque su tarjeta o inserte chip</div>
+                <div class="pos-subinstruction">Dispositivo listo para procesar la transacción</div>
+
+                <button class="btn-simulate-tap" id="btn-do-payment" onclick="executeSimulatedPayment()">
+                    <span>📲</span> Simular Acercar Tarjeta / Pagar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 5: VOUCHER / COMPROBANTE DE PAGO DIGITAL                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-voucher" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 460px; padding: 0; background: transparent; border: none; box-shadow: none;">
+            <div id="voucher-card">
+                <div class="voucher-header">
+                    <div class="voucher-success-icon">✓</div>
+                    <div class="voucher-title">¡PAGO APROBADO!</div>
+                    <div class="voucher-subtitle">FitLife Club & Gym • Membresía Activa</div>
+                </div>
+
+                <div class="voucher-details">
+                    <div class="voucher-row">
+                        <span class="voucher-label">N° Operación:</span>
+                        <span class="voucher-value" id="v-op-num">OP-839201</span>
+                    </div>
+                    <div class="voucher-row">
+                        <span class="voucher-label">Autorización:</span>
+                        <span class="voucher-value" id="v-auth-code">AUTH-94812</span>
+                    </div>
+                    <div class="voucher-row">
+                        <span class="voucher-label">Fecha y Hora:</span>
+                        <span class="voucher-value" id="v-datetime">30/09/2026 10:45</span>
+                    </div>
+                    <div class="voucher-row">
+                        <span class="voucher-label">Cliente (RUT):</span>
+                        <span class="voucher-value" id="v-rut">12.345.678-5</span>
+                    </div>
+                    <div class="voucher-row">
+                        <span class="voucher-label">Plan Contratado:</span>
+                        <span class="voucher-value" id="v-plan">Plan Semestral (6 Meses)</span>
+                    </div>
+                    <div class="voucher-row">
+                        <span class="voucher-label">Medio de Pago:</span>
+                        <span class="voucher-value" id="v-bank">Banco Santander</span>
+                    </div>
+                    <div class="voucher-row" id="v-discount-row" style="display:none;">
+                        <span class="voucher-label">Descuento Santander (20%):</span>
+                        <span class="voucher-value" style="color:#ef4444;" id="v-discount">-$32.000</span>
+                    </div>
+                    <div class="voucher-row" style="border-top: 1px solid #e4e4e7; padding-top: 8px; margin-top: 4px;">
+                        <span class="voucher-label" style="font-weight:700; color:#18181b;">TOTAL PAGADO:</span>
+                        <span class="voucher-value highlight" id="v-total">$127.990</span>
+                    </div>
+                </div>
+
+                <div class="voucher-email-banner">
+                    <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                    </svg>
+                    <span>Comprobante enviado a: <strong id="v-email">juan.perez@gmail.com</strong></span>
+                </div>
+
+                <button class="voucher-btn-close" onclick="closeVoucherModal()">Finalizar y Continuar</button>
+            </div>
+        </div>
     </div>
 
     <!-- WebRTC client -->
@@ -1160,229 +1580,446 @@
 
     <script>
         // ══════════════════════════════════════════════════════════════════════════════
-        // DEBUG LOGGER — escribe en consola del navegador Y en el panel on-screen 🪲
+        // ESTADO GLOBAL DE FITLIFE GYM Y FLUJO DE PAGO
         // ══════════════════════════════════════════════════════════════════════════════
-        const _DBG_MAX = 200;
+        const gymState = {
+            plans: [],
+            banks: [],
+            client: {
+                rut: "12.345.678-5",
+                rut_limpio: "123456785",
+                nombre: "Socio FitLife",
+                email: "cliente@correo.cl"
+            },
+            selectedPlan: null,
+            selectedBank: null,
+            rutDigits: "",
+            isRutIdentified: false,
+            inPaymentFlow: false
+        };
 
-        function _dbgWrite(level, args) {
-            if (level === 'log') console.log('[Avatar]', ...args);
-            if (level === 'warn') console.warn('[Avatar]', ...args);
-            if (level === 'err') console.error('[Avatar]', ...args);
-
-            const list = document.getElementById('dbg-list');
-            if (!list) return;
-
-            const now = new Date();
-            const ts = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
-            const msg = args.map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ');
-
-            const entry = document.createElement('div');
-            entry.className = `dbg-entry dbg-${level}`;
-            entry.innerHTML =
-                `<span class="dbg-ts">${ts}</span>` +
-                `<span class="dbg-label-${level}">${level.toUpperCase()}</span>` +
-                `<span class="dbg-msg">${msg.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</span>`;
-            list.appendChild(entry);
-
-            while (list.children.length > _DBG_MAX) list.removeChild(list.firstChild);
-
-            const panel = document.getElementById('dbg-panel');
-            if (panel && panel.classList.contains('open')) {
-                list.scrollTop = list.scrollHeight;
-            }
-        }
-
-        const LOG = (...args) => _dbgWrite('log', args);
-        const WARN = (...args) => _dbgWrite('warn', args);
-        const ERR = (...args) => _dbgWrite('err', args);
-
-        function dbgToggle() {
-            const panel = document.getElementById('dbg-panel');
-            panel.classList.toggle('open');
-            if (panel.classList.contains('open')) {
-                const list = document.getElementById('dbg-list');
-                list.scrollTop = list.scrollHeight;
-            }
-        }
-
-        function dbgClear() {
-            const list = document.getElementById('dbg-list');
-            list.innerHTML = '';
-            LOG('Consola limpiada');
-        }
-
-        // ─── Selector de micrófono en panel debug ─────────────────────────────────
-        let _preferredDeviceId = null;
-
-        async function dbgLoadDevices() {
-            const sel = document.getElementById('dbg-mic-select');
-            if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
-                WARN('enumerateDevices no disponible en este dispositivo');
-                return;
-            }
-            try {
-                const devices = await navigator.mediaDevices.enumerateDevices();
-                const audioInputs = devices.filter(d => d.kind === 'audioinput');
-                LOG(`Micrófonos disponibles: ${audioInputs.length}`);
-                audioInputs.forEach((d, i) => {
-                    LOG(`  [${i}] id="${d.deviceId.slice(0, 16)}…" label="${d.label || '(sin permiso)'}"`);
-                });
-
-                if (sel) {
-                    sel.innerHTML = '<option value="">-- default del sistema --</option>';
-                    audioInputs.forEach((d, i) => {
-                        const opt = document.createElement('option');
-                        opt.value = d.deviceId;
-                        opt.textContent = d.label
-                            ? d.label
-                            : `Micrófono ${i + 1}  (${d.deviceId.slice(0, 8)}…)`;
-                        if (d.deviceId === _preferredDeviceId) opt.selected = true;
-                        sel.appendChild(opt);
-                    });
-                }
-
-                if (audioInputs.length === 0) ERR('¡No se encontraron micrófonos!');
-            } catch (e) {
-                ERR('dbgLoadDevices error:', e.name, e.message);
-            }
-        }
-
-        function dbgSelectMic(deviceId) {
-            _preferredDeviceId = deviceId || null;
-            if (_preferredDeviceId) {
-                const sel = document.getElementById('dbg-mic-select');
-                const label = sel?.options[sel.selectedIndex]?.textContent || deviceId;
-                LOG(`🎤 Micrófono seleccionado: "${label}"`);
-            } else {
-                LOG('🎤 Micrófono: default del sistema');
-            }
-        }
-
-        LOG('=== INIT ===');
-        LOG('UA:', navigator.userAgent);
-        LOG('Secure context:', window.isSecureContext);
-        LOG('SpeechRecognition:', !!(window.SpeechRecognition || window.webkitSpeechRecognition));
-        LOG('getUserMedia:', !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia));
-        LOG('Protocol:', location.protocol, '| Host:', location.host);
-
-        // ─── Estado ────────────────────────────────────────────────────────────────
         let isConnected = false;
         let isListening = false;
         let recognition = null;
         let isSpeaking = false;
-        let speakCheckInterval = null;
         let _audioUnlocked = false;
 
-        // ─── Wake-word & Modo Conversación Abierta (Experimental) ───────────────
-        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas'];
-        const WAKE_WORD = WAKE_WORDS[0];
+        // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
+        const WAKE_WORDS = ['hola', 'oye', 'disculpa', 'permiso', 'necesito ayuda', 'asistente', 'buenas', 'buenos dias', 'buenas tardes', 'rut', 'plan', 'pagar'];
+        let _conversationAwake = false;
+        let _inactivityTimeoutId = null;
+        let _followUpTimeoutId = null;
+        let _waitingFollowUpAck = false;
+        let _followUpAckTimeoutId = null;
+        let _pendingAvatarBubbleText = null;
+        let _pendingAvatarBubbleTimeout = null;
+        let _activeLLMAbortController = null;
+        const INACTIVITY_TIMEOUT_MS = 90000; // 1.5 minutos de inactividad
 
-        let _wakeDetected = false;
-        let _alwaysOnActive = false;
-
-        let _conversationAwake = false;  // true si el flujo de conversación está activo sin requerir wake-word
-        let _inactivityTimeoutId = null; // temporizador de inactividad
-        let _followUpTimeoutId = null;   // ID del temporizador para preguntar si necesita algo más
-        let _waitingFollowUpAck = false;  // true cuando se preguntó "¿Necesitas algo más?" y esperamos respuesta
-        let _followUpAckTimeoutId = null; // timer del segundo wait de 30s tras "¿Necesitas algo más?"
-        let _pendingAvatarBubbleText = null;    // Texto de respuesta del LLM en cola para mostrar cuando empiece a hablar
-        let _pendingAvatarBubbleTimeout = null; // Timeout de seguridad para la burbuja en cola
-        const INACTIVITY_TIMEOUT_MS = 120000;   // 2 minutos antes de volver a modo de espera
-
-        const BUFFER_MS = 5000;                 // ms de espera para pregunta tras la wake-word
-        let _wakeBufferTimeout = null;
-
-        const WAKE_ONLY_GREETINGS = [
-            '¡Hola! ¿En qué te puedo ayudar?',
-            '¡Buenas! ¿Buscas algo en especial?',
-            '¡Hola! ¿Necesitas ayuda para encontrar algo?',
-            'Aquí estoy, ¿en qué te ayudo?'
-        ];
-
-        function _randomGreeting() {
-            return WAKE_ONLY_GREETINGS[Math.floor(Math.random() * WAKE_ONLY_GREETINGS.length)];
+        // ─── Carga Inicial de Datos del Gimnasio ────────────────────────────────
+        async function loadGymData() {
+            try {
+                const res = await fetch('/api/gym/data');
+                const json = await res.json();
+                if (json.code === 0 && json.data) {
+                    gymState.plans = json.data.planes || [];
+                    gymState.banks = json.data.bancos || [];
+                    renderPlansGrid();
+                    console.log('[FitLife] Datos cargados con éxito:', gymState.plans.length, 'planes');
+                }
+            } catch (e) {
+                console.error('[FitLife] Error cargando datos:', e);
+            }
         }
 
-        function _containsWakeWord(text) {
-            const lower = text.toLowerCase();
-            return WAKE_WORDS.some(w => lower.includes(w));
+        function renderPlansGrid() {
+            const container = document.getElementById('plans-container');
+            if (!container) return;
+            container.innerHTML = '';
+
+            gymState.plans.forEach(p => {
+                const isHighlight = p.destacado || p.id === 'plan_12m';
+                const card = document.createElement('div');
+                card.className = `plan-card ${isHighlight ? 'highlight' : ''}`;
+                card.onclick = () => selectPlan(p.id);
+
+                const featuresHtml = (p.caracteristicas || []).map(f => `
+                    <li>
+                        <svg viewBox="0 0 20 20" fill="currentColor" width="12" height="12">
+                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                        </svg>
+                        ${f}
+                    </li>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="plan-card-badge">${p.badge || (p.meses + ' Meses')}</div>
+                    <div class="plan-name">${p.nombre}</div>
+                    <div class="plan-prices">
+                        <div class="plan-santander-price">
+                            $${Number(p.precio_santander).toLocaleString('es-CL')}
+                            <span class="plan-santander-tag">Santander 20% OFF</span>
+                        </div>
+                        <div class="plan-regular-price">Precio normal: $${Number(p.precio).toLocaleString('es-CL')}</div>
+                    </div>
+                    <ul class="plan-features">${featuresHtml}</ul>
+                    <button class="plan-select-btn">Contratar este Plan</button>
+                `;
+                container.appendChild(card);
+            });
         }
 
-        function _extractQuestion(text) {
-            const lower = text.toLowerCase();
-            let best = { idx: -1, word: '' };
-            for (const w of WAKE_WORDS) {
-                const i = lower.indexOf(w);
-                if (i !== -1 && (best.idx === -1 || i < best.idx)) {
-                    best = { idx: i, word: w };
+        // ══════════════════════════════════════════════════════════════════════
+        // MODAL Y TECLADO DE RUT
+        // ══════════════════════════════════════════════════════════════════════
+        function openRutModal() {
+            const modal = document.getElementById('modal-rut');
+            if (modal) modal.classList.add('open');
+            updateRutDisplay();
+        }
+
+        function closeRutModal() {
+            const modal = document.getElementById('modal-rut');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function keypadPress(char) {
+            if (gymState.rutDigits.length >= 9) return;
+            // Si presiona K, solo puede ser al final si ya tiene al menos 7 dígitos
+            if (char === 'K') {
+                if (gymState.rutDigits.length >= 7 && !gymState.rutDigits.includes('K')) {
+                    gymState.rutDigits += 'K';
+                }
+            } else {
+                gymState.rutDigits += char;
+            }
+            updateRutDisplay();
+        }
+
+        function keypadBackspace() {
+            if (gymState.rutDigits.length > 0) {
+                gymState.rutDigits = gymState.rutDigits.slice(0, -1);
+                updateRutDisplay();
+            }
+        }
+
+        function formatRut(digits) {
+            if (!digits) return "";
+            const clean = digits.toUpperCase();
+            if (clean.length === 1) return clean;
+            const cuerpo = clean.slice(0, -1);
+            const dv = clean.slice(-1);
+            let formattedCuerpo = "";
+            for (let i = cuerpo.length - 1, j = 1; i >= 0; i--, j++) {
+                formattedCuerpo = cuerpo[i] + formattedCuerpo;
+                if (j % 3 === 0 && i !== 0) formattedCuerpo = "." + formattedCuerpo;
+            }
+            return `${formattedCuerpo}-${dv}`;
+        }
+
+        function updateRutDisplay() {
+            const displayEl = document.getElementById('rut-input-value');
+            if (!displayEl) return;
+            if (gymState.rutDigits) {
+                displayEl.textContent = formatRut(gymState.rutDigits);
+                displayEl.classList.remove('placeholder');
+            } else {
+                displayEl.textContent = "Ej: 12.345.678-5";
+                displayEl.classList.add('placeholder');
+            }
+        }
+
+        function fillDemoRut(cleanRut) {
+            gymState.rutDigits = cleanRut;
+            updateRutDisplay();
+        }
+
+        async function submitRutKeypad() {
+            if (gymState.rutDigits.length < 7) {
+                alert("Por favor ingresa un RUT válido de al menos 7 dígitos.");
+                return;
+            }
+            const clean = gymState.rutDigits.toUpperCase();
+            try {
+                const res = await fetch(`/api/gym/cliente/${encodeURIComponent(clean)}`);
+                const json = await res.json();
+                if (json.code === 0 && json.data) {
+                    gymState.client = json.data;
+                    gymState.isRutIdentified = true;
+                    showClientBadge(gymState.client);
+                    closeRutModal();
+
+                    // Notificar al avatar y al LLM de la identificación de la cuenta
+                    const msg = `Mi RUT es ${gymState.client.rut}`;
+                    wakeUpModel();
+                    sendToLLM(msg);
+                }
+            } catch (e) {
+                console.error("Error identificando cliente:", e);
+                closeRutModal();
+            }
+        }
+
+        function showClientBadge(client) {
+            const badge = document.getElementById('client-badge');
+            const nameEl = document.getElementById('client-name');
+            const rutEl = document.getElementById('client-rut');
+            if (badge && nameEl && rutEl) {
+                nameEl.textContent = client.nombre || "Socio Registrado";
+                rutEl.textContent = `RUT: ${client.rut}`;
+                badge.classList.add('active');
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SELECCIÓN DE PLANES Y FLUJO DE COMPRA / PAGO
+        // ══════════════════════════════════════════════════════════════════════
+        function openPlansModal() {
+            const modal = document.getElementById('modal-plans');
+            if (modal) modal.classList.add('open');
+        }
+
+        function closePlansModal() {
+            const modal = document.getElementById('modal-plans');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function selectPlan(planId) {
+            const plan = gymState.plans.find(p => p.id === planId);
+            if (!plan) return;
+            gymState.selectedPlan = plan;
+            closePlansModal();
+
+            // Preguntar al avatar / LLM sobre la contratación del plan
+            wakeUpModel();
+            sendToLLM(`Quiero contratar el ${plan.nombre}`);
+        }
+
+        function openPaymentMethodsModal() {
+            const modal = document.getElementById('modal-payment-methods');
+            const subtitle = document.getElementById('payment-modal-subtitle');
+            if (gymState.selectedPlan && subtitle) {
+                subtitle.textContent = `Pagando ${gymState.selectedPlan.nombre}`;
+            }
+            if (modal) modal.classList.add('open');
+        }
+
+        function closePaymentMethodsModal() {
+            const modal = document.getElementById('modal-payment-methods');
+            if (modal) modal.classList.remove('open');
+        }
+
+        function selectPaymentBank(bankId) {
+            gymState.selectedBank = bankId;
+            closePaymentMethodsModal();
+
+            const isSantander = bankId === 'santander';
+            const bankName = isSantander ? "Banco Santander" : "otro banco";
+
+            // Enviar confirmación al avatar para que de la instrucción de pago
+            wakeUpModel();
+            sendToLLM(`Voy a pagar con ${bankName}`);
+
+            // Abrir simulador de POS
+            setTimeout(() => {
+                openPosSimulator();
+            }, 1000);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // SIMULADOR TERMINAL POS / CONTACTLESS
+        // ══════════════════════════════════════════════════════════════════════
+        function openPosSimulator() {
+            const modal = document.getElementById('modal-pos-simulator');
+            const totalEl = document.getElementById('pos-screen-total');
+            const planEl = document.getElementById('pos-screen-plan-name');
+            const discountTag = document.getElementById('pos-screen-discount-tag');
+            const cardGraphic = document.getElementById('pos-card-color');
+
+            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
+            const isSantander = gymState.selectedBank === 'santander';
+            const finalAmount = isSantander ? plan.precio_santander : plan.precio;
+
+            if (totalEl) totalEl.textContent = `$${Number(finalAmount).toLocaleString('es-CL')}`;
+            if (planEl) planEl.textContent = plan.nombre;
+            if (discountTag) discountTag.style.display = isSantander ? 'block' : 'none';
+
+            if (cardGraphic) {
+                if (isSantander) {
+                    cardGraphic.style.background = 'linear-gradient(135deg, #ec0000, #991b1b)';
+                } else {
+                    cardGraphic.style.background = 'linear-gradient(135deg, #2563eb, #1d4ed8)';
                 }
             }
-            if (best.idx === -1) return text.trim();
-            return text.slice(best.idx + best.word.length).replace(/^[,\.\s¿¡]+/, '').trim();
+
+            if (modal) modal.classList.add('open');
         }
 
-        function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "").trim();
-            // Frases exactas de despedida o cierre negativo
-            const exactSleepPhrases = [
-                'no', 'no gracias', 'no muchas gracias', 'no por ahora', 'no nada mas',
-                'no ya no', 'no seria todo', 'no eso seria todo', 'no eso es todo',
-                'no por el momento', 'no de momento', 'no gracias chao',
-                'gracias', 'muchas gracias', 'chao', 'adios', 'hasta luego',
-                'nada', 'no nada', 'nada mas', 'nada gracias', 'ninguna', 'ninguno',
-                'ninguno gracias', 'ninguna gracias', 'todo bien', 'todo bien gracias',
-                'eso es todo', 'eso seria todo', 'nos vemos',
-                'que estes bien', 'chao chao', 'bye', 'seria todo', 'listo gracias'
-            ];
-            if (exactSleepPhrases.includes(clean)) {
-                return true;
-            }
-
-            // Prefijos de despedida explícita (NUNCA incluir 'no' aquí para no cortar frases como 'no hay este producto')
-            const farewellPrefixes = [
-                'chao ', 'adios ', 'hasta luego ', 'nos vemos ', 'bye ', 'muchas gracias ', 'gracias por '
-            ];
-            if (farewellPrefixes.some(pre => clean.startsWith(pre))) {
-                return true;
-            }
-
-            return false;
+        function closePosSimulator() {
+            const modal = document.getElementById('modal-pos-simulator');
+            if (modal) modal.classList.remove('open');
         }
 
-        function clearServerHistory() {
+        async function executeSimulatedPayment() {
+            const btn = document.getElementById('btn-do-payment');
+            const instruction = document.getElementById('pos-instruction-text');
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = `<span>⏳</span> Procesando con el banco...`;
+            }
+            if (instruction) instruction.textContent = "Procesando pago seguro...";
+
+            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m' });
+
+            try {
+                const res = await fetch('/api/gym/pago/simular', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        plan_id: plan.id,
+                        banco_id: gymState.selectedBank || 'santander',
+                        rut: gymState.client.rut || '12.345.678-5',
+                        nombre: gymState.client.nombre || 'Socio FitLife',
+                        email: gymState.client.email || 'cliente@correo.cl'
+                    })
+                });
+                const json = await res.json();
+
+                // Esperar 3 segundos para una simulación ultra realista
+                setTimeout(() => {
+                    closePosSimulator();
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = `<span>📲</span> Simular Acercar Tarjeta / Pagar`;
+                    }
+                    if (json.code === 0 && json.data) {
+                        showVoucher(json.data);
+                    }
+                }, 3000);
+
+            } catch (e) {
+                console.error("Error en simulación de pago:", e);
+                closePosSimulator();
+            }
+        }
+
+        function showVoucher(data) {
+            document.getElementById('v-op-num').textContent = data.codigo_operacion;
+            document.getElementById('v-auth-code').textContent = data.codigo_autorizacion;
+            document.getElementById('v-datetime').textContent = data.fecha;
+            document.getElementById('v-rut').textContent = data.cliente.rut;
+            document.getElementById('v-plan').textContent = data.plan.nombre;
+            document.getElementById('v-bank').textContent = data.banco;
+            document.getElementById('v-total').textContent = `$${Number(data.monto_pagado).toLocaleString('es-CL')}`;
+            document.getElementById('v-email').textContent = data.email_comprobante;
+
+            const discRow = document.getElementById('v-discount-row');
+            if (discRow) {
+                if (data.descuento > 0) {
+                    discRow.style.display = 'flex';
+                    document.getElementById('v-discount').textContent = `-$${Number(data.descuento).toLocaleString('es-CL')}`;
+                } else {
+                    discRow.style.display = 'none';
+                }
+            }
+
+            const modal = document.getElementById('modal-voucher');
+            if (modal) modal.classList.add('open');
+
+            // El avatar confirma verbalmente que el pago fue exitoso
+            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas realizar alguna otra consulta?`;
+            queueAvatarBubble(confirmationSpeech);
+            sendEchoSpeech(confirmationSpeech);
+        }
+
+        function closeVoucherModal() {
+            const modal = document.getElementById('modal-voucher');
+            if (modal) modal.classList.remove('open');
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // WEBRTC Y VOZ DEL AVATAR
+        // ══════════════════════════════════════════════════════════════════════
+        function setState(state, text) {
+            document.body.className = 'state-' + state;
+            const st = document.getElementById('status-text');
+            if (st) st.textContent = text;
+        }
+
+        function addChatBubble(role, text) {
+            const container = document.getElementById('chat-container');
+            if (!container) return;
+
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${role}`;
+            bubble.textContent = text;
+            container.appendChild(bubble);
+            container.scrollTop = container.scrollHeight;
+
+            while (container.children.length > 5) {
+                container.removeChild(container.firstChild);
+            }
+
+            setTimeout(() => {
+                bubble.classList.add('fade-out');
+                setTimeout(() => {
+                    if (bubble.parentNode) bubble.parentNode.removeChild(bubble);
+                }, 500);
+            }, 25000);
+
+            return bubble;
+        }
+
+        function queueAvatarBubble(text) {
+            clearTimeout(_pendingAvatarBubbleTimeout);
+            _pendingAvatarBubbleText = text;
+            if (isSpeaking) {
+                addChatBubble('avatar', text);
+                _pendingAvatarBubbleText = null;
+                return;
+            }
+            _pendingAvatarBubbleTimeout = setTimeout(() => {
+                if (_pendingAvatarBubbleText) {
+                    addChatBubble('avatar', _pendingAvatarBubbleText);
+                    _pendingAvatarBubbleText = null;
+                }
+            }, 3000);
+        }
+
+        async function sendEchoSpeech(text) {
             const sessionid = document.getElementById('sessionid').value;
-            LOG('Borrando historial de conversación en servidor para sesión:', sessionid);
-            fetch('/clear_history', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ sessionid: String(sessionid) })
-            }).catch(e => WARN('clearServerHistory error:', e));
+            try {
+                await fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text,
+                        type: 'echo',
+                        sessionid: String(sessionid)
+                    })
+                });
+            } catch (e) {
+                console.warn('Error en sendEchoSpeech:', e);
+            }
         }
 
-        function sleepModel(showBubble = false) {
-            LOG("Durmiendo el modelo experimental (conversación cerrada).");
-            closeStoreMap();
+        function sleepModel() {
+            console.log("[FitLife] Durmiendo el avatar.");
             _conversationAwake = false;
-            _wakeDetected = false;
-            _waitingFollowUpAck = false;
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
-            clearServerHistory();
-            setUserText('', false);
-            if (isListening) {
-                setState('listening', 'Esperando activación…');
-            } else {
-                setState('ready', 'Esperando activación…');
-            }
-            if (showBubble) {
-                addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-            }
+            closeRutModal();
+            closePlansModal();
+            closePaymentMethodsModal();
+            closePosSimulator();
+            closeVoucherModal();
+            setState('ready', 'Esperando activación…');
+            addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
         }
 
         function wakeUpModel() {
             if (!_conversationAwake) {
-                LOG("Despertando el modelo experimental (conversación abierta).");
                 _conversationAwake = true;
                 const container = document.getElementById('chat-container');
                 if (container) container.innerHTML = '';
@@ -1394,534 +2031,56 @@
             clearTimeout(_inactivityTimeoutId);
             if (!_conversationAwake) return;
             _inactivityTimeoutId = setTimeout(() => {
-                LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
-                closeStoreMap();
-                _conversationAwake = false;
-                _wakeDetected = false;
-                setUserText('', false);
-                if (isListening) {
-                    setState('listening', 'Esperando activación…');
-                } else {
-                    setState('ready', 'Esperando activación…');
-                }
-                clearServerHistory();
-                const container = document.getElementById('chat-container');
-                if (container) container.innerHTML = '';
+                console.log("[FitLife] Inactividad superada. Durmiendo avatar.");
+                sleepModel();
             }, INACTIVITY_TIMEOUT_MS);
         }
 
-        function formatUserSpeechText(text) {
-            if (!text) return '';
-            return text
-                .replace(/\b(barpos|bar pos|barco|barcos|varpos|var pos|varco|varcos|barpost|bar post|barbox|bar box|barpox|bar pox|barpors|bar pors)\b/gi, 'BARPOS')
-                .replace(/\bbarpos\s+(\d+)/gi, 'BARPOS $1');
-        }
-
-        function normalizarTexto(text) {
-            if (!text) return '';
-            return text
-                .replace(/(\d+)\s*%/g, '$1 por ciento')
-                .replace(/\$(\d[\d\.]*)\s*(?:pesos)?/g, '$1 pesos')
-                .replace(/[→⇒➜➞➝➔]|->|=>|<-|<=|↔/g, ' ')
-                .replace(/\*{1,3}([^*]+)\*{1,3}/g, '$1')
-                .replace(/_{1,3}([^_]+)_{1,3}/g, '$1')
-                .replace(/~~([^~]+)~~/g, '$1')
-                .replace(/`+([^`]+)`+/g, '$1')
-                .replace(/^\s*#{1,6}\s*/gm, '')
-                .replace(/[-—–]+/g, ' ')
-                .replace(/[*#|_\\/\[\]{}~^<>•·●○■◆▪\(\)]/g, ' ')
-                .replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]|[\u2600-\u27BF]|[\u2300-\u23FF]|[\u2B50-\u2B55]/g, '')
-                .replace(/\s+([,.:;?!])/g, '$1')
-                .replace(/[,]{2,}/g, ',')
-                .replace(/[.]{2,}/g, '.')
-                .replace(/\s{2,}/g, ' ')
-                .trim();
-        }
-
-        function addChatBubble(role, text) {
-            const container = document.getElementById('chat-container');
-            if (!container) return;
-
-            const cleanText = (role === 'avatar') ? normalizarTexto(text) : formatUserSpeechText(text);
-
-            // Evitar duplicar burbujas de sistema consecutivas idénticas
-            if (role === 'system' && container.lastElementChild && container.lastElementChild.textContent.trim() === text.trim()) {
-                return container.lastElementChild;
-            }
-
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${role}`;
-            bubble.textContent = cleanText;
-            container.appendChild(bubble);
-
-            container.scrollTop = container.scrollHeight;
-
-            while (container.children.length > 5) {
-                container.removeChild(container.firstChild);
-            }
-
-            setTimeout(() => {
-                bubble.classList.add('fade-out');
-                setTimeout(() => {
-                    if (bubble.parentNode) {
-                        bubble.parentNode.removeChild(bubble);
-                    }
-                }, 500);
-            }, 22000);
-
-            return bubble;
-        }
-
-        function queueAvatarBubble(text) {
-            clearTimeout(_pendingAvatarBubbleTimeout);
-            _pendingAvatarBubbleText = text;
-
-            if (isSpeaking) {
-                addChatBubble('avatar', _pendingAvatarBubbleText);
-                _pendingAvatarBubbleText = null;
-                return;
-            }
-
-            _pendingAvatarBubbleTimeout = setTimeout(() => {
-                if (_pendingAvatarBubbleText) {
-                    addChatBubble('avatar', _pendingAvatarBubbleText);
-                    _pendingAvatarBubbleText = null;
-                }
-            }, 4000);
-        }
-
-        function scheduleFollowUp() {
-            clearTimeout(_followUpTimeoutId);
-            clearTimeout(_followUpAckTimeoutId);
-            _waitingFollowUpAck = false;
-            if (!_conversationAwake) return;
-            _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
-                const followUpText = "¿Necesitas algo más?";
-                _waitingFollowUpAck = true;
-
-                queueAvatarBubble(followUpText);
-                stopAlwaysOnListening();
-
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: followUpText,
-                        type: 'echo',
-                        sessionid: String(sessionid)
-                    })
-                }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 15000);
-        }
-
-        function scheduleFollowUpAckTimeout() {
-            clearTimeout(_followUpAckTimeoutId);
-            if (!_waitingFollowUpAck || !_conversationAwake) return;
-            LOG('scheduleFollowUpAckTimeout: esperando 20s respuesta al follow-up…');
-            _followUpAckTimeoutId = setTimeout(() => {
-                if (!_waitingFollowUpAck) return;
-                LOG('20s sin respuesta al follow-up → cerrando mapa, enviando despedida final y durmiendo.');
-                _waitingFollowUpAck = false;
-                closeStoreMap();
-                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
-                queueAvatarBubble(farewellText);
-                stopAlwaysOnListening();
-                clearServerHistory();
-                _conversationAwake = false;
-                _wakeDetected = false;
-                clearTimeout(_inactivityTimeoutId);
-                clearTimeout(_followUpTimeoutId);
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: farewellText,
-                        type: 'echo',
-                        sessionid: String(sessionid)
-                    })
-                }).then(() => {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('ready', 'Esperando activación…');
-                }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 10000);
-        }
-
-        // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
-        let _cardDismissTimeout = null;
-
-        function keepBarcodeFocus() {
-            const inp = document.getElementById('barcode-input');
-            if (!inp) return;
-            const dbgPanel = document.getElementById('dbg-panel');
-            if (dbgPanel && dbgPanel.classList.contains('open')) return;
-            if (document.activeElement !== inp) {
-                inp.focus();
-            }
-        }
-
-        async function handleBarcodeScan(code) {
-            LOG(`Escáner de código de barras detectado: "${code}"`);
-            try {
-                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(code)}`);
-                const result = await res.json();
-
-                if (result.code === 0 && result.data) {
-                    const prod = result.data;
-                    LOG('Producto encontrado:', prod.nombre);
-                    showProductCard(prod);
-
-                    // Desbloquear audio del video explícitamente ante el escaneo
-                    const videoEl = document.getElementById('video');
-                    if (videoEl && videoEl.muted) {
-                        videoEl.muted = false;
-                        _audioUnlocked = true;
-                        if (videoEl.paused && videoEl.srcObject) {
-                            videoEl.play().catch(e => WARN('play() barcode unlock:', e.name));
-                        }
-                        LOG('Audio desbloqueado por escaneo de producto');
-                    }
-
-                    // Mensaje de contexto comercial para el LLM (ultra conciso)
-                    const precioReg = Number(prod.precio).toLocaleString('es-CL');
-                    let llmContextMsg = `Producto escaneado: ${prod.nombre}. Marca: ${prod.marca || ''}. `;
-                    if (prod.oferta === 'SI' && prod.precio_oferta) {
-                        const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
-                        const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
-                        llmContextMsg += `En oferta a ${precioOf} pesos${dcto} (antes ${precioReg} pesos). `;
-                    } else {
-                        llmContextMsg += `Precio: ${precioReg} pesos. `;
-                    }
-                    if (prod.descripcion) {
-                        llmContextMsg += `Descripción y características: ${prod.descripcion}.`;
-                    }
-
-                    const sessionid = document.getElementById('sessionid').value;
-
-                    clearTimeout(_followUpTimeoutId);
-                    clearTimeout(_followUpAckTimeoutId);
-                    _waitingFollowUpAck = false;
-
-                    clearServerHistory();
-                    wakeUpModel();
-                    stopAlwaysOnListening();
-
-                    try {
-                        if (_activeLLMAbortController) {
-                            try { _activeLLMAbortController.abort(); } catch (e) { }
-                        }
-                        _activeLLMAbortController = new AbortController();
-
-                        const llmRes = await fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                text: llmContextMsg,
-                                type: 'chat',
-                                interrupt: true,
-                                stream: true,
-                                sessionid: String(sessionid)
-                            }),
-                            signal: _activeLLMAbortController.signal
-                        });
-
-                        if (llmRes.body) {
-                            const reader = llmRes.body.getReader();
-                            const decoder = new TextDecoder('utf-8');
-                            let fullText = '';
-                            let avatarBubble = null;
-
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = decoder.decode(value, { stream: true });
-                                fullText += chunk;
-                                if (!avatarBubble && fullText.trim()) {
-                                    avatarBubble = addChatBubble('avatar', '');
-                                }
-                                if (avatarBubble) {
-                                    avatarBubble.textContent = normalizarTexto(fullText);
-                                    const container = document.getElementById('chat-container');
-                                    if (container) container.scrollTop = container.scrollHeight;
-                                }
-                            }
-                            if (avatarBubble) {
-                                avatarBubble.textContent = normalizarTexto(fullText);
-                            }
-                            LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
-                        }
-                    } catch (e) {
-                        if (e && e.name === 'AbortError') {
-                            LOG('handleBarcodeScan: streaming cancelado por STOP/interrupción');
-                            return;
-                        }
-                        ERR('handleBarcodeScan error:', e);
-                    } finally {
-                        _activeLLMAbortController = null;
-                    }
-
-                } else {
-                    WARN(`Producto no encontrado para el código: ${code}`);
-                    showProductNotFound(code);
-
-                    const notFoundText = `Lo siento, no encontré ningún producto registrado con ese código de barras en el catálogo de BARPOS.`;
-                    const sessionid = document.getElementById('sessionid').value;
-                    queueAvatarBubble(notFoundText);
-                    stopAlwaysOnListening();
-
-                    await fetch('/human', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: notFoundText,
-                            type: 'echo',
-                            interrupt: true,
-                            sessionid: String(sessionid)
-                        })
-                    });
-                }
-            } catch (e) {
-                ERR('Error al procesar código de barras:', e);
-            } finally {
-                const inp = document.getElementById('barcode-input');
-                if (inp) inp.focus();
-            }
-        }
-
-        function showProductCard(prod) {
-            const container = document.getElementById('product-card-container');
-            if (!container) return;
-
-            clearTimeout(_cardDismissTimeout);
-            container.innerHTML = '';
-
-            const isOffer = prod.oferta === 'SI' && prod.precio_oferta;
-            const mainPrice = isOffer ? prod.precio_oferta : prod.precio;
-
-            const tagsHtml = (prod.etiquetas || []).map(t => {
-                return `<span class="product-tag-pill">${t}</span>`;
-            }).join('');
-
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.innerHTML = `
-                <div class="product-card-badge">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                        <path d="M2 4h2v16H2V4zm4 0h1v16H6V4zm3 0h2v16H9V4zm4 0h1v16h-1V4zm3 0h2v16h-2V4zm4 0h1v16h-1V4z"/>
-                    </svg>
-                    <span>CÓDIGO: ${prod.codigo_barra || prod.sku}</span>
-                </div>
-                <div class="product-card-title">${prod.nombre}</div>
-                <div class="product-card-category">${prod.marca ? prod.marca + ' · ' : ''}${prod.categoria_nombre || prod.categoria}</div>
-                <div class="product-card-prices">
-                    <span class="product-card-price-main">$${Number(mainPrice).toLocaleString('es-CL')}</span>
-                    ${isOffer ? `<span class="product-card-price-regular">$${Number(prod.precio).toLocaleString('es-CL')}</span>` : ''}
-                    ${isOffer ? `<span class="product-card-offer-tag">${prod.descuento_pct ? prod.descuento_pct + '% DCTO' : 'OFERTA'}</span>` : ''}
-                </div>
-                ${prod.descripcion ? `<div class="product-card-desc" style="font-size: 13px; color: #cbd5e1; margin: 8px 0; line-height: 1.4;">${prod.descripcion}</div>` : ''}
-                ${tagsHtml ? `<div class="product-card-tags">${tagsHtml}</div>` : ''}
-            `;
-
-            container.appendChild(card);
-
-            _cardDismissTimeout = setTimeout(() => {
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    if (card.parentNode) card.parentNode.removeChild(card);
-                }, 500);
-            }, 15000);
-        }
-
-        function showProductNotFound(code) {
-            const container = document.getElementById('product-card-container');
-            if (!container) return;
-
-            clearTimeout(_cardDismissTimeout);
-            container.innerHTML = '';
-
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            card.innerHTML = `
-                <div class="product-card-badge" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
-                    <span>NO ENCONTRADO</span>
-                </div>
-                <div class="product-card-title" style="font-size: 15px;">Código ${code} no registrado</div>
-                <div style="font-size: 12px; color: #a1a1aa;">Verifique que el código pertenezca al catálogo de BARPOS.</div>
-            `;
-
-            container.appendChild(card);
-
-            _cardDismissTimeout = setTimeout(() => {
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    if (card.parentNode) card.parentNode.removeChild(card);
-                }, 8000);
-            }, 8000);
-        }
-
-        LOG('Modo ASR: SpeechRecognition');
-
-        // ─── Estado UI ─────────────────────────────────────────────────────────────
-        function setState(state, text) {
-            LOG(`setState → ${state}: "${text}"`);
-            document.body.className = 'state-' + state;
-            document.getElementById('status-text').textContent = text;
-        }
-
-        function setUserText(text, dim = false) {
-            const line = document.getElementById('user-line');
-            const span = document.getElementById('user-text');
-            line.style.display = text ? 'flex' : 'none';
-            span.textContent = formatUserSpeechText(text);
-            span.className = 'transcript-text' + (dim ? ' dim' : '');
-        }
-
-        // ─── Pantalla completa ─────────────────────────────────────────────────────
-        function toggleFullscreen() {
-            LOG('toggleFullscreen llamado');
-            const el = document.documentElement;
-            if (!document.fullscreenElement &&
-                !document.webkitFullscreenElement &&
-                !document.mozFullScreenElement) {
-                const req = el.requestFullscreen
-                    || el.webkitRequestFullscreen
-                    || el.mozRequestFullScreen
-                    || el.msRequestFullscreen;
-                if (req) req.call(el).catch(e => WARN('Fullscreen error:', e));
-            } else {
-                const exit = document.exitFullscreen
-                    || document.webkitExitFullscreen
-                    || document.mozCancelFullScreen
-                    || document.msExitFullscreen;
-                if (exit) exit.call(document);
-            }
-        }
-
-        // ─── Tap-to-start (Android autoplay fix) ──────────────────────────────────
         function handleTapToStart() {
-            LOG('handleTapToStart — tap del usuario detectado');
             const overlay = document.getElementById('tap-overlay');
             if (overlay) overlay.style.display = 'none';
 
             const videoEl = document.getElementById('video');
             videoEl.muted = false;
             _audioUnlocked = true;
-            LOG('Video desmutado dentro del gesto de usuario');
 
             if (videoEl.srcObject) {
-                videoEl.play()
-                    .then(() => LOG('video.play() OK tras tap'))
-                    .catch(e => WARN('video.play() rechazado tras tap:', e.name, e.message));
+                videoEl.play().catch(e => console.warn('play() tap error:', e));
             }
 
             connectRTC();
         }
 
-        // ─── WebRTC ────────────────────────────────────────────────────────────────
         function connectRTC() {
-            if (isConnected) { LOG('connectRTC: ya conectado, ignorando'); return; }
-            LOG('connectRTC: iniciando...');
+            if (isConnected) return;
             setState('connecting', 'Conectando…');
-            start();   // client.js
-            document.getElementById('btn-connect').textContent = '✓ Conectado';
-            document.getElementById('btn-connect').classList.add('connected');
+            start(); // client.js
             isConnected = true;
 
             const _v = document.getElementById('video');
-            let _vChecks = 0;
-            const _vTimer = setInterval(function () {
-                _vChecks++;
+            const _vTimer = setInterval(() => {
                 if (_v.srcObject) {
-                    if (_v.paused) {
-                        if (_audioUnlocked) {
-                            _v.muted = false;
-                            _v.play()
-                                .then(function () { LOG('video.play() OK con audio'); clearInterval(_vTimer); })
-                                .catch(function () {
-                                    WARN('video.play() rechazó audio, fallback a muted');
-                                    _v.muted = true;
-                                    _audioUnlocked = false;
-                                    _v.play()
-                                        .then(function () { LOG('video.play() OK muted (fallback)'); clearInterval(_vTimer); })
-                                        .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
-                                });
-                        } else {
-                            // Intentar reproducir directamente con audio si la política de autoplay lo permite
-                            _v.muted = false;
-                            _v.play()
-                                .then(function () {
-                                    _audioUnlocked = true;
-                                    LOG('video.play() OK con audio directo (autoplay habilitado)');
-                                    clearInterval(_vTimer);
-                                })
-                                .catch(function () {
-                                    _v.muted = true;
-                                    _v.play()
-                                        .then(function () { LOG('video.play() OK muted (esperando interacción)'); clearInterval(_vTimer); })
-                                        .catch(function (e) { WARN('video.play() muted fallo:', e.name); clearInterval(_vTimer); });
-                                });
-                        }
-                    } else {
-                        LOG('Video reproduciendo');
+                    _v.muted = false;
+                    _v.play().then(() => {
+                        _audioUnlocked = true;
                         clearInterval(_vTimer);
-                    }
-                } else if (_vChecks > 30) {
-                    WARN('15s sin stream en el video.');
-                    clearInterval(_vTimer);
+                    }).catch(() => {
+                        _v.muted = true;
+                        _v.play().catch(() => {});
+                    });
                 }
             }, 500);
+
             setTimeout(() => {
                 startSpeakingMonitor();
-                LOG('Monitor de speaking activo — iniciando always-on listening');
                 startAlwaysOnListening();
             }, 2500);
         }
 
-        // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
-        // Watchdog: si el avatar lleva más de MAX_SPEAKING_MS en estado "hablando"
-        // sin que el backend reporte speaking=false (latencia / corte de red), lo resetea forzosamente.
-        const MAX_SPEAKING_MS = 35000;
-        let _speakingWatchdog = null;
-
-        function _clearSpeakingWatchdog() {
-            clearTimeout(_speakingWatchdog);
-            _speakingWatchdog = null;
-        }
-
-        function _armSpeakingWatchdog() {
-            _clearSpeakingWatchdog();
-            _speakingWatchdog = setTimeout(() => {
-                if (isSpeaking) {
-                    WARN('[Speaking Watchdog] Avatar en estado "hablando" por más de ' + (MAX_SPEAKING_MS / 1000) + 's sin fin reportado. Forzando reset.');
-                    isSpeaking = false;
-                    const wrap = document.getElementById('avatar-wrap');
-                    if (wrap) wrap.classList.remove('avatar-speaking');
-                    setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                    if (_conversationAwake) {
-                        scheduleFollowUp();
-                    }
-                    setTimeout(() => {
-                        if (!isListening && isConnected) {
-                            _alwaysOnActive = false;
-                            startAlwaysOnListening();
-                        } else if (isListening) {
-                            setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                        }
-                    }, 80);
-                }
-            }, MAX_SPEAKING_MS);
-        }
-
-        let _speakingMonitorTimer = null;
-
         function startSpeakingMonitor() {
-            LOG('startSpeakingMonitor iniciado');
             const checkSpeaking = async () => {
                 if (!isConnected) {
-                    _speakingMonitorTimer = setTimeout(checkSpeaking, 400);
+                    setTimeout(checkSpeaking, 400);
                     return;
                 }
                 try {
@@ -1935,550 +2094,199 @@
                     const speaking = data.data;
                     if (speaking !== isSpeaking) {
                         isSpeaking = speaking;
-                        LOG('isSpeaking cambió →', speaking);
-                        const wrap = document.getElementById('avatar-wrap');
                         if (speaking) {
-                            if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
-                            _armSpeakingWatchdog();
-                            // Pausar reconocimiento de inmediato para evitar eco acústico
-                            if (isListening || _alwaysOnActive) {
-                                LOG('[Speaking Monitor] Avatar comenzó a hablar → pausando micrófono');
-                                stopAlwaysOnListening();
-                            }
+                            stopAlwaysOnListening();
                             if (_pendingAvatarBubbleText) {
-                                clearTimeout(_pendingAvatarBubbleTimeout);
                                 addChatBubble('avatar', _pendingAvatarBubbleText);
                                 _pendingAvatarBubbleText = null;
                             }
                         } else {
-                            if (wrap) wrap.classList.remove('avatar-speaking');
-                            _clearSpeakingWatchdog();
-                            LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
-
-                            // Estado sincronizado: siempre "Esperando activación…" en reposo o "Escuchando pregunta…" en conversación activa
                             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                            if (_conversationAwake) {
-                                if (_waitingFollowUpAck) {
-                                    scheduleFollowUpAckTimeout();
-                                } else {
-                                    scheduleFollowUp();
-                                }
-                            }
-
-                            // Margen acústico seguro (450ms): garantiza que los buffers de audio WebRTC
-                            // y los altavoces del dispositivo hayan terminado de sonar por completo antes de abrir el micrófono
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
-                                    _alwaysOnActive = false;
                                     startAlwaysOnListening();
-                                } else if (isListening && !isSpeaking) {
-                                    setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                                 }
                             }, 450);
                         }
                     }
-                } catch (e) {
-                    WARN('[Speaking Monitor] Error al consultar is_speaking:', e.message || e);
-                }
-                // Sondeo adaptativo de alta frecuencia: 150ms durante habla para corte instantáneo, 200ms en reposo
-                const nextInterval = isSpeaking ? 150 : 200;
-                _speakingMonitorTimer = setTimeout(checkSpeaking, nextInterval);
+                } catch (e) { }
+                setTimeout(checkSpeaking, isSpeaking ? 150 : 250);
             };
-
-            clearTimeout(_speakingMonitorTimer);
             checkSpeaking();
         }
 
-        // ─── Solicitud de Permiso de Micrófono ────────────────────────────────────
-        let _micPermissionGranted = false;
-
-        async function requestMicPermission() {
-            LOG('requestMicPermission: verificando micrófono...');
-            if (_preferredDeviceId) LOG(`Usando dispositivo seleccionado: ${_preferredDeviceId.slice(0, 16)}…`);
-            try {
-                const audioConstraints = _preferredDeviceId
-                    ? { deviceId: { exact: _preferredDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-                    : { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-
-                const stream = await navigator.mediaDevices.getUserMedia({
-                    audio: audioConstraints,
-                    video: false
-                });
-
-                const tracks = stream.getAudioTracks();
-                tracks.forEach((t, i) => {
-                    LOG(`  Track[${i}]: label="${t.label}" readyState=${t.readyState}`);
-                    t.stop(); // Liberar track para no bloquear SpeechRecognition
-                });
-
-                _micPermissionGranted = true;
-                await dbgLoadDevices();
-
-                LOG('Permiso de micrófono OK — Hardware libre para SpeechRecognition');
-                return true;
-            } catch (e) {
-                _micPermissionGranted = false;
-                ERR('requestMicPermission falló:', e.name, e.message);
-                if (e.name === 'NotAllowedError') {
-                    setState('ready', '⚠ Permiso de micrófono denegado');
-                } else if (e.name === 'NotFoundError') {
-                    setState('ready', '⚠ No se encontró micrófono');
-                } else {
-                    setState('ready', '⚠ Error de micrófono: ' + e.name);
-                }
-                return false;
-            }
-        }
-
-        // ─── Speech Recognition ────────────────────────────────────────────────────
-        let _recStartMs = 0;
-        let _gotAnyResult = false;
-        let _audioCaptureErrors = 0;
-        let _networkSpeechErrors = 0;
-
+        // ─── Reconocimiento de Voz / Speech Recognition ─────────────────────────
         function setupRecognition() {
-            LOG('setupRecognition: creando instancia...');
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
-            if (!SpeechRec) {
-                ERR('SpeechRecognition NO disponible en este navegador');
-                return null;
-            }
+            if (!SpeechRec) return null;
 
             const rec = new SpeechRec();
             rec.lang = 'es-CL';
             rec.interimResults = true;
-            rec.continuous = true;   // <-- true: el navegador no corta en pausas cortas; nuestros timers de debounce controlan el corte
+            rec.continuous = true;
             rec.maxAlternatives = 1;
 
             let _pendingCommitTimeout = null;
-            let _standbyTextTimeout = null;
-            let _lastInterimText = '';
-            let _questionDispatched = false;
-
-            const _dispatchQuestion = (rawText) => {
-                if (_questionDispatched) return;
-                _questionDispatched = true;
-                clearTimeout(_pendingCommitTimeout);
-                clearTimeout(_standbyTextTimeout);
-                _lastInterimText = '';
-
-                let question = _extractQuestion(rawText);
-                if (!question && _containsWakeWord(rawText)) {
-                    clearTimeout(_wakeBufferTimeout);
-                    _alwaysOnActive = false;
-                    sendGreetingAsAvatar();
-                    return;
-                } else if (!question) {
-                    question = rawText.trim();
-                }
-
-                question = formatUserSpeechText(question);
-
-                LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
-
-                if (question) {
-                    clearTimeout(_wakeBufferTimeout);
-
-                    if (_isSleepWord(question)) {
-                        LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
-                        sendToLLM(question, true);
-                        sleepModel(false);
-                        return;
-                    }
-
-                    LOG(`Enviando al LLM: "${question}"`);
-                    _alwaysOnActive = false;
-                    sendToLLM(question);
-                }
-            };
+            let _lastInterim = '';
 
             rec.onstart = () => {
-                _recStartMs = Date.now();
-                _gotAnyResult = false;
-                _lastInterimText = '';
-                _questionDispatched = false;
-                clearTimeout(_pendingCommitTimeout);
-                clearTimeout(_standbyTextTimeout);
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                setUserText('', false);
             };
 
             rec.onresult = (event) => {
-                // Protección absoluta anti-eco: si el avatar está hablando, ignorar cualquier captura del micrófono
-                if (isSpeaking) {
-                    LOG('[rec.onresult] Descartando audio captado mientras el avatar habla (prevención de eco/auto-corte)');
-                    return;
-                }
+                if (isSpeaking) return;
 
-                _gotAnyResult = true;
                 let interim = '';
                 let final = '';
                 for (let i = event.resultIndex; i < event.results.length; i++) {
-                    const t = event.results[i][0].transcript;
-                    const conf = event.results[i][0].confidence;
                     if (event.results[i].isFinal) {
-                        LOG(`Resultado FINAL: "${t}" (confidence=${conf.toFixed(2)})`);
-                        final += t;
+                        final += event.results[i][0].transcript;
                     } else {
-                        interim += t;
+                        interim += event.results[i][0].transcript;
                     }
                 }
-                if (interim) LOG(`Resultado interim: "${interim}"`);
 
                 const rawText = (final || interim).trim();
                 if (!rawText) return;
 
+                const lower = rawText.toLowerCase();
+
+                // Detección de Wake-word o intención
                 if (!_conversationAwake) {
-                    if (_containsWakeWord(rawText)) {
-                        clearTimeout(_standbyTextTimeout);
+                    if (WAKE_WORDS.some(w => lower.includes(w))) {
                         wakeUpModel();
-                        LOG(`Wake-word detectada en: "${rawText}" → Modelo despierto`);
-                        setState('listening', 'Escuchando pregunta…');
-                        clearTimeout(_wakeBufferTimeout);
-                        _wakeBufferTimeout = setTimeout(() => {
-                            if (_conversationAwake && !_extractQuestion(rawText)) {
-                                LOG('Buffer expirado sin pregunta → saludo directo del avatar');
-                                sendGreetingAsAvatar();
-                            }
-                        }, BUFFER_MS);
                     } else {
-                        setUserText(final || interim, true);
-                        clearTimeout(_standbyTextTimeout);
-                        _standbyTextTimeout = setTimeout(() => {
-                            if (!_conversationAwake) {
-                                setUserText('', false);
-                            }
-                        }, 1800);
                         return;
                     }
-                } else {
-                    clearTimeout(_standbyTextTimeout);
-                    resetInactivityTimer();
-                    clearTimeout(_followUpTimeoutId);
-                    clearTimeout(_followUpAckTimeoutId);
-                    _waitingFollowUpAck = false;
                 }
 
-                setUserText(final || interim, !final);
+                resetInactivityTimer();
 
                 if (final) {
                     clearTimeout(_pendingCommitTimeout);
-                    _dispatchQuestion(final);
-                } else if (_conversationAwake && interim && !_questionDispatched) {
-                    const cleanInterim = interim.trim();
-                    const textChanged = (cleanInterim !== _lastInterimText);
-                    _lastInterimText = cleanInterim;
-
-                    const tokens = _lastInterimText.toLowerCase().split(/\s+/);
-                    const words = tokens.length;
-                    const lastWord = tokens[tokens.length - 1];
-                    const connectors = [
-                        'de', 'del', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
-                        'para', 'por', 'con', 'sin', 'sobre', 'y', 'e', 'o', 'u', 'que', 'a', 'al',
-                        'mi', 'su', 'este', 'esta', 'estos', 'estas', 'es', 'son', 'hay', 'tiene', 'tienen'
-                    ];
-                    const isConnector = connectors.includes(lastWord);
-                    // Calibración natural de pausas de voz:
-                    // Frases cortas (1-2 palabras): 750ms
-                    // Frases medias (3-5 palabras): 950ms
-                    // Frases largas (6+ palabras): 1200ms
-                    let delayMs = (words <= 2) ? 750 : ((words <= 5) ? 950 : 1200);
-                    if (isConnector) delayMs += 400; // Margen si terminó en conector
-
-                    // Si el texto intermedio no cambió (evento duplicado o ruido de fondo repetido),
-                    // no reiniciamos el timer para evitar que el buffer quede tomado indefinidamente
-                    if (!textChanged && _pendingCommitTimeout) {
-                        return;
-                    }
-
+                    processUserSpeechInput(final);
+                } else if (_conversationAwake && interim) {
+                    _lastInterim = interim.trim();
                     clearTimeout(_pendingCommitTimeout);
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                            LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
-                            const txt = _lastInterimText;
-                            try { rec.stop(); } catch (e) { }
-                            _dispatchQuestion(txt);
+                        if (_conversationAwake && _lastInterim) {
+                            try { rec.stop(); } catch (e) {}
+                            processUserSpeechInput(_lastInterim);
                         }
-                    }, delayMs);
+                    }, 1000);
                 }
             };
 
-            rec.onerror = (e) => {
-                const elapsed = Date.now() - _recStartMs;
-                ERR(`SpeechRecognition.onerror — error="${e.error}" elapsed=${elapsed}ms`);
-
-                if (e.error === 'aborted') {
-                    LOG('SpeechRecognition abortado programáticamente (pausa normal de micro)');
-                    stopListening();
-                    return;
-                }
-                if (e.error === 'no-speech') {
-                    LOG('no-speech: timeout normal sin voz');
-                    stopListening();
-                    return;
-                }
-                if (e.error === 'audio-capture') {
-                    _audioCaptureErrors++;
-                    ERR(`audio-capture #${_audioCaptureErrors}: mic no accesible`);
-                    setState('ready', '⚠ Error captura de audio — intenta de nuevo');
-                } else if (e.error === 'not-allowed') {
-                    ERR('not-allowed: permiso de micrófono denegado');
-                    setState('ready', '⚠ Permiso de micrófono denegado');
-                } else if (e.error === 'network') {
-                    _networkSpeechErrors++;
-                    ERR('network error #' + _networkSpeechErrors + ': SpeechRecognition no puede conectar a los servidores de voz.');
-                    setState('ready', 'Error de red STT — reintenta o verifica soporte de voz');
-                } else {
-                    setState('ready', `⚠ Error: ${e.error}`);
-                }
-                stopListening();
-            };
-
+            rec.onerror = () => { isListening = false; };
             rec.onend = () => {
-                const elapsed = Date.now() - _recStartMs;
-                LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
-                clearTimeout(_pendingCommitTimeout);
-
-                if (_conversationAwake && _lastInterimText && !_questionDispatched) {
-                    LOG(`[onend Auto-Commit] Texto pendiente en buffer: "${_lastInterimText}" → enviando`);
-                    const txt = _lastInterimText;
-                    _dispatchQuestion(txt);
-                    stopListening();
-                    return;
-                }
-
-                if (!_gotAnyResult && elapsed < 1500) {
-                    WARN(`Fin rápido sin resultado (${elapsed}ms) → reintentando en 300ms`);
-                    stopListening();
-                    setTimeout(() => {
-                        if (!isListening && _alwaysOnActive && !isSpeaking) {
-                            LOG('Reintento de SpeechRecognition (always-on)...');
-                            startAlwaysOnListening();
-                        }
-                    }, 300);
-                    return;
-                }
-
-                stopListening();
-
-                if (_alwaysOnActive && !isSpeaking) {
-                    LOG('SpeechRecognition onend: always-on activo → reiniciando en 250ms');
-                    setTimeout(() => {
-                        if (_alwaysOnActive && !isListening && !isSpeaking) {
-                            startAlwaysOnListening();
-                        }
-                    }, 250);
+                isListening = false;
+                if (!isSpeaking && isConnected) {
+                    setTimeout(startAlwaysOnListening, 250);
                 }
             };
 
             return rec;
         }
 
-        let _stopTimeout = null;
-        function forceStopRecognition() {
-            if (!recognition) { stopListening(); return; }
-            LOG('forceStopRecognition: llamando stop()...');
-            recognition.stop();
-
-            clearTimeout(_stopTimeout);
-            _stopTimeout = setTimeout(() => {
-                if (isListening) {
-                    WARN('forceStopRecognition: onend no disparó en 2.5s → abort() forzado');
-                    try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
-                    stopListening();
-                }
-            }, 2500);
-        }
-
-        function stopListening() {
-            LOG('stopListening');
-            isListening = false;
-            clearTimeout(_stopTimeout);
-
-            if (!isSpeaking && !_alwaysOnActive && _conversationAwake) {
-                setState('thinking', 'Pensando…');
-            } else if (!isSpeaking && !_conversationAwake) {
-                setState('ready', 'Esperando activación…');
-            }
-        }
-
-        // ─── Escucha siempre activa con wake-word ────────────────────────────────
         function startAlwaysOnListening() {
-            if (!isConnected) {
-                LOG('startAlwaysOnListening: avatar no conectado, ignorando');
-                return;
-            }
-            if (isSpeaking) {
-                LOG('startAlwaysOnListening: avatar hablando, esperando a que termine');
-                return;
-            }
-            if (isListening) {
-                LOG('startAlwaysOnListening: ya escuchando, asegurando estado UI');
-                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                return;
-            }
-
-            _alwaysOnActive = true;
-            LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
-
-            // Transición suave: 'Esperando activación…' en reposo o 'Escuchando pregunta…' si despierto
-            setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-            if (_conversationAwake) {
-                resetInactivityTimer();
-            }
-
-            const launchRecognition = () => {
-                if (!isConnected || isSpeaking) {
-                    LOG('launchRecognition: abortado (desconectado o avatar hablando)');
-                    return;
-                }
-                LOG('startAlwaysOnListening: modo SpeechRecognition (always-on)');
-                _audioCaptureErrors = 0;
-                _networkSpeechErrors = 0;
-                recognition = setupRecognition();
-                if (recognition) {
-                    try {
-                        recognition.start();
-                        LOG('recognition.start() llamado (always-on)');
-
-                        // Watchdog de seguridad (500ms): si rec.onstart tarda o SpeechRecognition está listo, asegurar que pase al estado correspondiente
-                        setTimeout(() => {
-                            if (_alwaysOnActive && !isSpeaking) {
-                                const st = document.getElementById('status-text');
-                                if (st && (st.textContent.includes('Preparando') || st.textContent.includes('Conectando'))) {
-                                    setState(_conversationAwake ? 'listening' : 'ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                                }
-                            }
-                        }, 500);
-                    } catch (e) {
-                        ERR('recognition.start() excepción (always-on):', e.name, e.message);
-                        _alwaysOnActive = false;
-                        stopListening();
-                        setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                    }
-                } else {
-                    WARN('SpeechRecognition no disponible en este navegador');
-                    _alwaysOnActive = false;
-                    setState('ready', '⚠ SpeechRecognition no disponible');
-                }
-            };
-
-            // Si el permiso ya fue concedido previamente, evitamos llamar getUserMedia()
-            // en cada ciclo de habla, ahorrando 300-500ms de latencia y evitando bloqueos de audio
-            if (_micPermissionGranted) {
-                launchRecognition();
-            } else {
-                requestMicPermission().then(ok => {
-                    if (!ok) {
-                        LOG('startAlwaysOnListening: sin permiso de micrófono');
-                        _alwaysOnActive = false;
-                        setState('ready', '⚠ Sin permiso de micrófono');
-                        return;
-                    }
-
-                    if (!_audioUnlocked) {
-                        const videoEl = document.getElementById('video');
-                        videoEl.muted = false;
-                        _audioUnlocked = true;
-                        if (videoEl.srcObject) {
-                            videoEl.play().catch(e => WARN('play() audio unlock error:', e.name));
-                        }
-                        LOG('🔊 Audio del avatar desbloqueado al obtener permiso de micrófono');
-                    }
-
-                    launchRecognition();
-                });
+            if (!isConnected || isSpeaking || isListening) return;
+            recognition = setupRecognition();
+            if (recognition) {
+                try {
+                    recognition.start();
+                    isListening = true;
+                } catch (e) {}
             }
         }
 
         function stopAlwaysOnListening() {
-            LOG('stopAlwaysOnListening: deteniendo escucha continua');
-            _alwaysOnActive = false;
-            clearTimeout(_wakeBufferTimeout);
             if (recognition) {
-                try { recognition.abort(); } catch (e) { LOG('abort() excepción (ignorada):', e.name); }
+                try { recognition.abort(); } catch (e) {}
             }
-            stopListening();
+            isListening = false;
         }
 
-        // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
-        async function sendGreetingAsAvatar() {
-            stopAlwaysOnListening();
-            const greetingText = _randomGreeting();
-            LOG(`sendGreetingAsAvatar: "${greetingText}"`);
-            setState('thinking', 'Pensando…');
-            queueAvatarBubble(greetingText);
+        // ─── Procesar entrada del usuario (Voz & Intenciones UI) ────────────────
+        function processUserSpeechInput(text) {
+            const clean = text.toLowerCase().trim();
+            console.log("[FitLife User Speech]:", clean);
 
-            const sessionid = document.getElementById('sessionid').value;
-            try {
-                await fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: greetingText,
-                        type: 'echo',
-                        sessionid: String(sessionid)
-                    })
-                });
-            } catch (err) {
-                ERR('sendGreetingAsAvatar: error de red:', err);
+            // 1. Detección de despedida / cierre
+            const sleepWords = ['no', 'no gracias', 'nada mas', 'chao', 'adios', 'eso es todo', 'muchas gracias'];
+            if (sleepWords.some(w => clean === w || clean.startsWith(w + ' '))) {
+                sendToLLM(text, true);
+                sleepModel();
+                return;
             }
+
+            // 2. Detección automática de RUT dictado
+            const rutMatch = clean.match(/(\d{1,2}(?:\.?\d{3}){2}-?[\dkK])/);
+            if (rutMatch) {
+                const foundRut = rutMatch[1].replace(/\./g, '').replace(/-/g, '').toUpperCase();
+                gymState.rutDigits = foundRut;
+                updateRutDisplay();
+                submitRutKeypad();
+                return;
+            }
+
+            // 3. Intenciones de apertura de modales por voz
+            if (clean.includes('abrir rut') || clean.includes('digitar rut') || clean.includes('poner rut') || clean.includes('escribir rut') || clean.includes('teclado')) {
+                openRutModal();
+                wakeUpModel();
+                sendToLLM(text);
+                return;
+            }
+
+            if (clean.includes('ver planes') || clean.includes('mostrar planes') || clean.includes('que planes hay') || clean.includes('cuales son los planes')) {
+                openPlansModal();
+                wakeUpModel();
+                sendToLLM(text);
+                return;
+            }
+
+            // 4. Intención de selección de Santander
+            if (clean.includes('santander') || clean.includes('tarjeta santander')) {
+                selectPaymentBank('santander');
+                return;
+            }
+
+            // 5. Intención de selección de Plan por voz
+            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual')) {
+                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
+            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral')) {
+                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
+            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral')) {
+                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
+            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año')) {
+                gymState.selectedPlan = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
+            }
+
+            // Enviar al LLM normalmente
+            wakeUpModel();
+            sendToLLM(text);
         }
 
-        // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
-        async function sendToLLM(text, isSleepWord = false) {
+        // ─── Enviar al LLM con Streaming ─────────────────────────────────────────
+        async function sendToLLM(text, isSleep = false) {
             if (!text) return;
-            text = formatUserSpeechText(text);
             stopAlwaysOnListening();
-            LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');
-            setUserText(text, false);
             addChatBubble('user', text);
 
             const sessionid = document.getElementById('sessionid').value;
 
-            if (isSleepWord) {
-                closeStoreMap();
-                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
-                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
-                if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
-                    farewellText = "De nada. ¡Que tengas un excelente día!";
-                }
-
-                queueAvatarBubble(farewellText);
-                clearServerHistory();
-                _conversationAwake = false;
-                _wakeDetected = false;
-                _waitingFollowUpAck = false;
-                clearTimeout(_inactivityTimeoutId);
-                clearTimeout(_followUpTimeoutId);
-                clearTimeout(_followUpAckTimeoutId);
-
-                try {
-                    await fetch('/human', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: farewellText,
-                            type: 'echo',
-                            sessionid: String(sessionid)
-                        })
-                    });
-                } catch (err) {
-                    ERR('sendToLLM farewell error:', err);
-                } finally {
-                    addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('ready', 'Esperando activación…');
-                }
+            if (isSleep) {
+                const byeText = "¡Muchas gracias por contactar a FitLife Gym! Que tengas un excelente día.";
+                queueAvatarBubble(byeText);
+                sendEchoSpeech(byeText);
                 return;
             }
 
             try {
                 if (_activeLLMAbortController) {
-                    try { _activeLLMAbortController.abort(); } catch (e) { }
+                    try { _activeLLMAbortController.abort(); } catch (e) {}
                 }
                 _activeLLMAbortController = new AbortController();
 
@@ -2494,11 +2302,8 @@
                     }),
                     signal: _activeLLMAbortController.signal
                 });
-                LOG('sendToLLM: respuesta status', res.status);
 
-                if (!res.body) {
-                    throw new Error("Respuesta del servidor no soporta streaming.");
-                }
+                if (!res.body) return;
 
                 const reader = res.body.getReader();
                 const decoder = new TextDecoder("utf-8");
@@ -2508,235 +2313,112 @@
                 while (true) {
                     const { done, value } = await reader.read();
                     if (done) break;
-
                     const chunk = decoder.decode(value, { stream: true });
                     fullText += chunk;
 
                     if (!avatarBubble && fullText.trim()) {
                         avatarBubble = addChatBubble('avatar', '');
                     }
-
                     if (avatarBubble) {
-                        avatarBubble.textContent = normalizarTexto(fullText);
+                        avatarBubble.textContent = fullText.trim();
                         const container = document.getElementById('chat-container');
-                        if (container) {
-                            container.scrollTop = container.scrollHeight;
-                        }
+                        if (container) container.scrollTop = container.scrollHeight;
                     }
                 }
-                if (avatarBubble) {
-                    avatarBubble.textContent = normalizarTexto(fullText);
+
+                // Detección de disparadores inteligentes en la respuesta del avatar
+                const lowerReply = fullText.toLowerCase();
+                if (lowerReply.includes('digita tu rut') || lowerReply.includes('indícame o digita') || lowerReply.includes('digitar tu rut') || lowerReply.includes('teclado en pantalla')) {
+                    if (!gymState.isRutIdentified) {
+                        setTimeout(openRutModal, 1200);
+                    }
                 }
 
-                LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
+                if (lowerReply.includes('planes') && (lowerReply.includes('tenemos') || lowerReply.includes('ofrecemos'))) {
+                    setTimeout(openPlansModal, 1500);
+                }
+
+                if (lowerReply.includes('santander') && lowerReply.includes('otro banco')) {
+                    setTimeout(openPaymentMethodsModal, 1200);
+                }
+
+                if (lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta')) {
+                    setTimeout(openPosSimulator, 1000);
+                }
 
             } catch (err) {
-                if (err && err.name === 'AbortError') {
-                    LOG('sendToLLM: streaming cancelado por STOP/interrupción');
-                    return;
-                }
-                ERR('sendToLLM: error de red o streaming:', err);
-                setState('ready', 'Error de red — intenta de nuevo');
+                if (err && err.name === 'AbortError') return;
+                console.error('sendToLLM error:', err);
+                setState('ready', 'Error de conexión');
             } finally {
                 _activeLLMAbortController = null;
             }
         }
 
-        // ─── Botón STOP / Interrumpir Avatar ────────────────────────────────────────
-        let _activeLLMAbortController = null;
-
+        // ─── Botón STOP / Interrumpir Avatar ─────────────────────────────────────
         async function stopAvatarTalking() {
-            LOG('stopAvatarTalking: interrumpiendo avatar inmediatamente');
-
-            // 1. Abortar cualquier petición o streaming activo del LLM
             if (_activeLLMAbortController) {
-                try {
-                    _activeLLMAbortController.abort();
-                    LOG('stopAvatarTalking: LLM stream abortado');
-                } catch (e) { }
+                try { _activeLLMAbortController.abort(); } catch (e) {}
                 _activeLLMAbortController = null;
             }
 
-            // 2. Limpiar timers de watchdog y burbujas pendientes
-            _clearSpeakingWatchdog();
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = null;
-
-            // 3. Forzar inmediatamente estado visual a reposo y silenciar el audio remanente de los altavoces
             isSpeaking = false;
-            const wrap = document.getElementById('avatar-wrap');
-            if (wrap) wrap.classList.remove('avatar-speaking');
 
-            // Silenciar temporalmente el elemento de video para cortar el audio residual de los parlantes al instante
             const videoEl = document.getElementById('video');
             if (videoEl && _audioUnlocked) {
                 videoEl.muted = true;
-                setTimeout(() => {
-                    if (videoEl && _audioUnlocked) videoEl.muted = false;
-                }, 250);
+                setTimeout(() => { if (videoEl && _audioUnlocked) videoEl.muted = false; }, 250);
             }
 
-            // Asegurar que el micrófono esté detenido de inmediato
             stopAlwaysOnListening();
 
-            // 4. Notificar al backend para purgar todas las colas de audio, video y LLM
             const sessionid = document.getElementById('sessionid').value;
             try {
                 fetch('/interrupt_talk', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ sessionid: String(sessionid) })
-                }).catch(e => WARN('stopAvatarTalking error en /interrupt_talk:', e));
-            } catch (e) {
-                WARN('stopAvatarTalking excepción:', e);
-            }
+                }).catch(() => {});
+            } catch (e) {}
 
-            // 5. Dar paso inmediato al usuario para hablar
-            LOG('stopAvatarTalking: activando escucha para el usuario');
             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-            if (_conversationAwake) {
-                scheduleFollowUp();
-            }
-
-            // Pausa acústica limpia (350ms) para que el audio corte en seco antes de abrir el micrófono
             setTimeout(() => {
                 if (!isListening && isConnected && !isSpeaking) {
-                    _alwaysOnActive = false;
                     startAlwaysOnListening();
-                } else if (isListening && !isSpeaking) {
-                    setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
                 }
             }, 350);
         }
 
-        // Stubs de compatibilidad (mapa desactivado)
-        function closeStoreMap() { }
-        function openMapForProduct() { }
-
-        // ══════════════════════════════════════════════════════════════════════════════
-        // CARRUSEL DE OFERTAS
-        // ══════════════════════════════════════════════════════════════════════════════
-        (function initCarousel() {
-            const carouselEl = document.getElementById('offers-carousel');
-            if (carouselEl && getComputedStyle(carouselEl).display === 'none') {
-                return;
-            }
-
-            const slides = document.querySelectorAll('.carousel-slide');
-            const dotsContainer = document.getElementById('carousel-dots');
-            let current = 0;
-            let carouselTimer = null;
-            let pausedBySpeaking = false;
-
-            // Generar dots dinámicamente
-            slides.forEach((_, i) => {
-                const dot = document.createElement('div');
-                dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
-                dotsContainer.appendChild(dot);
-            });
-
-            const dots = dotsContainer.querySelectorAll('.carousel-dot');
-
-            function goTo(index) {
-                slides[current].classList.remove('active');
-                dots[current].classList.remove('active');
-                current = (index + slides.length) % slides.length;
-                slides[current].classList.add('active');
-                dots[current].classList.add('active');
-            }
-
-            function startAuto() {
-                stopAuto();
-                carouselTimer = setInterval(() => {
-                    if (!pausedBySpeaking) goTo(current + 1);
-                }, 4500);
-            }
-
-            function stopAuto() {
-                if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
-            }
-
-            startAuto();
-
-            // Pausar cuando el avatar está hablando para no distraer
-            const _origStartSpeakingMonitor = typeof startSpeakingMonitor === 'function' ? startSpeakingMonitor : null;
-
-            // Observador de clase: cuando avatar-speaking se agrega/quita en #avatar-wrap
-            const speakObs = new MutationObserver(() => {
-                const wrap = document.getElementById('avatar-wrap');
-                if (wrap && wrap.classList.contains('avatar-speaking')) {
-                    pausedBySpeaking = true;
-                } else {
-                    // Reanudar tras breve pausa cuando el avatar termina
-                    setTimeout(() => { pausedBySpeaking = false; }, 2000);
-                }
-            });
-
-            const avatarWrap = document.getElementById('avatar-wrap');
-            if (avatarWrap) {
-                speakObs.observe(avatarWrap, { attributes: true, attributeFilter: ['class'] });
-            }
-
-            LOG('Carrusel de ofertas iniciado (' + slides.length + ' slides, intervalo 4.5s)');
-        })();
-
-        // ─── Auto-conectar al cargar ───────────────────────────────────────────────
+        // ─── Inicialización al cargar la página ──────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
+            loadGymData();
+
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-            const isFirefox = /Firefox\//.test(navigator.userAgent);
-
-            LOG('DOMContentLoaded - isMobile:', isMobile, '| isFirefox:', isFirefox);
-            LOG('Secure context:', window.isSecureContext, '| protocol:', location.protocol);
-
-            if (!window.isSecureContext) {
-                WARN('CONTEXTO NO SEGURO (HTTP). SpeechRecognition NO funcionara. Usar HTTPS.');
-            }
-
-            if (isFirefox) {
-                WARN('Firefox detectado: SpeechRecognition NO disponible en Firefox.');
-                WARN('Para usar el micrófono usa Chrome, Chromium o Edge.');
-            }
-
             if (isMobile) {
-                LOG('Mobile detectado - overlay visible, esperando tap');
+                const overlay = document.getElementById('tap-overlay');
+                if (overlay) overlay.style.display = 'flex';
             } else {
-                LOG('Desktop detectado - auto-conectando.');
                 const overlay = document.getElementById('tap-overlay');
                 if (overlay) overlay.style.display = 'none';
                 setTimeout(connectRTC, 800);
             }
 
-            // Desbloqueo global de audio con cualquier interacción del usuario (click, tecla o touch)
+            // Desbloqueo global de audio con cualquier toque
             const _globalUnlockAudio = () => {
                 const videoEl = document.getElementById('video');
                 if (videoEl && videoEl.muted) {
                     videoEl.muted = false;
                     _audioUnlocked = true;
                     if (videoEl.paused && videoEl.srcObject) {
-                        videoEl.play().catch(e => WARN('video.play() en unlock global:', e.name));
+                        videoEl.play().catch(() => {});
                     }
-                    LOG('Audio del avatar desbloqueado por interacción del usuario');
                 }
             };
             document.addEventListener('click', _globalUnlockAudio);
             document.addEventListener('keydown', _globalUnlockAudio);
             document.addEventListener('touchstart', _globalUnlockAudio);
-
-            // Inicializar foco y escucha del lector de código de barras
-            const barcodeInp = document.getElementById('barcode-input');
-            if (barcodeInp) {
-                barcodeInp.focus();
-                barcodeInp.addEventListener('keydown', async (e) => {
-                    if (e.key === 'Enter') {
-                        const code = barcodeInp.value.trim();
-                        barcodeInp.value = '';
-                        if (code) {
-                            await handleBarcodeScan(code);
-                        }
-                    }
-                });
-            }
-            setInterval(keepBarcodeFocus, 400);
         });
     </script>
 </body>
