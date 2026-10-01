@@ -396,9 +396,10 @@
             await WebSerialComunication(jsonSerialized);
             return;
         }
-        if (!SerialCom || !SerialCom.port) {
-            SerialCom = new Serial();
-            await SerialCom.setPort();
+        // IMPORTANTE: No intentar abrir un selector de puerto automáticamente aquí.
+        // Si no hay conexión activa, lanzar error para que la capa superior lo maneje.
+        if (!SerialCom || !SerialCom.port || !SerialCom.port.readable || !SerialCom.port.writable) {
+            throw new Error("POS Getnet no conectado. Por favor conecte el POS antes de enviar comandos.");
         }
         await SerialCom.write(jsonSerialized);
     }
@@ -637,10 +638,10 @@
 
             const numCuotas = parseInt(finalCuotas, 10) || 1;
             const isCuotas = numCuotas > 1;
-            // Para Venta en Cuotas: Tipo 1 = Cuotas Comercio (Sin Interés), Tipo 2 = Cuotas Banco, Tipo 3 = Cuotas Normales
-            // Para Venta Directa / Contado (1 cuota): Tipo 0 = Sin cuotas (Venta Directa)
+            // Para Venta en Cuotas: Tipo 1 = Cuotas Comercio (Sin Interés), Tipo 0 = Sin cuotas (Venta Directa / Contado)
+            // CRÍTICO: SharesNumber=0 hace que el POS PREGUNTE las cuotas al usuario. Siempre enviar >= 1.
             const resolvedSharesType = isCuotas ? (parseInt(finalSharesType, 10) || 1) : 0;
-            const resolvedSharesNumber = isCuotas ? numCuotas : 0;
+            const resolvedSharesNumber = numCuotas; // Siempre enviar la cantidad de cuotas (mínimo 1)
 
             const data = {
                 Command: POSCommands.Function.Sale,
@@ -651,12 +652,13 @@
                 SendMessage: Boolean(finalSendMessage),
                 EmployeeId: parseInt(finalEmployeeId, 10) || 1,
                 // Mapeo exhaustivo para todas las revisiones de firmware POS Getnet / Santander Chile:
+                // SharesNumber >= 1 es OBLIGATORIO para evitar que el POS pregunte cuotas al usuario
                 SharesNumber: resolvedSharesNumber,
                 SharesType: resolvedSharesType,
                 Shares: resolvedSharesNumber,
                 ShareNumber: resolvedSharesNumber,
                 ShareType: resolvedSharesType,
-                Installments: isCuotas ? numCuotas : 1,
+                Installments: numCuotas,
                 InstallmentsNumber: resolvedSharesNumber,
                 InstallmentType: resolvedSharesType,
                 Cuotas: numCuotas,
@@ -900,19 +902,9 @@
         errorCallback = callback;
     }
 
-    function establecerWebSerialCommunication() {
-        isWebSerial = true;
-        isAgentePos = false;
-    }
-
-    function utilizarAgentePOS() {
-        isWebSerial = false;
-        isAgentePos = true;
-    }
-
-    function establecerPuertoFijo(com) {
-        serialComFijo = com;
-    }
+    // NOTA: Las funciones establecerWebSerialCommunication, utilizarAgentePOS y establecerPuertoFijo
+    // están definidas arriba (líneas ~475-498) con su implementación completa.
+    // Esta sección fue eliminada para evitar la doble definición que sobreescribía las versiones correctas.
 
     function gSleep(ms = 500) {
         return new Promise(resolve => setTimeout(resolve, ms));
@@ -955,64 +947,72 @@
 
     async function autoConnect(baudRate = 115200) {
         if (isConnected()) return SerialCom.port;
-        if (typeof navigator !== 'undefined' && navigator.serial && navigator.serial.getPorts) {
-            try {
-                const ports = await navigator.serial.getPorts();
-                if (ports && ports.length > 0) {
-                    if (!SerialCom) SerialCom = new Serial();
+        if (typeof navigator === 'undefined' || !navigator.serial || !navigator.serial.getPorts) {
+            return null;
+        }
+        try {
+            const ports = await navigator.serial.getPorts();
+            if (!ports || ports.length === 0) {
+                console.log("[Getnet POS] No hay puertos COM autorizados previamente.");
+                return null;
+            }
 
-                    // Si solo hay 1 puerto previamente autorizado por el usuario:
-                    if (ports.length === 1) {
-                        try {
-                            await SerialCom.setPort(ports[0], baudRate);
-                            if (isConnected()) {
-                                console.log("[Getnet POS] Auto-conectado con éxito al único puerto autorizado.");
-                                return ports[0];
-                            }
-                        } catch (err1) {
-                            console.warn("[Getnet POS] Reintentando conexión de puerto tras breve espera...", err1);
+            if (!SerialCom) SerialCom = new Serial();
+
+            // Intentar conectar a cada puerto con hasta 3 reintentos y backoff progresivo
+            const delays = [0, 300, 800]; // ms de espera antes de cada intento
+            const portsToTry = ports.length === 1 ? [ports[0]] : [...ports].reverse();
+
+            for (const port of portsToTry) {
+                let connected = false;
+                for (let attempt = 0; attempt < delays.length; attempt++) {
+                    if (delays[attempt] > 0) {
+                        console.log(`[Getnet POS] Reintento ${attempt + 1}/${delays.length} en ${delays[attempt]}ms...`);
+                        await new Promise(r => setTimeout(r, delays[attempt]));
+                    }
+                    try {
+                        // Limpiar estado previo antes de reconectar
+                        if (SerialCom.port && SerialCom.port !== port) {
                             try { await SerialCom.disconnect(); } catch (_) {}
-                            await new Promise(r => setTimeout(r, 200));
-                            try {
-                                await SerialCom.setPort(ports[0], baudRate);
-                                if (isConnected()) return ports[0];
-                            } catch (err2) {
-                                console.warn("[Getnet POS] Segundo intento falló:", err2);
+                        } else if (SerialCom.port === port && !isConnected()) {
+                            // Mismo puerto pero estado inconsistente: forzar limpieza
+                            SerialCom.isReading = false;
+                            if (SerialCom.reader) {
+                                try { await SerialCom.reader.cancel(); } catch (_) {}
+                                try { SerialCom.reader.releaseLock(); } catch (_) {}
+                                SerialCom.reader = null;
                             }
                         }
-                    } else {
-                        // Múltiples puertos autorizados: sondear del más reciente al más antiguo con Poll
-                        for (let i = ports.length - 1; i >= 0; i--) {
-                            const port = ports[i];
-                            try {
-                                await SerialCom.setPort(port, baudRate);
-                                if (isConnected()) {
-                                    const responded = await probePortWithPoll(450);
-                                    if (responded) {
-                                        console.log(`[Getnet POS] POS Getnet verificado y respondiendo en puerto [${i}].`);
-                                        return port;
-                                    } else {
-                                        console.log(`[Getnet POS] Puerto [${i}] abierto pero POS no respondió Poll. Probando siguiente...`);
-                                        await SerialCom.disconnect();
-                                    }
-                                }
-                            } catch (e) {
-                                console.warn(`[Getnet POS] Error probando puerto [${i}]:`, e);
-                                try { await SerialCom.disconnect(); } catch (_) {}
-                            }
+                        await SerialCom.setPort(port, baudRate);
+                        if (isConnected()) {
+                            connected = true;
+                            console.log(`[Getnet POS] Puerto COM conectado (intento ${attempt + 1}).`);
+                            break;
                         }
-                        // Si ninguno respondió con Poll pero hay puertos, conectar al último
-                        if (ports.length > 0) {
-                            try {
-                                await SerialCom.setPort(ports[ports.length - 1], baudRate);
-                                if (isConnected()) return ports[ports.length - 1];
-                            } catch (_) {}
+                    } catch (err) {
+                        console.warn(`[Getnet POS] Error en intento ${attempt + 1}:`, err.message || err);
+                        if (attempt < delays.length - 1) {
+                            try { await SerialCom.disconnect(); } catch (_) {}
                         }
                     }
                 }
-            } catch (e) {
-                console.warn("[Getnet POS] autoConnect error general:", e);
+
+                if (connected) {
+                    // Si hay múltiples puertos, verificar cuál es el POS con Poll
+                    if (ports.length > 1) {
+                        const responded = await probePortWithPoll(500);
+                        if (!responded) {
+                            console.log(`[Getnet POS] Puerto conectado pero POS no respondió Poll. Probando siguiente...`);
+                            try { await SerialCom.disconnect(); } catch (_) {}
+                            continue;
+                        }
+                    }
+                    console.log(`[Getnet POS] Auto-conectado exitosamente.`);
+                    return port;
+                }
             }
+        } catch (e) {
+            console.warn("[Getnet POS] autoConnect error general:", e);
         }
         return null;
     }

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -2447,13 +2447,14 @@
         }
 
         let _posWatcherTimer = null;
+        let _isAutoConnecting = false;
         function startPosAutoConnectWatcher() {
             if (_posWatcherTimer) clearInterval(_posWatcherTimer);
             _posWatcherTimer = setInterval(async () => {
-                if (!posState.connected && typeof Getnet !== 'undefined' && !posState.isCharging && typeof navigator !== 'undefined' && navigator.serial) {
+                if (!posState.connected && !_isAutoConnecting && typeof Getnet !== 'undefined' && !posState.isCharging && typeof navigator !== 'undefined' && navigator.serial) {
                     await checkAutoConnectPos();
                 }
-            }, 3000);
+            }, 3500);
         }
 
         async function fetchDetectedComPorts() {
@@ -2470,28 +2471,31 @@
         }
 
         async function checkAutoConnectPos() {
-            if (typeof navigator !== 'undefined' && navigator.serial) {
-                try {
-                    const port = await Getnet.autoConnect(posState.baudRate);
-                    if (port && Getnet.isConnected()) {
-                        const info = port.getInfo ? port.getInfo() : {};
-                        const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM10 / USB";
-                        posState.port = port;
-                        setPosConnected(true, portDesc);
-                        appendPosLog(`Conectado automáticamente al POS Getnet (${portDesc}).`, "success");
-                        const btnConnect = document.getElementById('btn-connect-pos-com');
-                        if (btnConnect) btnConnect.style.display = 'none';
-                        // Verificar con Poll tras breve espera
-                        setTimeout(() => {
-                            try { Getnet.Poll(); } catch (_) {}
-                        }, 300);
-                    } else {
-                        setPosConnected(false);
-                    }
-                } catch (e) {
-                    console.warn("No se pudo autoconectar POS:", e);
+            if (_isAutoConnecting) return; // Evitar llamadas concurrentes
+            if (typeof navigator === 'undefined' || !navigator.serial) return;
+            _isAutoConnecting = true;
+            try {
+                const port = await Getnet.autoConnect(posState.baudRate);
+                if (port && Getnet.isConnected()) {
+                    const info = port.getInfo ? port.getInfo() : {};
+                    const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM10 / USB";
+                    posState.port = port;
+                    setPosConnected(true, portDesc);
+                    appendPosLog(`Conectado automáticamente al POS Getnet (${portDesc}).`, "success");
+                    const btnConnect = document.getElementById('btn-connect-pos-com');
+                    if (btnConnect) btnConnect.style.display = 'none';
+                    // Verificar con Poll tras breve espera
+                    setTimeout(() => {
+                        try { Getnet.Poll(); } catch (_) {}
+                    }, 400);
+                } else {
                     setPosConnected(false);
                 }
+            } catch (e) {
+                console.warn("No se pudo autoconectar POS:", e);
+                setPosConnected(false);
+            } finally {
+                _isAutoConnecting = false;
             }
         }
 
