@@ -291,18 +291,24 @@
             if (!this.port || !this.port.writable) {
                 throw new Error("El puerto POS Getnet no esta abierto para escritura");
             }
-            let writer = null;
-            try {
-                writer = this.port.writable.getWriter();
-                const bytes = new TextEncoder().encode(dataString);
-                this.lastCommand = new Date();
-                await writer.write(bytes);
-            } catch (error) {
-                console.error('[Getnet POS] Error en send:', error);
-                throw error;
-            } finally {
-                if (writer) { try { writer.releaseLock(); } catch (_) {} }
-            }
+            if (!this.writeQueue) this.writeQueue = Promise.resolve();
+            this.writeQueue = this.writeQueue.catch(() => {}).then(async () => {
+                let writer = null;
+                try {
+                    writer = this.port.writable.getWriter();
+                    const bytes = new TextEncoder().encode(dataString);
+                    this.lastCommand = new Date();
+                    await writer.write(bytes);
+                } catch (err) {
+                    console.error('[Getnet POS] Error en stream writer:', err);
+                    throw err;
+                } finally {
+                    if (writer) {
+                        try { writer.releaseLock(); } catch (_) {}
+                    }
+                }
+            });
+            return this.writeQueue;
         }
 
         canProcess() { return (new Date() - this.lastCommand) >= this.espera; }
