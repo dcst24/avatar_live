@@ -502,8 +502,6 @@
         secondsTimeout = defaultMaxTimeout
     ) {
         try {
-            if (SerialCom) SerialCom.clearBuffer();
-
             const timeout = parseInt(secondsTimeout, 10) || defaultMaxTimeout;
 
             const data = {

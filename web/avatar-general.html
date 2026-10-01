@@ -2340,6 +2340,7 @@
             isCancelling: false,
             activeTransaction: null,
             lastPaidTime: 0,
+            lastCancelTime: 0,
             availablePorts: []
         };
 
@@ -2521,6 +2522,11 @@
             stopAvatarTalking();
 
             // 2. Notificar al POS Getnet cancelación de venta (Cmd 116)
+            posState.lastCancelTime = Date.now();
+            posState.isCharging = false;
+            posState.isCancelling = true;
+            _disableSpeechInputUntil = 0;
+
             try { 
                 if (typeof Getnet !== 'undefined' && Getnet.isConnected()) { 
                     Getnet.CancelSale(); 
@@ -2529,15 +2535,10 @@
                 console.warn("Error enviando CancelSale:", e);
             }
 
-            // 3. Resetear flags de estado inmediatamente
-            posState.isCharging = false;
-            posState.isCancelling = true;
-            _disableSpeechInputUntil = 0;
-
-            // 4. Cerrar pantalla del POS
+            // 3. Cerrar pantalla del POS
             closePosSimulator();
 
-            // 5. Mensaje hablado del avatar y reanudar interacción
+            // 4. Mensaje hablado del avatar y reanudar interacción
             const msg = "Transacción cancelada. Puedes seleccionar otro plan o medio de pago cuando desees.";
             queueAvatarBubble(msg);
             sendEchoSpeech(msg);
@@ -2614,13 +2615,20 @@
             closePlansModal();
             closeRutModal();
 
+            // Si acabamos de cancelar hace menos de 800ms, esperar a que el POS vuelva a reposo
+            const elapsedSinceCancel = Date.now() - (posState.lastCancelTime || 0);
+            if (elapsedSinceCancel < 800) {
+                await new Promise(r => setTimeout(r, 800 - elapsedSinceCancel));
+            }
+
             // Si había un cobro activo previo, cancelarlo limpiamente antes de iniciar uno nuevo
             if (posState.isCharging && typeof Getnet !== 'undefined' && Getnet.isConnected()) {
                 console.log("[Getnet POS] Cancelando cobro previo antes de iniciar nueva venta...");
                 try { Getnet.CancelSale(); } catch (_) {}
                 posState.isCharging = false;
-                posState.isCancelling = false;
-                await new Promise(r => setTimeout(r, 400));
+                posState.isCancelling = true;
+                posState.lastCancelTime = Date.now();
+                await new Promise(r => setTimeout(r, 800));
             }
 
             const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m', nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
@@ -2649,7 +2657,7 @@
             const modal = document.getElementById('modal-pos-simulator');
             if (modal) modal.classList.add('open');
 
-            // Preparar objeto de transacción actual
+            // Preparar objeto de transacción actual con ticket unico
             const ticketNumber = String(Date.now()).slice(-6);
             posState.activeTransaction = {
                 plan: plan,
@@ -2760,7 +2768,25 @@
                 return;
             }
 
-            // 4. Mensajes de estado intermedios (ej: "INSERTE TARJETA", "DIGITE CLAVE")
+            // 4. Si el front está en estado de cancelación, ignorar respuestas de venta previa
+            if (posState.isCancelling) {
+                console.log("[Getnet POS] Cancelación activa en web: ignorando respuesta de venta previa:", data);
+                if (data.ResponseCode === 999 || data.ResponseCode === '999') {
+                    posState.isCancelling = false;
+                }
+                return;
+            }
+
+            // 5. FILTRO POR TICKET: Si la respuesta trae un Ticket que no coincide con la transacción activa actual,
+            // es un mensaje residual de una venta anterior y NO debe cancelar ni alterar la venta actual.
+            const respTicket = String(data.Ticket || data.TicketNumber || "");
+            const activeTicket = String(posState.activeTransaction ? posState.activeTransaction.ticketNumber : "");
+            if (respTicket && activeTicket && respTicket !== activeTicket) {
+                console.log(`[Getnet POS] Ignorando mensaje de ticket previo (#${respTicket} vs activo #${activeTicket}):`, data);
+                return;
+            }
+
+            // 6. Mensajes de estado intermedios (ej: "INSERTE TARJETA", "DIGITE CLAVE")
             if ((data.Command === 100 || data.FunctionCode === 100 || !data.Command) && data.Message && data.ResponseCode === undefined && data.AuthorizationCode === undefined) {
                 appendPosLog(`[POS Estado]: ${data.Message}`, "info");
                 if (instruction) instruction.textContent = data.Message;
@@ -2768,7 +2794,7 @@
                 return;
             }
 
-            // 5. Resultado final de Venta (ResponseCode o AuthorizationCode presente)
+            // 7. Resultado final de Venta (ResponseCode o AuthorizationCode presente)
             const isSaleResult = (data.Command === 100 || data.FunctionCode === 100 || data.ResponseCode !== undefined || data.AuthorizationCode !== undefined || (data.SharesNumber !== undefined && data.Amount !== undefined));
 
             if (isSaleResult) {
