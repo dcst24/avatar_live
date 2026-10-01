@@ -383,7 +383,7 @@ async def post_simular_pago(request):
 
 
 async def get_pos_ports(request):
-    """Retorna los puertos COM / Serial disponibles en el sistema para conectar el POS Getnet"""
+    """Retorna los puertos COM / Serial disponibles en el sistema con metadatos de hardware para el POS Getnet"""
     import platform
     import glob
     ports = []
@@ -395,29 +395,44 @@ async def get_pos_ports(request):
                 for i in range(128):
                     try:
                         val_name, port_name, _ = winreg.EnumValue(key, i)
+                        is_usb = 'USBSER' in val_name.upper() or 'USB' in val_name.upper()
+                        desc = 'Dispositivo serie USB (POS Getnet)' if is_usb else 'Puerto Serie de Placa Madre'
                         ports.append({
                             "port": port_name,
                             "device": val_name,
-                            "description": f"Puerto Serial {port_name} ({val_name.split(chr(92))[-1]})"
+                            "friendly_name": f"{port_name} - {desc}",
+                            "description": desc,
+                            "is_usb": is_usb,
+                            "is_recommended": is_usb
                         })
                     except OSError:
                         break
                 winreg.CloseKey(key)
             except FileNotFoundError:
                 pass
+            
+            # Ordenar para que los puertos USB recomendados aparezcan primero
+            ports.sort(key=lambda x: (not x.get('is_recommended', False), x['port']))
         else:
             # Linux / macOS / Jetson
             device_paths = glob.glob('/dev/ttyUSB*') + glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyS*')
             for path in sorted(device_paths):
+                is_usb = 'USB' in path or 'ACM' in path
                 ports.append({
                     "port": path,
                     "device": path,
-                    "description": f"Puerto Serial {path}"
+                    "friendly_name": f"{path} - {'Dispositivo USB POS Getnet' if is_usb else 'Puerto Serie'}",
+                    "description": "Terminal USB POS" if is_usb else "Puerto Serie",
+                    "is_usb": is_usb,
+                    "is_recommended": is_usb
                 })
-        return json_ok(data={"ports": ports, "count": len(ports)})
+        
+        recommended = next((p['port'] for p in ports if p.get('is_recommended')), (ports[0]['port'] if ports else None))
+        return json_ok(data={"ports": ports, "count": len(ports), "recommended_port": recommended})
     except Exception as e:
         logger.exception("Error listando puertos seriales:")
         return json_error(str(e))
+
 
 
 async def post_registrar_pago_real(request):
