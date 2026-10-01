@@ -2428,8 +2428,33 @@
 
             // Autoconectar si el puerto ya fue previamente autorizado en este navegador
             checkAutoConnectPos();
+            startPosAutoConnectWatcher();
             // Cargar puertos COM detectados en el sistema desde el backend
             fetchDetectedComPorts();
+
+            // Detectar conexión / desconexión USB en caliente
+            if (typeof navigator !== 'undefined' && navigator.serial) {
+                navigator.serial.addEventListener('connect', async (e) => {
+                    console.log("[Getnet POS] Evento USB connect detectado:", e.target);
+                    appendPosLog("Hardware USB POS detectado. Conectando automáticamente...", "info");
+                    await checkAutoConnectPos();
+                });
+                navigator.serial.addEventListener('disconnect', (e) => {
+                    console.log("[Getnet POS] Evento USB disconnect detectado:", e.target);
+                    appendPosLog("Hardware USB POS desconectado.", "warn");
+                    setPosConnected(false);
+                });
+            }
+        }
+
+        let _posWatcherTimer = null;
+        function startPosAutoConnectWatcher() {
+            if (_posWatcherTimer) clearInterval(_posWatcherTimer);
+            _posWatcherTimer = setInterval(async () => {
+                if (!posState.connected && typeof Getnet !== 'undefined' && !posState.isCharging && typeof navigator !== 'undefined' && navigator.serial) {
+                    await checkAutoConnectPos();
+                }
+            }, 3000);
         }
 
         async function fetchDetectedComPorts() {
@@ -2450,8 +2475,17 @@
                 try {
                     const port = await Getnet.autoConnect(posState.baudRate);
                     if (port && Getnet.isConnected()) {
-                        setPosConnected(true, "COM10 / USB");
-                        appendPosLog("Conectado automáticamente al POS Getnet (COM10).", "success");
+                        const info = port.getInfo ? port.getInfo() : {};
+                        const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM10 / USB";
+                        posState.port = port;
+                        setPosConnected(true, portDesc);
+                        appendPosLog(`Conectado automáticamente al POS Getnet (${portDesc}).`, "success");
+                        const btnConnect = document.getElementById('btn-connect-pos-com');
+                        if (btnConnect) btnConnect.style.display = 'none';
+                        // Verificar con Poll tras breve espera
+                        setTimeout(() => {
+                            try { Getnet.Poll(); } catch (_) {}
+                        }, 300);
                     } else {
                         setPosConnected(false);
                     }
@@ -2703,18 +2737,20 @@
                 if (btnConnect) btnConnect.style.display = 'none';
                 if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
                 if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
-                if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Esperando POS...`;
-                dispatchGetnetSale(finalAmount, ticketNumber);
+                if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Cuotas: ${cuotas}`;
+                dispatchGetnetSale(finalAmount, ticketNumber, cuotas);
             } else {
                 if (typeof Getnet !== 'undefined') {
                     Getnet.autoConnect(posState.baudRate).then(port => {
                         if (port && Getnet.isConnected()) {
-                            setPosConnected(true, "COM10 / USB");
+                            const info = port.getInfo ? port.getInfo() : {};
+                            const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM10 / USB";
+                            setPosConnected(true, portDesc);
                             if (btnConnect) btnConnect.style.display = 'none';
                             if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
                             if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
-                            if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Esperando POS...`;
-                            dispatchGetnetSale(finalAmount, ticketNumber);
+                            if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Cuotas: ${cuotas}`;
+                            dispatchGetnetSale(finalAmount, ticketNumber, cuotas);
                         } else {
                             setPosConnected(false);
                             if (btnConnect) {
@@ -2744,27 +2780,35 @@
             if (ok && posState.activeTransaction && !posState.isCharging) {
                 const btnConnect = document.getElementById('btn-connect-pos-com');
                 if (btnConnect) btnConnect.style.display = 'none';
-                dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber);
+                dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber, posState.activeTransaction.cuotas);
             }
         }
 
-        function dispatchGetnetSale(amount, ticketNumber) {
+        function dispatchGetnetSale(amount, ticketNumber, cuotas = 1) {
             if (posState.isCharging) {
                 console.warn("[Getnet POS] Ya hay un cobro en curso. Evitando reenvío duplicado.");
                 return;
             }
             posState.isCharging = true;
-            appendPosLog(`>>> Enviando orden de cobro al POS Getnet: Monto $${Number(amount).toLocaleString('es-CL')} | Ticket #${ticketNumber}`, 'info');
+            const numCuotas = parseInt(cuotas, 10) || (posState.activeTransaction ? posState.activeTransaction.cuotas : 1) || 1;
+            const sharesType = (numCuotas > 1) ? 1 : 0; // 1 = Cuotas sin interés / comercio, 0 = Sin cuotas (contado)
+
+            appendPosLog(`>>> Enviando orden de cobro al POS Getnet: Monto $${Number(amount).toLocaleString('es-CL')} | Cuotas: ${numCuotas} | Ticket #${ticketNumber}`, 'info');
             const instruction = document.getElementById('pos-instruction-text');
             const subinstruction = document.getElementById('pos-subinstruction-text');
             const livePill = document.getElementById('pos-live-pill');
 
             if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
             if (instruction) instruction.textContent = "Por favor acerque o inserte su tarjeta en el POS Getnet";
-            if (subinstruction) subinstruction.textContent = "Seleccione cuotas y digite su PIN en el terminal si corresponde...";
+            if (subinstruction) {
+                subinstruction.textContent = (numCuotas > 1) 
+                    ? `Pago configurado en ${numCuotas} cuotas automáticas • Digite PIN en POS...` 
+                    : `Pago al contado • Digite PIN en POS si corresponde...`;
+            }
 
             try {
-                Getnet.Sale(amount, ticketNumber, false, 0, true, 1, 180);
+                // Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, sharesNumber, sharesType, timeout)
+                Getnet.Sale(amount, ticketNumber, false, 0, true, 1, numCuotas, sharesType, 180);
             } catch (err) {
                 console.error("Error al invocar Getnet.Sale:", err);
                 posState.isCharging = false;

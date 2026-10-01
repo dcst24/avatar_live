@@ -216,7 +216,15 @@
                             // Ya estaba abierto, continuar normalmente
                             return;
                         }
-                        throw err;
+                        // Si falló por lock transitorio en Windows, intentar liberar reader y reintentar
+                        console.warn("[Getnet POS] Aviso al abrir puerto, reintentando tras limpieza...", err);
+                        if (this.reader) {
+                            try { await this.reader.cancel(); } catch(_) {}
+                            try { this.reader.releaseLock(); } catch(_) {}
+                            this.reader = null;
+                        }
+                        await new Promise(r => setTimeout(r, 150));
+                        await this.port.open({ baudRate: this.baudRate });
                     }
                 }
             }
@@ -592,21 +600,79 @@
         saleType = POSCommands.SaleType.Sale,
         sendMessage = true,
         employeeId = 1,
+        sharesNumber = 1,
+        sharesType = 0,
         secondsTimeout = defaultMaxTimeout
     ) {
         try {
             if (SerialCom) SerialCom.clearBuffer();
+
+            // Soportar pase por objeto: Getnet.Sale({ amount, cuotas, ... })
+            let finalAmount = amount;
+            let finalTicket = ticketNumber;
+            let finalPrint = printOnPos;
+            let finalSaleType = saleType;
+            let finalSendMessage = sendMessage;
+            let finalEmployeeId = employeeId;
+            let finalCuotas = sharesNumber;
+            let finalSharesType = sharesType;
+            let finalTimeout = secondsTimeout;
+
+            if (typeof amount === 'object' && amount !== null) {
+                finalAmount = amount.amount || amount.Amount || 0;
+                finalTicket = amount.ticketNumber || amount.TicketNumber || Date.now().toString().slice(-6);
+                finalPrint = Boolean(amount.printOnPos || amount.PrintOnPos || false);
+                finalSaleType = amount.saleType !== undefined ? amount.saleType : (amount.SaleType !== undefined ? amount.SaleType : POSCommands.SaleType.Sale);
+                finalSendMessage = amount.sendMessage !== undefined ? Boolean(amount.sendMessage) : true;
+                finalEmployeeId = amount.employeeId || amount.EmployeeId || 1;
+                finalCuotas = amount.sharesNumber || amount.SharesNumber || amount.cuotas || amount.Cuotas || amount.installments || amount.Installments || 1;
+                finalSharesType = amount.sharesType !== undefined ? amount.sharesType : (amount.SharesType !== undefined ? amount.SharesType : 0);
+                finalTimeout = amount.timeout || amount.secondsTimeout || defaultMaxTimeout;
+            } else if (typeof sharesNumber === 'number' && sharesNumber > 50 && sharesType === 0 && secondsTimeout === defaultMaxTimeout) {
+                // Caso legado donde el 7mo argumento era timeout (ej. Getnet.Sale(amount, ticket, false, 0, true, 1, 180))
+                finalTimeout = sharesNumber;
+                finalCuotas = 1;
+                finalSharesType = 0;
+            }
+
+            const numCuotas = parseInt(finalCuotas, 10) || 1;
+            const isCuotas = numCuotas > 1;
+            // Para Venta en Cuotas: Tipo 1 = Cuotas Comercio (Sin Interés), Tipo 2 = Cuotas Banco, Tipo 3 = Cuotas Normales
+            // Para Venta Directa / Contado (1 cuota): Tipo 0 = Sin cuotas (Venta Directa)
+            const resolvedSharesType = isCuotas ? (parseInt(finalSharesType, 10) || 1) : 0;
+            const resolvedSharesNumber = isCuotas ? numCuotas : 0;
+
             const data = {
                 Command: POSCommands.Function.Sale,
-                Amount: parseInt(amount, 10),
-                TicketNumber: String(ticketNumber || Date.now().toString().slice(-6)),
-                PrintOnPos: Boolean(printOnPos),
-                SaleType: saleType !== undefined ? saleType : POSCommands.SaleType.Sale,
-                SendMessage: Boolean(sendMessage),
-                EmployeeId: parseInt(employeeId, 10) || 1,
+                Amount: parseInt(finalAmount, 10),
+                TicketNumber: String(finalTicket || Date.now().toString().slice(-6)),
+                PrintOnPos: Boolean(finalPrint),
+                SaleType: finalSaleType !== undefined ? finalSaleType : POSCommands.SaleType.Sale,
+                SendMessage: Boolean(finalSendMessage),
+                EmployeeId: parseInt(finalEmployeeId, 10) || 1,
+                // Mapeo exhaustivo para todas las revisiones de firmware POS Getnet / Santander Chile:
+                SharesNumber: resolvedSharesNumber,
+                SharesType: resolvedSharesType,
+                Shares: resolvedSharesNumber,
+                ShareNumber: resolvedSharesNumber,
+                ShareType: resolvedSharesType,
+                Installments: isCuotas ? numCuotas : 1,
+                InstallmentsNumber: resolvedSharesNumber,
+                InstallmentType: resolvedSharesType,
+                Cuotas: numCuotas,
+                NumeroCuotas: resolvedSharesNumber,
+                TipoCuota: resolvedSharesType,
+                TipoCuotas: resolvedSharesType,
+                Quotas: numCuotas,
+                QuotaNumber: resolvedSharesNumber,
+                QuotaType: resolvedSharesType,
+                SharesQuantity: resolvedSharesNumber,
+                SharesCount: resolvedSharesNumber,
                 DateTime: new Date().toISOString(),
             };
-            Procesar(data, secondsTimeout);
+
+            console.log(`[Getnet POS] Enviando Venta: $${data.Amount} | Cuotas: ${numCuotas} (SharesNumber: ${resolvedSharesNumber}, SharesType: ${resolvedSharesType}) | Ticket: ${data.TicketNumber}`);
+            Procesar(data, finalTimeout);
         } catch (ex) {
             console.error("[Getnet Sale Error]:", ex);
         }
@@ -859,6 +925,34 @@
         return await SerialCom.setPort(portObj, baudRate);
     }
 
+    async function probePortWithPoll(timeoutMs = 600) {
+        if (!isConnected()) return false;
+        return new Promise((resolve) => {
+            let timer = null;
+            const originalCallback = Callback;
+            const probeCallback = (msg) => {
+                if (msg && (msg.Command === 106 || msg.Received === true || msg.ResponseCode !== undefined)) {
+                    if (timer) clearTimeout(timer);
+                    Callback = originalCallback;
+                    if (typeof originalCallback === 'function') originalCallback(msg);
+                    resolve(true);
+                }
+            };
+            Callback = probeCallback;
+            timer = setTimeout(() => {
+                Callback = originalCallback;
+                resolve(false);
+            }, timeoutMs);
+            try {
+                Poll();
+            } catch (e) {
+                if (timer) clearTimeout(timer);
+                Callback = originalCallback;
+                resolve(false);
+            }
+        });
+    }
+
     async function autoConnect(baudRate = 115200) {
         if (isConnected()) return SerialCom.port;
         if (typeof navigator !== 'undefined' && navigator.serial && navigator.serial.getPorts) {
@@ -866,19 +960,58 @@
                 const ports = await navigator.serial.getPorts();
                 if (ports && ports.length > 0) {
                     if (!SerialCom) SerialCom = new Serial();
-                    // Intentar el último puerto otorgado (los dispositivos USB recientes se agregan al final)
-                    const port = ports[ports.length - 1];
-                    try {
-                        await SerialCom.setPort(port, baudRate);
-                        if (isConnected()) {
-                            return port;
+
+                    // Si solo hay 1 puerto previamente autorizado por el usuario:
+                    if (ports.length === 1) {
+                        try {
+                            await SerialCom.setPort(ports[0], baudRate);
+                            if (isConnected()) {
+                                console.log("[Getnet POS] Auto-conectado con éxito al único puerto autorizado.");
+                                return ports[0];
+                            }
+                        } catch (err1) {
+                            console.warn("[Getnet POS] Reintentando conexión de puerto tras breve espera...", err1);
+                            try { await SerialCom.disconnect(); } catch (_) {}
+                            await new Promise(r => setTimeout(r, 200));
+                            try {
+                                await SerialCom.setPort(ports[0], baudRate);
+                                if (isConnected()) return ports[0];
+                            } catch (err2) {
+                                console.warn("[Getnet POS] Segundo intento falló:", err2);
+                            }
                         }
-                    } catch (e) {
-                        console.warn("[Getnet POS] autoConnect aviso:", e);
+                    } else {
+                        // Múltiples puertos autorizados: sondear del más reciente al más antiguo con Poll
+                        for (let i = ports.length - 1; i >= 0; i--) {
+                            const port = ports[i];
+                            try {
+                                await SerialCom.setPort(port, baudRate);
+                                if (isConnected()) {
+                                    const responded = await probePortWithPoll(450);
+                                    if (responded) {
+                                        console.log(`[Getnet POS] POS Getnet verificado y respondiendo en puerto [${i}].`);
+                                        return port;
+                                    } else {
+                                        console.log(`[Getnet POS] Puerto [${i}] abierto pero POS no respondió Poll. Probando siguiente...`);
+                                        await SerialCom.disconnect();
+                                    }
+                                }
+                            } catch (e) {
+                                console.warn(`[Getnet POS] Error probando puerto [${i}]:`, e);
+                                try { await SerialCom.disconnect(); } catch (_) {}
+                            }
+                        }
+                        // Si ninguno respondió con Poll pero hay puertos, conectar al último
+                        if (ports.length > 0) {
+                            try {
+                                await SerialCom.setPort(ports[ports.length - 1], baudRate);
+                                if (isConnected()) return ports[ports.length - 1];
+                            } catch (_) {}
+                        }
                     }
                 }
             } catch (e) {
-                console.warn("[Getnet POS] autoConnect error:", e);
+                console.warn("[Getnet POS] autoConnect error general:", e);
             }
         }
         return null;
@@ -901,6 +1034,19 @@
 
     function getSerialCom() {
         return SerialCom;
+    }
+
+    if (typeof window !== 'undefined') {
+        window.addEventListener('beforeunload', () => {
+            if (SerialCom) {
+                try { SerialCom.disconnect(); } catch (_) {}
+            }
+        });
+        window.addEventListener('pagehide', () => {
+            if (SerialCom) {
+                try { SerialCom.disconnect(); } catch (_) {}
+            }
+        });
     }
 
     const Getnet = {
@@ -929,6 +1075,7 @@
         establecerPuertoFijo,
         connect,
         autoConnect,
+        probePortWithPoll,
         isConnected,
         disconnect,
         clearBuffer,
