@@ -1,6 +1,6 @@
 /*!
 * Librería Getnet
-* Versión: 1.5.6 (Adaptado para integración directa Web Serial / USB POS)
+* Versión: 1.5.7 (Adaptado para integración directa Web Serial / USB POS)
 * Fecha: 2024-03-07 / 2026-10-01
 */
 (function(root, factory) {
@@ -21,11 +21,11 @@
     let LogCallback = (log) => { console.log("[Getnet Log]", log); };
     var serialComFijo = "";
     var TimeoutForResponse = null;
-    var defaultReceivedTimeout = 5;
+    var defaultReceivedTimeout = 30;
     var ReceivedTimeout = null;
-    var defaultTimeout = 60;
-    var defaultMinTimeout = 10;
-    var defaultMaxTimeout = 120;
+    var defaultTimeout = 120;
+    var defaultMinTimeout = 15;
+    var defaultMaxTimeout = 180;
     var errorCallback = (err) => { console.warn("[Getnet Timeout/Error]", err); };
     var isWebSerial = false;
     var isAgentePos = false;
@@ -68,7 +68,7 @@
             this.port = "";
             this.waitingPort = false;
             this.lastCommand = new Date();
-            this.espera = 300;
+            this.espera = 250;
             this.queue = [];
             this.socket.onmessage = function (event) {
                 try {
@@ -115,8 +115,7 @@
         encodeMensaje(mensaje) {
             let encoder = new TextEncoder();
             let bytes = encoder.encode(mensaje);
-            const buffer = bytes.buffer;
-            return buffer;
+            return bytes.buffer;
         }
         enqueueMessage(mensaje) {
             this.queue.push(mensaje);
@@ -134,7 +133,7 @@
                 await this.processMessage(mensaje);
                 this.processQueue();
             } else {
-                await gSleep(300);
+                await gSleep(250);
                 this.processQueue();
             }
         }
@@ -161,26 +160,18 @@
             return false;
         }
         esperarProceso() {
-            return new Promise(res => setTimeout(() => {
-                res();
-            }, this.espera - (new Date() - this.lastCommand)));
+            return new Promise(res => setTimeout(res, Math.max(10, this.espera - (new Date() - this.lastCommand))));
         }
     }
 
     class Serial {
         port = null;
-        writer = null;
         reader = null;
         text = "";
         lastCommand = new Date();
-        espera = 300;
+        espera = 250;
         baudRate = 115200;
         isReading = false;
-        command = {
-            sending: false,
-            message: '',
-            resend: false
-        };
 
         async setPort(portInstance = null, baudRate = 115200) {
             this.baudRate = baudRate || 115200;
@@ -204,8 +195,10 @@
         async openPort() {
             if (this.port) {
                 try {
-                    await this.port.open({ baudRate: this.baudRate });
-                    console.log(`[Getnet POS] Puerto abierto exitosamente a ${this.baudRate} baud`);
+                    if (!this.port.readable || !this.port.writable) {
+                        await this.port.open({ baudRate: this.baudRate });
+                        console.log(`[Getnet POS] Puerto abierto exitosamente a ${this.baudRate} baud`);
+                    }
                 } catch (err) {
                     console.warn("[Getnet POS] Aviso al abrir puerto:", err);
                 }
@@ -221,65 +214,103 @@
             }
             if (this.isReading) return;
             this.isReading = true;
-            this.reader = this.port.readable.getReader();
             this.readLoop();
         }
 
         async readLoop() {
             try {
-                while (true) {
-                    const { value, done } = await this.reader.read();
-                    if (done) {
-                        if (this.reader) this.reader.releaseLock();
-                        this.isReading = false;
-                        break;
-                    }
-                    const chunk = uint8ArrayToString(value);
-                    this.text += chunk;
-
+                while (this.port && this.port.readable && this.isReading) {
+                    this.reader = this.port.readable.getReader();
                     try {
-                        const jsonData = JSON.parse(this.text);
-                        MensajeRecibido(jsonData);
-                        if (jsonData.Received === undefined) {
-                            SerialComunication(JSON.stringify({ Received: true }));
+                        while (true) {
+                            const { value, done } = await this.reader.read();
+                            if (done) break;
+                            const chunk = uint8ArrayToString(value);
+                            this.text += chunk;
+
+                            // Procesamiento robusto de mensajes JSON del POS
+                            this.processBuffer();
                         }
-                        this.text = "";
-                    } catch (jsonErr) {
-                        // Buffer parcial
+                    } catch (readErr) {
+                        console.warn("[Getnet POS] Error en bloque lector:", readErr);
+                        break;
+                    } finally {
+                        if (this.reader) {
+                            try { this.reader.releaseLock(); } catch (_) {}
+                            this.reader = null;
+                        }
                     }
                 }
             } catch (err) {
                 console.warn("[Getnet POS] Error en bucle de lectura:", err);
+            } finally {
                 this.isReading = false;
             }
         }
 
-        async establecerWriterPuerto() {
-            try {
-                if (this.port && this.port.writable) {
-                    this.writer = await this.port.writable.getWriter();
+        processBuffer() {
+            let buffer = this.text.trim();
+            if (!buffer) return;
+
+            // 1. Intentar parsear si todo el buffer es un objeto JSON
+            if (buffer.startsWith('{') && buffer.endsWith('}')) {
+                try {
+                    const jsonData = JSON.parse(buffer);
+                    this.text = "";
+                    MensajeRecibido(jsonData);
+                    if (jsonData.Received === undefined) {
+                        this.sendAck();
+                    }
+                    return;
+                } catch (_) {}
+            }
+
+            // 2. Extraer objetos JSON balanceados { ... } del buffer
+            let startIndex = buffer.indexOf('{');
+            while (startIndex !== -1) {
+                let depth = 0;
+                let endIndex = -1;
+                for (let i = startIndex; i < buffer.length; i++) {
+                    if (buffer[i] === '{') depth++;
+                    else if (buffer[i] === '}') {
+                        depth--;
+                        if (depth === 0) {
+                            endIndex = i;
+                            break;
+                        }
+                    }
                 }
-            } catch (e) {
-                console.warn("[Getnet POS] Error al obtener writer:", e);
+
+                if (endIndex !== -1) {
+                    const jsonCandidate = buffer.slice(startIndex, endIndex + 1);
+                    try {
+                        const jsonData = JSON.parse(jsonCandidate);
+                        buffer = buffer.slice(endIndex + 1).trim();
+                        this.text = buffer;
+                        MensajeRecibido(jsonData);
+                        if (jsonData.Received === undefined) {
+                            this.sendAck();
+                        }
+                        startIndex = buffer.indexOf('{');
+                    } catch (e) {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             }
         }
 
-        async handleWriterAndPort() {
-            if (!this.writer || !this.port || !this.port.writable) {
-                this.command.resend = true;
-                await this.establecerWriterPuerto();
-            }
-            if (this.command.resend === true && this.command.message) {
-                await this.send(this.command.message);
-            }
+        async sendAck() {
+            try {
+                // Confirmación silenciosa de recepción hacia el POS
+                const ackMsg = JSON.stringify({ Received: true });
+                await this.send(ackMsg);
+            } catch (_) {}
         }
 
         async write(jsonSerialized) {
             try {
-                this.command.resend = false;
-                this.command.sending = true;
-                this.command.message = jsonSerialized;
-                await this.handleWriterAndPort();
                 while (!this.canProcess()) {
                     await this.esperarProceso();
                 }
@@ -289,26 +320,23 @@
             }
         }
 
-        async send(jsonSerialized) {
+        async send(dataString) {
+            if (!this.port || !this.port.writable) {
+                throw new Error("No hay canal de escritura disponible hacia el POS");
+            }
+            let writer = null;
             try {
-                if (!this.writer) {
-                    await this.establecerWriterPuerto();
-                }
-                if (!this.writer) throw new Error("No hay canal de escritura disponible hacia el POS");
-
+                writer = this.port.writable.getWriter();
                 let encoder = new TextEncoder();
-                let bytes = encoder.encode(jsonSerialized);
+                let bytes = encoder.encode(dataString);
                 this.lastCommand = new Date();
-                await this.writer.write(bytes);
-                this.command.sending = false;
-                this.command.message = '';
-                this.writer.releaseLock();
-                this.writer = null;
+                await writer.write(bytes);
             } catch (error) {
                 console.error('[Getnet POS] Error en send:', error);
-                if (this.writer) {
-                    try { this.writer.releaseLock(); } catch (_) {}
-                    this.writer = null;
+                throw error;
+            } finally {
+                if (writer) {
+                    try { writer.releaseLock(); } catch (_) {}
                 }
             }
         }
@@ -327,12 +355,8 @@
                 this.isReading = false;
                 if (this.reader) {
                     await this.reader.cancel();
-                    this.reader.releaseLock();
+                    try { this.reader.releaseLock(); } catch (_) {}
                     this.reader = null;
-                }
-                if (this.writer) {
-                    try { this.writer.releaseLock(); } catch (_) {}
-                    this.writer = null;
                 }
                 if (this.port) {
                     await this.port.close();
@@ -488,7 +512,7 @@
     function startReveivedTimeout() {
         stopReceivedTimeout();
         ReceivedTimeout = setTimeout(() => {
-            TimeOutError();
+            console.warn("[Getnet POS] Esperando ACK inicial del POS...");
         }, defaultReceivedTimeout * 1000);
     }
 
@@ -501,7 +525,7 @@
 
     function TimeOutError() {
         if (typeof errorCallback === 'function') {
-            errorCallback("Timeout esperando respuesta del terminal POS Getnet");
+            errorCallback("Tiempo de espera agotado esperando confirmación del POS Getnet");
         }
     }
 
@@ -522,16 +546,34 @@
     }
 
     function MensajeRecibido(mensaje) {
-        if (mensaje && mensaje.Received) {
+        if (!mensaje) return;
+
+        // Desempaquetar JsonSerialized si el POS responde con formato firmado
+        let parsedData = mensaje;
+        if (mensaje.JsonSerialized && typeof mensaje.JsonSerialized === 'string') {
+            try {
+                const inner = JSON.parse(mensaje.JsonSerialized);
+                parsedData = { ...mensaje, ...inner };
+            } catch (e) {
+                console.warn("[Getnet POS] Error parseando JsonSerialized interno:", e);
+            }
+        }
+
+        if (parsedData.Received) {
             stopReceivedTimeout();
-            textoCallback = JSON.stringify(mensaje);
+            textoCallback = JSON.stringify(parsedData);
         } else {
-            stopTimeoutForResponse();
-            textoCallback += JSON.stringify(mensaje);
+            // Si el mensaje es una respuesta intermedia o final de transacción
+            stopReceivedTimeout();
+            if (parsedData.ResponseCode !== undefined || parsedData.Command === 106 || parsedData.Command === 100 || parsedData.Command === 101) {
+                stopTimeoutForResponse();
+            }
+            textoCallback = JSON.stringify(parsedData);
             if (typeof LogCallback === 'function') LogCallback(textoCallback);
         }
+
         if (typeof Callback === 'function') {
-            Callback(mensaje);
+            Callback(parsedData);
         }
     }
 
