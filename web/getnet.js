@@ -159,7 +159,7 @@
         espera = 150;
         baudRate = 115200;
         isReading = false;
-        openedAt = 0;
+        hasWokenUp = false;
 
         async setPort(portInstance = null, baudRate = 115200) {
             this.baudRate = baudRate || 115200;
@@ -172,7 +172,7 @@
                 if (this.port && this.port !== targetPort) { await this.disconnect(); }
                 this.port = targetPort;
                 this.text = "";
-                this.openedAt = Date.now();
+                this.hasWokenUp = false;
                 await this.openPort();
                 this.startReading();
                 return this.port;
@@ -188,8 +188,11 @@
             if (this.port) {
                 if (!this.port.readable || !this.port.writable) {
                     try {
-                        await this.port.open({ baudRate: this.baudRate });
-                        console.log("[Getnet POS] Puerto COM abierto a " + this.baudRate + " baud");
+                        await this.port.open({ baudRate: this.baudRate, bufferSize: 16384 });
+                        try {
+                            await this.port.setSignals({ dataTerminalReady: true, requestToSend: true });
+                        } catch (_) {}
+                        console.log("[Getnet POS] Puerto COM abierto a " + this.baudRate + " baud (DTR/RTS activos)");
                     } catch (err) {
                         if (err.message && err.message.includes('already open')) { return; }
                         throw err;
@@ -217,10 +220,6 @@
                             break;
                         }
                         if (value) {
-                            if (this.openedAt && (Date.now() - this.openedAt < 400)) {
-                                this.text = "";
-                                continue;
-                            }
                             this.text += textDecoder.decode(value, { stream: true });
                             this.processBuffer();
                         }
@@ -280,6 +279,18 @@
                     this.startReading();
                 }
                 while (!this.canProcess()) { await this.esperarProceso(); }
+
+                // WAKEUP / WARMUP: Si es la primera orden o el puerto estuvo inactivo más de 2.5s,
+                // enviar un delimitador \r\n de despertar para asegurar que el UART del POS
+                // salga del modo reposo antes de transmitir la trama completa del JSON.
+                if (!this.hasWokenUp || (new Date() - this.lastCommand > 2500)) {
+                    this.hasWokenUp = true;
+                    try {
+                        await this.send("\r\n");
+                        await new Promise(r => setTimeout(r, 60));
+                    } catch (_) {}
+                }
+
                 await this.send(jsonSerialized);
             } catch (error) {
                 console.error('[Getnet POS] Error en write:', error);

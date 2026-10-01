@@ -2475,6 +2475,15 @@
                     posState.port = port;
                     setPosConnected(true, portDesc);
                     appendPosLog(`¡Puerto COM conectado exitosamente (${portDesc})!`, "success");
+                    
+                    // Sincronizar y activar POS inmediatamente con Poll (Cmd 106)
+                    setTimeout(() => {
+                        try {
+                            console.log("[Getnet POS] Enviando Poll de inicialización para activar POS...");
+                            Getnet.Poll();
+                        } catch (_) {}
+                    }, 350);
+
                     return true;
                 }
             } catch (err) {
@@ -2697,6 +2706,9 @@
             if (ok && posState.activeTransaction && !posState.isCharging) {
                 const btnConnect = document.getElementById('btn-connect-pos-com');
                 if (btnConnect) btnConnect.style.display = 'none';
+                const instruction = document.getElementById('pos-instruction-text');
+                if (instruction) instruction.textContent = "Sincronizando con POS Getnet...";
+                await new Promise(r => setTimeout(r, 500));
                 dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber);
             }
         }
