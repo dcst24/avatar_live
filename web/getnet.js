@@ -443,7 +443,7 @@
             textoCallback = JSON.stringify(parsedData);
         } else {
             stopReceivedTimeout();
-            if (parsedData.ResponseCode !== undefined || parsedData.Command === 106 || parsedData.Command === 100 || parsedData.Command === 101) {
+            if (parsedData.ResponseCode !== undefined || parsedData.Command === 106 || parsedData.Command === 100 || parsedData.Command === 101 || parsedData.Command === 116) {
                 stopTimeoutForResponse();
             }
             textoCallback = JSON.stringify(parsedData);
@@ -642,6 +642,8 @@
 
     function CancelSale(secondsTimeout) {
         if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
+        stopTimeoutForResponse();
+        stopReceivedTimeout();
         try {
             Procesar({ Command: POSCommands.Function.CancelSale, DateTime: new Date().toISOString() }, secondsTimeout);
         } catch (ex) { console.error(ex); }

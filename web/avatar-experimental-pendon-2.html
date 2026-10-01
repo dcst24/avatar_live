@@ -2288,45 +2288,13 @@
             gymState.selectedPlan = plan;
             closePlansModal();
 
-            updateCuotasDisplay();
+            // Abrir directamente selección de banco / medio de pago
+            openPaymentMethodsModal();
 
-            wakeUpModel();
-            sendToLLM(`Quiero contratar el ${plan.nombre}`);
-        }
-
-        function selectCuotas(num) {
-            gymState.selectedCuotas = num;
-            [1, 3, 6, 12].forEach(n => {
-                const el = document.getElementById(`cuota-btn-${n}`);
-                if (el) {
-                    if (n === num) el.classList.add('active');
-                    else el.classList.remove('active');
-                }
-            });
-
-            const labelEl = document.getElementById('cuotas-selected-label');
-            if (labelEl) {
-                if (num === 1) labelEl.textContent = "1 Pago (Contado)";
-                else if (num === 3) labelEl.textContent = "3 Cuotas Sin Interés";
-                else if (num === 6) labelEl.textContent = "6 Cuotas Sin Interés";
-                else if (num === 12) labelEl.textContent = "12 Cuotas (Santander Sin Interés)";
-            }
-        }
-
-        function updateCuotasDisplay() {
-            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { precio: 34990, precio_santander: 27990 });
-            const isSantander = gymState.selectedBank === 'santander';
-            const baseAmount = isSantander ? plan.precio_santander : plan.precio;
-
-            const c1 = document.getElementById('cuota-val-1');
-            const c3 = document.getElementById('cuota-val-3');
-            const c6 = document.getElementById('cuota-val-6');
-            const c12 = document.getElementById('cuota-val-12');
-
-            if (c1) c1.textContent = `$${Number(baseAmount).toLocaleString('es-CL')}`;
-            if (c3) c3.textContent = `3x $${Number(Math.round(baseAmount / 3)).toLocaleString('es-CL')}`;
-            if (c6) c6.textContent = `6x $${Number(Math.round(baseAmount / 6)).toLocaleString('es-CL')}`;
-            if (c12) c12.textContent = `12x $${Number(Math.round(baseAmount / 12)).toLocaleString('es-CL')}`;
+            // Locución directa del avatar sin bloquear la navegación
+            const speech = `Excelente elección, ${plan.nombre}. Por favor selecciona tu medio de pago en pantalla.`;
+            queueAvatarBubble(speech);
+            sendEchoSpeech(speech);
         }
 
         function openPaymentMethodsModal() {
@@ -2547,15 +2515,32 @@
         }
 
         function cancelGetnetTransaction() {
-            appendPosLog("Cancelando transaccion activa en POS Getnet...", "warn");
-            posState.isCancelling = true;
+            appendPosLog("Cancelando transacción activa en POS Getnet...", "warn");
+            
+            // 1. Detener cualquier locución o LLM previo
+            stopAvatarTalking();
+
+            // 2. Notificar al POS Getnet cancelación de venta (Cmd 116)
+            try { 
+                if (typeof Getnet !== 'undefined' && Getnet.isConnected()) { 
+                    Getnet.CancelSale(); 
+                } 
+            } catch (e) {
+                console.warn("Error enviando CancelSale:", e);
+            }
+
+            // 3. Resetear flags de estado inmediatamente
             posState.isCharging = false;
-            try { if (typeof Getnet !== 'undefined') { Getnet.CancelSale(); } } catch (e) {}
-            const instruction = document.getElementById('pos-instruction-text');
-            if (instruction) instruction.textContent = "Cancelando en el terminal POS...";
-            const livePill = document.getElementById('pos-live-pill');
-            if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'CANCELADO'; }
-            setTimeout(() => { posState.isCancelling = false; closePosSimulator(); }, 2000);
+            posState.isCancelling = false;
+            _disableSpeechInputUntil = 0;
+
+            // 4. Cerrar pantalla del POS
+            closePosSimulator();
+
+            // 5. Mensaje hablado del avatar y reanudar interacción
+            const msg = "Transacción cancelada. Puedes seleccionar otro plan o medio de pago cuando desees.";
+            queueAvatarBubble(msg);
+            sendEchoSpeech(msg);
         }
 
         function appendPosLog(text, type = 'info') {
@@ -2619,11 +2604,20 @@
         // FLUJO DE COBRO AUTOMÁTICO EN POS GETNET
         // ══════════════════════════════════════════════════════════════════════
         function openPosSimulator() {
+            const isVoucherOpen = document.getElementById('modal-voucher') && document.getElementById('modal-voucher').classList.contains('open');
+            if (isVoucherOpen) {
+                console.log("[Getnet POS] Comprobante en pantalla. No se reabre terminal.");
+                return;
+            }
+
             closePaymentMethodsModal();
             closePlansModal();
             closeRutModal();
 
-            const modal = document.getElementById('modal-pos-simulator');
+            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m', nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
+            const isSantander = gymState.selectedBank === 'santander';
+            const finalAmount = isSantander ? plan.precio_santander : plan.precio;
+
             const totalEl = document.getElementById('pos-screen-total');
             const planEl = document.getElementById('pos-screen-plan-name');
             const cuotasEl = document.getElementById('pos-screen-cuotas-text');
@@ -2634,25 +2628,16 @@
             const btnConnect = document.getElementById('btn-connect-pos-com');
             const livePill = document.getElementById('pos-live-pill');
 
-            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m', nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
-            const isSantander = gymState.selectedBank === 'santander';
-            const finalAmount = isSantander ? plan.precio_santander : plan.precio;
-            const cuotas = gymState.selectedCuotas || 1;
-            const montoCuota = Math.round(finalAmount / cuotas);
-
             if (totalEl) totalEl.textContent = `$${Number(finalAmount).toLocaleString('es-CL')}`;
             if (planEl) planEl.textContent = plan.nombre;
-            if (cuotasEl) { cuotasEl.textContent = "Modalidad: Pago con Tarjeta"; }
+            if (cuotasEl) cuotasEl.textContent = "Modalidad: Pago con Tarjeta";
             if (discountTag) discountTag.style.display = isSantander ? 'block' : 'none';
 
             if (cardGraphic) {
-                if (isSantander) {
-                    cardGraphic.style.background = 'linear-gradient(135deg, #ec0000, #991b1b)';
-                } else {
-                    cardGraphic.style.background = 'linear-gradient(135deg, #2563eb, #1d4ed8)';
-                }
+                cardGraphic.style.background = isSantander ? 'linear-gradient(135deg, #ec0000, #991b1b)' : 'linear-gradient(135deg, #2563eb, #1d4ed8)';
             }
 
+            const modal = document.getElementById('modal-pos-simulator');
             if (modal) modal.classList.add('open');
 
             // Preparar objeto de transacción actual
@@ -2663,7 +2648,6 @@
                 amount: finalAmount,
                 originalAmount: plan.precio,
                 discount: isSantander ? (plan.precio - plan.precio_santander) : 0,
-                cuotas: cuotas,
                 bankName: isSantander ? "Banco Santander" : "Transbank / Otros Bancos",
                 ticketNumber: ticketNumber,
                 rut: gymState.client.rut || '12.345.678-5',
@@ -2672,46 +2656,23 @@
             };
 
             posState.isCharging = false;
+            posState.isCancelling = false;
 
             if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
                 if (btnConnect) btnConnect.style.display = 'none';
                 if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
                 if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
-                if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Cuotas: ${cuotas}`;
-                dispatchGetnetSale(finalAmount, ticketNumber, cuotas);
+                if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')}`;
+                dispatchGetnetSale(finalAmount, ticketNumber);
             } else {
-                if (typeof Getnet !== 'undefined') {
-                    Getnet.autoConnect(posState.baudRate).then(port => {
-                        if (port && Getnet.isConnected()) {
-                            const info = port.getInfo ? port.getInfo() : {};
-                            const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM10 / USB";
-                            setPosConnected(true, portDesc);
-                            if (btnConnect) btnConnect.style.display = 'none';
-                            if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
-                            if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
-                            if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Cuotas: ${cuotas}`;
-                            dispatchGetnetSale(finalAmount, ticketNumber, cuotas);
-                        } else {
-                            setPosConnected(false);
-                            if (btnConnect) {
-                                btnConnect.style.display = 'flex';
-                                btnConnect.innerHTML = '<span>🔌</span> Vincular y Cobrar en POS Getnet (COM10)';
-                            }
-                            if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
-                            if (instruction) instruction.textContent = "Terminal POS no vinculado";
-                            if (subinstruction) subinstruction.textContent = "Haz clic en el botón para vincular tu POS Getnet (COM10)";
-                        }
-                    }).catch(() => {
-                        setPosConnected(false);
-                        if (btnConnect) {
-                            btnConnect.style.display = 'flex';
-                            btnConnect.innerHTML = '<span>🔌</span> Vincular y Cobrar en POS Getnet (COM10)';
-                        }
-                        if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
-                        if (instruction) instruction.textContent = "Terminal POS no vinculado";
-                        if (subinstruction) subinstruction.textContent = "Haz clic en el botón para vincular tu POS Getnet (COM10)";
-                    });
+                setPosConnected(false);
+                if (btnConnect) {
+                    btnConnect.style.display = 'flex';
+                    btnConnect.innerHTML = '<span>🔌</span> Conectar y Cobrar en POS Getnet (COM10)';
                 }
+                if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
+                if (instruction) instruction.textContent = "Terminal POS no vinculado";
+                if (subinstruction) subinstruction.textContent = "Haz clic en el botón para conectar tu POS Getnet (COM10)";
             }
         }
 
@@ -3585,29 +3546,9 @@
                     }
                 }
 
-                // Detección de disparadores inteligentes en la respuesta del avatar
-                const lowerReply = fullText.toLowerCase();
-                const isRedirectingToPayment = lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta') || lowerReply.includes('lector');
-
-                if (isRedirectingToPayment) {
-                    closePaymentMethodsModal();
-                    closePlansModal();
-                    closeRutModal();
-                    setTimeout(openPosSimulator, 600);
-                } else {
-                    if (lowerReply.includes('digita tu rut') || lowerReply.includes('indícame o digita') || lowerReply.includes('digitar tu rut') || lowerReply.includes('teclado en pantalla')) {
-                        if (!gymState.isRutIdentified) {
-                            setTimeout(openRutModal, 1200);
-                        }
-                    }
-
-                    if (lowerReply.includes('tenemos planes') || lowerReply.includes('ofrecemos planes') || lowerReply.includes('los precios son') || lowerReply.includes('nuestros planes son') || lowerReply.includes('aquí están los planes') || lowerReply.includes('aqui estan los planes')) {
-                        setTimeout(openPlansModal, 800);
-                    }
-
-                    if (lowerReply.includes('medio de pago') || lowerReply.includes('número de cuotas') || (lowerReply.includes('cuotas') && lowerReply.includes('selecciona')) || (lowerReply.includes('santander') && lowerReply.includes('descuento') && lowerReply.includes('selecciona'))) {
-                        setTimeout(openPaymentMethodsModal, 1000);
-                    }
+                // Respuesta de streaming recibida con éxito
+                if (_conversationAwake) {
+                    resetInactivityTimer();
                 }
 
             } catch (err) {
