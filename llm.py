@@ -261,15 +261,25 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
         else:
             extra_context.append(f"NUEVO CLIENTE: RUT detectado: {rut_match.group(1)}. Salúdalo amablemente y dale la bienvenida como nuevo socio.")
 
-    # Detectar cuotas explícitas en el mensaje del usuario
-    if re.search(r'\b(1\s*cuota|una\s*cuota|al\s*contado|un\s*pago|sin\s*cuotas?|0\s*cuotas?|solo\s*1|solo\s*una)\b', clean_msg):
-        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 1 pago al contado. Confirma 'en un pago al contado' y redirige al terminal.")
-    elif re.search(r'\b(3\s*cuotas?|tres\s*cuotas?)\b', clean_msg):
-        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 3 cuotas sin interés. Confirma 'en 3 cuotas sin interés' y redirige al terminal.")
+    # Detectar plan mencionado en el mensaje
+    if re.search(r'\b(12\s*meses?|doce\s*meses?|anual|vip|un\s*a[nñ]o)\b', clean_msg):
+        extra_context.append("PLAN ELEGIDO POR EL CLIENTE: Plan Anual VIP (12 Meses) - Precio 279.990 pesos (con Santander 20% OFF: 223.990 pesos).")
+    elif re.search(r'\b(6\s*meses?|seis\s*meses?|semestral)\b', clean_msg):
+        extra_context.append("PLAN ELEGIDO POR EL CLIENTE: Plan Semestral (6 Meses) - Precio 159.990 pesos (con Santander 20% OFF: 127.990 pesos).")
+    elif re.search(r'\b(3\s*meses?|tres\s*meses?|trimestral)\b', clean_msg):
+        extra_context.append("PLAN ELEGIDO POR EL CLIENTE: Plan Trimestral (3 Meses) - Precio 89.990 pesos (con Santander 20% OFF: 71.990 pesos).")
+    elif re.search(r'\b(1\s*mes|un\s*mes|mensual)\b', clean_msg):
+        extra_context.append("PLAN ELEGIDO POR EL CLIENTE: Plan Mensual (un mes) - Precio 34.990 pesos (con Santander 20% OFF: 27.990 pesos).")
+
+    # Detectar cuotas explícitas en el mensaje del usuario (12 primero, luego 6, luego 3, luego 1)
+    if re.search(r'\b(12\s*cuotas?|doce\s*cuotas?)\b', clean_msg):
+        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 12 cuotas sin interés con Santander. Confirma 'en 12 cuotas sin interés con Santander' y redirige al terminal.")
     elif re.search(r'\b(6\s*cuotas?|seis\s*cuotas?)\b', clean_msg):
         extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 6 cuotas sin interés. Confirma 'en 6 cuotas sin interés' y redirige al terminal.")
-    elif re.search(r'\b(12\s*cuotas?|doce\s*cuotas?)\b', clean_msg):
-        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 12 cuotas sin interés con Santander. Confirma 'en 12 cuotas sin interés con Santander' y redirige al terminal.")
+    elif re.search(r'\b(3\s*cuotas?|tres\s*cuotas?)\b', clean_msg):
+        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 3 cuotas sin interés. Confirma 'en 3 cuotas sin interés' y redirige al terminal.")
+    elif re.search(r'\b(1\s*cuota|una\s*cuota|al\s*contado|un\s*pago|sin\s*cuotas?|0\s*cuotas?|solo\s*1|solo\s*una)\b', clean_msg):
+        extra_context.append("MODALIDAD DE PAGO ELEGIDA POR EL CLIENTE: 1 pago al contado. Confirma 'en un pago al contado' y redirige al terminal.")
 
     # Si hay contexto extra, agregarlo
     if extra_context:

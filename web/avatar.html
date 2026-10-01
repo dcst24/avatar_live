@@ -1969,11 +1969,12 @@
 
             const isSantander = bankId === 'santander';
             const bankName = isSantander ? "Banco Santander" : "otro banco";
-            const cuotas = gymState.selectedCuotas;
+            const cuotas = gymState.selectedCuotas || 1;
             const cuotasText = cuotas === 1 ? "al contado" : `en ${cuotas} cuotas`;
+            const planName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "mi plan";
 
             wakeUpModel();
-            sendToLLM(`Voy a pagar con ${bankName} ${cuotasText}`);
+            sendToLLM(`Voy a pagar el ${planName} con ${bankName} ${cuotasText}`);
 
             setTimeout(() => {
                 openPosSimulator();
@@ -2464,32 +2465,42 @@
             return false;
         }
 
-        function detectCuotasFromSpeech(clean) {
-            // 1 Pago / Contado / 1 cuota / una cuota
-            if (clean.includes('1 cuota') || clean.includes('una cuota') || clean.includes('1 pago') ||
-                clean.includes('un pago') || clean.includes('al contado') || clean.includes('contado') ||
-                clean.includes('sin cuota') || clean.includes('sin cuotas') || clean.includes('0 cuota') ||
-                clean.includes('cero cuota') || clean.includes('en 1') || clean.includes('en una') ||
-                clean.includes('solo 1') || clean.includes('solo una') || clean === '1' || clean === 'uno' || clean === 'una') {
-                return 1;
+        function detectPlanFromSpeech(clean) {
+            // 12 Meses / Anual / VIP (evaluar primero antes que 1)
+            if (/\b(12\s*meses?|doce\s*meses?|anual|un\s*a[nñ]o|1\s*a[nñ]o|vip|el\s*de\s*12|el\s*de\s*doce|plan\s*de\s*12|plan\s*de\s*doce|plan\s*anual|plan\s*vip)\b/i.test(clean)) {
+                return gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
             }
-            // 3 Cuotas
-            if (clean.includes('3 cuota') || clean.includes('tres cuota') || clean.includes('en 3') ||
-                clean.includes('en tres') || clean.includes('3 pagos') || clean.includes('tres pagos') ||
-                clean === '3' || clean === 'tres') {
-                return 3;
+            // 6 Meses / Semestral
+            if (/\b(6\s*meses?|seis\s*meses?|semestral|el\s*de\s*6|el\s*de\s*seis|plan\s*de\s*6|plan\s*de\s*seis|plan\s*semestral)\b/i.test(clean)) {
+                return gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
+            }
+            // 3 Meses / Trimestral
+            if (/\b(3\s*meses?|tres\s*meses?|trimestral|el\s*de\s*3|el\s*de\s*tres|plan\s*de\s*3|plan\s*de\s*tres|plan\s*trimestral)\b/i.test(clean)) {
+                return gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
+            }
+            // 1 Mes / Mensual
+            if (/\b(1\s*mes\b|un\s*mes\b|mensual|el\s*de\s*1\s*mes|el\s*de\s*un\s*mes|el\s*de\s*un\b|el\s*de\s*uno\b|plan\s*de\s*1\s*mes|plan\s*de\s*un\s*mes|plan\s*de\s*un\b|plan\s*mensual|el\s*primero)\b/i.test(clean)) {
+                return gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
+            }
+            return null;
+        }
+
+        function detectCuotasFromSpeech(clean) {
+            // 12 Cuotas (evaluar primero antes que 1)
+            if (/\b(12\s*cuotas?|doce\s*cuotas?|en\s*12|en\s*doce|12\s*pagos?|doce\s*pagos?|12|doce)\b/i.test(clean)) {
+                return 12;
             }
             // 6 Cuotas
-            if (clean.includes('6 cuota') || clean.includes('seis cuota') || clean.includes('en 6') ||
-                clean.includes('en seis') || clean.includes('6 pagos') || clean.includes('seis pagos') ||
-                clean === '6' || clean === 'seis') {
+            if (/\b(6\s*cuotas?|seis\s*cuotas?|en\s*6|en\s*seis|6\s*pagos?|seis\s*pagos?|6|seis)\b/i.test(clean)) {
                 return 6;
             }
-            // 12 Cuotas
-            if (clean.includes('12 cuota') || clean.includes('doce cuota') || clean.includes('en 12') ||
-                clean.includes('en doce') || clean.includes('12 pagos') || clean.includes('doce pagos') ||
-                clean === '12' || clean === 'doce') {
-                return 12;
+            // 3 Cuotas
+            if (/\b(3\s*cuotas?|tres\s*cuotas?|en\s*3|en\s*tres|3\s*pagos?|tres\s*pagos?|3|tres)\b/i.test(clean)) {
+                return 3;
+            }
+            // 1 Pago / Contado / 1 cuota / una cuota
+            if (/\b(1\s*cuota|una\s*cuota|1\s*pago|un\s*pago|al\s*contado|contado|sin\s*cuotas?|0\s*cuotas?|cero\s*cuotas?|en\s*1\s*cuota|en\s*una\s*cuota|en\s*1\b|en\s*una\b|en\s*un\s*pago|solo\s*1\b|solo\s*una\b|1\b|uno\b|una\b)\b/i.test(clean)) {
+                return 1;
             }
             return null;
         }
@@ -2497,7 +2508,7 @@
         function detectBankFromSpeech(clean) {
             if (clean.includes('santander') || clean.includes('tarjeta santander')) return 'santander';
             if (clean.includes('banco chile') || clean.includes('banco de chile') || clean.includes('edwards')) return 'banco_chile';
-            if (clean.includes('banco estado') || clean.includes('cuenta rut') || clean.includes('cuenta_rut') || clean.includes('cuentarut') || clean.includes('bancoestado')) return 'banco_estado';
+            if (clean.includes('banco estado') || clean.includes('cuenta rut') || clean.includes('cuenta_rut') || clean.includes('cuentarut')) return 'banco_estado';
             if (clean.includes('bci')) return 'bci';
             if (clean.includes('scotiabank') || clean.includes('scotia')) return 'scotiabank';
             if (clean.includes('otra tarjeta') || clean.includes('otras tarjeta') || clean.includes('webpay') || clean.includes('redcompra') || clean.includes('transbank')) return 'transbank';
@@ -2542,17 +2553,7 @@
             }
 
             // 4. Intención de selección de Plan específico por voz (prioridad antes de abrir catálogo general)
-            let planSelectedByVoice = null;
-            if (clean.includes('1 mes') || clean.includes('un mes') || clean.includes('mensual') || clean.includes('el de un') || clean.includes('el de 1')) {
-                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_1m') || gymState.plans[0];
-            } else if (clean.includes('3 meses') || clean.includes('tres meses') || clean.includes('trimestral') || clean.includes('el de 3') || clean.includes('el de tres')) {
-                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_3m') || gymState.plans[1];
-            } else if (clean.includes('6 meses') || clean.includes('seis meses') || clean.includes('semestral') || clean.includes('el de 6') || clean.includes('el de seis')) {
-                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_6m') || gymState.plans[2];
-            } else if (clean.includes('12 meses') || clean.includes('doce meses') || clean.includes('anual') || clean.includes('un año') || clean.includes('vip') || clean.includes('el de 12') || clean.includes('el de doce')) {
-                planSelectedByVoice = gymState.plans.find(p => p.id === 'plan_12m') || gymState.plans[3];
-            }
-
+            const planSelectedByVoice = detectPlanFromSpeech(clean);
             if (planSelectedByVoice) {
                 gymState.selectedPlan = planSelectedByVoice;
                 closePlansModal();
