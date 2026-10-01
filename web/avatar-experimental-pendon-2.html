@@ -3059,7 +3059,8 @@
         async function sendEchoSpeech(text) {
             if (!text) return;
             isSpeaking = true;
-            _avatarSpeakingUntil = Date.now() + Math.max(3000, text.length * 80);
+            const estMs = Math.min(4500, Math.max(1800, text.length * 65));
+            _avatarSpeakingUntil = Date.now() + estMs;
             stopAlwaysOnListening();
             setState('speaking', 'Hablando…');
 
@@ -3609,6 +3610,8 @@
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = null;
             isSpeaking = false;
+            _avatarSpeakingUntil = 0;
+            _disableSpeechInputUntil = 0;
 
             const videoEl = document.getElementById('video');
             if (videoEl && _audioUnlocked) {
@@ -3629,7 +3632,7 @@
 
             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
             setTimeout(() => {
-                if (!isListening && isConnected && !isSpeaking) {
+                if (!isListening && isConnected && !isSpeaking && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
                     startAlwaysOnListening();
                 }
             }, 350);

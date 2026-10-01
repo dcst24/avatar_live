@@ -296,7 +296,11 @@
                 let writer = null;
                 try {
                     writer = this.port.writable.getWriter();
-                    const bytes = new TextEncoder().encode(dataString);
+                    // PROTOCOLO SERIAL POS: Toda trama enviada DEBE terminar en \r\n (CRLF).
+                    // Sin el delimitador \r\n, el parser UART del terminal POS no detecta el fin de trama
+                    // y retiene el comando en el buffer hasta la llegada del siguiente mensaje.
+                    const payload = (dataString.endsWith('\r\n') ? dataString : (dataString.endsWith('\n') ? dataString.slice(0, -1) + '\r\n' : dataString + '\r\n'));
+                    const bytes = new TextEncoder().encode(payload);
                     this.lastCommand = new Date();
                     await writer.write(bytes);
                 } catch (err) {
