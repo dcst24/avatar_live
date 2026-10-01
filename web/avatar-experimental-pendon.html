@@ -2375,7 +2375,7 @@
             availablePorts: []
         };
 
-        function initGetnetSDK(function initGetnetSDK() {
+        function initGetnetSDK() {
             if (typeof Getnet === 'undefined') {
                 console.warn("[Getnet POS] SDK no disponible en este momento.");
                 return;
@@ -2404,7 +2404,7 @@
                 navigator.serial.addEventListener('connect', async (e) => {
                     console.log("[Getnet POS] Evento USB connect detectado:", e.target);
                     appendPosLog("Hardware USB POS detectado. Conectando automáticamente...", "info");
-                    await // checkAutoConnectPos(); // Conexión manual
+                    // await checkAutoConnectPos(); // Conexión manual
                 });
                 navigator.serial.addEventListener('disconnect', (e) => {
                     console.log("[Getnet POS] Evento USB disconnect detectado:", e.target);
