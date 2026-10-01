@@ -861,5 +861,7 @@ if (typeof window !== 'undefined') {
     window.POSCommands = POSCommands;
 }
 
-export default Getnet;
-export { POSCommands, Getnet };
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { POSCommands, Getnet, default: Getnet };
+}
+
