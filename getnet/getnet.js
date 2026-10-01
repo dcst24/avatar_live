@@ -194,13 +194,9 @@
 
         async openPort() {
             if (this.port) {
-                try {
-                    if (!this.port.readable || !this.port.writable) {
-                        await this.port.open({ baudRate: this.baudRate });
-                        console.log(`[Getnet POS] Puerto abierto exitosamente a ${this.baudRate} baud`);
-                    }
-                } catch (err) {
-                    console.warn("[Getnet POS] Aviso al abrir puerto:", err);
+                if (!this.port.readable || !this.port.writable) {
+                    await this.port.open({ baudRate: this.baudRate });
+                    console.log(`[Getnet POS] Puerto abierto exitosamente a ${this.baudRate} baud`);
                 }
             }
         }
@@ -851,18 +847,32 @@
                 const ports = await navigator.serial.getPorts();
                 if (ports && ports.length > 0) {
                     if (!SerialCom) SerialCom = new Serial();
-                    await SerialCom.setPort(ports[0], baudRate);
-                    return ports[0];
+                    // Intentar los puertos en orden inverso (los más recientes suelen ser COM10)
+                    for (let i = ports.length - 1; i >= 0; i--) {
+                        const port = ports[i];
+                        try {
+                            await SerialCom.setPort(port, baudRate);
+                            if (SerialCom.port && SerialCom.port.readable && SerialCom.port.writable) {
+                                console.log(`[Getnet POS] autoConnect exitoso en puerto ${i + 1}/${ports.length}`);
+                                return port;
+                            }
+                        } catch (portErr) {
+                            console.warn(`[Getnet POS] Fallo abriendo puerto ${i + 1} en autoConnect:`, portErr);
+                        }
+                    }
                 }
             } catch (e) {
                 console.warn("[Getnet POS] autoConnect aviso:", e);
             }
         }
+        if (SerialCom) {
+            SerialCom.port = null;
+        }
         return null;
     }
 
     function isConnected() {
-        return Boolean(SerialCom && SerialCom.port);
+        return Boolean(SerialCom && SerialCom.port && SerialCom.port.readable && SerialCom.port.writable);
     }
 
     async function disconnect() {

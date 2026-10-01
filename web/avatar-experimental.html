@@ -2445,12 +2445,15 @@
             if (typeof navigator !== 'undefined' && navigator.serial) {
                 try {
                     const port = await Getnet.autoConnect(posState.baudRate);
-                    if (port) {
-                        setPosConnected(true, "COM (Guardado)");
-                        appendPosLog("Conectado automáticamente al puerto serial autorizado.", "success");
+                    if (port && Getnet.isConnected()) {
+                        setPosConnected(true, "COM10 / USB");
+                        appendPosLog("Conectado automáticamente al POS Getnet (COM10).", "success");
+                    } else {
+                        setPosConnected(false);
                     }
                 } catch (e) {
                     console.warn("No se pudo autoconectar POS:", e);
+                    setPosConnected(false);
                 }
             }
         }
@@ -2720,7 +2723,18 @@
             };
 
             // VERIFICAR ESTADO DEL POS Y ENVIAR COBRO AUTOMÁTICO INMEDIATAMENTE
-            if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
+            let isPosReady = typeof Getnet !== 'undefined' && Getnet.isConnected();
+            if (!isPosReady && typeof Getnet !== 'undefined') {
+                try {
+                    const autoPort = await Getnet.autoConnect(posState.baudRate);
+                    if (autoPort && Getnet.isConnected()) {
+                        setPosConnected(true, "COM10 / USB");
+                        isPosReady = true;
+                    }
+                } catch (e) {}
+            }
+
+            if (isPosReady) {
                 if (btnConnect) btnConnect.style.display = 'none';
                 if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
                 if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
@@ -2731,31 +2745,15 @@
                     dispatchGetnetSale(finalAmount, ticketNumber);
                 }
             } else {
-                // Intentar autoconectar si hay puerto serial recordado
-                let autoOk = false;
-                try {
-                    if (typeof Getnet !== 'undefined') {
-                        const port = await Getnet.autoConnect(posState.baudRate);
-                        if (port) {
-                            setPosConnected(true, "COM");
-                            autoOk = true;
-                        }
-                    }
-                } catch (e) {}
-
-                if (autoOk) {
-                    if (btnConnect) btnConnect.style.display = 'none';
-                    if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
-                    if (!posState.isCharging) {
-                        dispatchGetnetSale(finalAmount, ticketNumber);
-                    }
-                } else {
-                    // Mostrar botón para conectar puerto COM
-                    if (btnConnect) btnConnect.style.display = 'flex';
-                    if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
-                    if (instruction) instruction.textContent = "Terminal POS no conectado";
-                    if (subinstruction) subinstruction.textContent = "Selecciona el puerto COM donde conectaste el POS Getnet";
+                // Mostrar botón para conectar puerto COM
+                setPosConnected(false);
+                if (btnConnect) {
+                    btnConnect.style.display = 'flex';
+                    btnConnect.innerHTML = '<span>🔍</span> Vincular y Conectar POS Getnet (COM10)';
                 }
+                if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
+                if (instruction) instruction.textContent = "Terminal POS no vinculado";
+                if (subinstruction) subinstruction.textContent = "Haz clic en el botón abajo para vincular tu POS Getnet (COM10)";
             }
         }
 
