@@ -1818,14 +1818,14 @@
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <!-- MODAL 3: SELECCIÓN DE BANCO Y MEDIO DE PAGO & CUOTAS                   -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
-    <div id="modal-payment-methods" class="modal-backdrop">
+        <div id="modal-payment-methods" class="modal-backdrop">
         <div class="modal-card">
             <div class="modal-header">
                 <div class="modal-title-group">
                     <div class="modal-title-icon" style="background: linear-gradient(135deg, #ec0000, #b91c1c);">💳</div>
                     <div>
-                        <div class="modal-title">Medio de Pago y Cuotas</div>
-                        <div class="modal-subtitle" id="payment-modal-subtitle">Selecciona tu modalidad de pago y banco</div>
+                        <div class="modal-title">Medio de Pago</div>
+                        <div class="modal-subtitle" id="payment-modal-subtitle">Selecciona tu banco o medio de pago</div>
                     </div>
                 </div>
                 <button class="modal-close-btn" onclick="closePaymentMethodsModal()">✕</button>
@@ -1836,37 +1836,7 @@
                 <div class="santander-logo-icon">S</div>
                 <div class="santander-promo-text">
                     <h4>Banco Santander (Recomendado)</h4>
-                    <p>🔥 20% Dcto Exclusivo y 3, 6 hasta 12 cuotas sin interés</p>
-                </div>
-            </div>
-
-            <!-- Selector de Cuotas -->
-            <div id="cuotas-section">
-                <div class="cuotas-section-title">
-                    <span>💳 Modalidad de Cuotas:</span>
-                    <span id="cuotas-selected-label" style="color:#818cf8; font-size:12px;">1 Pago (Contado)</span>
-                </div>
-                <div class="cuotas-grid">
-                    <div class="cuota-card active" id="cuota-btn-1" onclick="selectCuotas(1)">
-                        <div class="cuota-num">1 Pago</div>
-                        <div class="cuota-val" id="cuota-val-1">$0</div>
-                        <div class="cuota-tag">Contado</div>
-                    </div>
-                    <div class="cuota-card" id="cuota-btn-3" onclick="selectCuotas(3)">
-                        <div class="cuota-num">3 Cuotas</div>
-                        <div class="cuota-val" id="cuota-val-3">$0</div>
-                        <div class="cuota-tag" style="color:#34d399;">Sin Interés</div>
-                    </div>
-                    <div class="cuota-card" id="cuota-btn-6" onclick="selectCuotas(6)">
-                        <div class="cuota-num">6 Cuotas</div>
-                        <div class="cuota-val" id="cuota-val-6">$0</div>
-                        <div class="cuota-tag" style="color:#34d399;">Sin Interés</div>
-                    </div>
-                    <div class="cuota-card" id="cuota-btn-12" onclick="selectCuotas(12)">
-                        <div class="cuota-num">12 Cuotas</div>
-                        <div class="cuota-val" id="cuota-val-12">$0</div>
-                        <div class="cuota-tag">Santander</div>
-                    </div>
+                    <p>🔥 20% Dcto Exclusivo pagando con Tarjetas Santander</p>
                 </div>
             </div>
 
@@ -1876,7 +1846,7 @@
                         <div class="bank-bullet" style="background: #002b66;"></div>
                         <span class="bank-name">Banco de Chile / Edwards</span>
                     </div>
-                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
+                    <span class="bank-badge">Débito / Crédito</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('banco_estado')">
@@ -1892,7 +1862,7 @@
                         <div class="bank-bullet" style="background: #007a33;"></div>
                         <span class="bank-name">BCI</span>
                     </div>
-                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
+                    <span class="bank-badge">Débito / Crédito</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('scotiabank')">
@@ -1900,7 +1870,7 @@
                         <div class="bank-bullet" style="background: #ed0722;"></div>
                         <span class="bank-name">Scotiabank</span>
                     </div>
-                    <span class="bank-badge">3 y 6 Cuotas Sin Interés</span>
+                    <span class="bank-badge">Débito / Crédito</span>
                 </div>
 
                 <div class="bank-item" onclick="selectPaymentBank('transbank')">
@@ -2365,8 +2335,6 @@
             if (gymState.selectedPlan && subtitle) {
                 subtitle.textContent = `Pagando ${gymState.selectedPlan.nombre}`;
             }
-            selectCuotas(gymState.selectedCuotas || 1);
-            updateCuotasDisplay();
             if (modal) modal.classList.add('open');
         }
 
@@ -2377,20 +2345,17 @@
 
         function selectPaymentBank(bankId) {
             gymState.selectedBank = bankId;
-            updateCuotasDisplay();
             closePaymentMethodsModal();
 
             const isSantander = bankId === 'santander';
-            const bankName = isSantander ? "Banco Santander" : "otro banco";
-            const cuotas = gymState.selectedCuotas || 1;
-            const cuotasText = cuotas === 1 ? "al contado" : `en ${cuotas} cuotas`;
-            const planName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "mi plan";
+            const bankName = isSantander ? "Banco Santander" : "tu tarjeta";
+            const planName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "tu plan";
 
             // Abrir el terminal POS directamente para iniciar el cobro
             openPosSimulator();
 
             // Emitir confirmación hablada directa sin disparar un ciclo LLM adicional
-            const vocalMsg = `Perfecto, seleccionaste pagar tu ${planName} con ${bankName} ${cuotasText}. Por favor acerca o inserta tu tarjeta en el terminal Getnet.`;
+            const vocalMsg = `Perfecto, seleccionaste pagar tu ${planName} con ${bankName}. Por favor acerca o inserta tu tarjeta en el terminal Getnet.`;
             queueAvatarBubble(vocalMsg);
             sendEchoSpeech(vocalMsg);
         }
@@ -2410,7 +2375,7 @@
             availablePorts: []
         };
 
-        function initGetnetSDK() {
+        function initGetnetSDK(function initGetnetSDK() {
             if (typeof Getnet === 'undefined') {
                 console.warn("[Getnet POS] SDK no disponible en este momento.");
                 return;
@@ -2429,8 +2394,8 @@
             });
 
             // Autoconectar si el puerto ya fue previamente autorizado en este navegador
-            checkAutoConnectPos();
-            startPosAutoConnectWatcher();
+            // checkAutoConnectPos(); // Conexión manual
+            // startPosAutoConnectWatcher(); // Modo manual
             // Cargar puertos COM detectados en el sistema desde el backend
             fetchDetectedComPorts();
 
@@ -2439,7 +2404,7 @@
                 navigator.serial.addEventListener('connect', async (e) => {
                     console.log("[Getnet POS] Evento USB connect detectado:", e.target);
                     appendPosLog("Hardware USB POS detectado. Conectando automáticamente...", "info");
-                    await checkAutoConnectPos();
+                    await // checkAutoConnectPos(); // Conexión manual
                 });
                 navigator.serial.addEventListener('disconnect', (e) => {
                     console.log("[Getnet POS] Evento USB disconnect detectado:", e.target);
@@ -2450,14 +2415,9 @@
         }
 
         let _posWatcherTimer = null;
-        let _isAutoConnecting = false;
         function startPosAutoConnectWatcher() {
-            if (_posWatcherTimer) clearInterval(_posWatcherTimer);
-            _posWatcherTimer = setInterval(async () => {
-                if (!posState.connected && !_isAutoConnecting && typeof Getnet !== 'undefined' && !posState.isCharging && typeof navigator !== 'undefined' && navigator.serial) {
-                    await checkAutoConnectPos();
-                }
-            }, 3500);
+            // Deshabilitado para permitir control y desconexión manual
+            if (_posWatcherTimer) { clearInterval(_posWatcherTimer); _posWatcherTimer = null; }
         }
 
         async function fetchDetectedComPorts() {
@@ -2560,6 +2520,7 @@
         async function disconnectGetnetSerial() {
             try {
                 await Getnet.disconnect();
+                posState.port = null;
                 setPosConnected(false);
                 appendPosLog("Puerto COM desconectado.", "warn");
             } catch (e) {
@@ -2693,15 +2654,7 @@
 
             if (totalEl) totalEl.textContent = `$${Number(finalAmount).toLocaleString('es-CL')}`;
             if (planEl) planEl.textContent = plan.nombre;
-            if (cuotasEl) {
-                if (cuotas === 1) {
-                    cuotasEl.textContent = "Modalidad: 1 Pago (Contado)";
-                } else if (cuotas === 3 || cuotas === 6 || (cuotas === 12 && isSantander)) {
-                    cuotasEl.textContent = `Modalidad: ${cuotas} Cuotas Sin Interés (${cuotas}x $${Number(montoCuota).toLocaleString('es-CL')})`;
-                } else {
-                    cuotasEl.textContent = `Modalidad: ${cuotas} Cuotas (${cuotas}x $${Number(montoCuota).toLocaleString('es-CL')})`;
-                }
-            }
+            if (cuotasEl) { cuotasEl.textContent = "Modalidad: Pago con Tarjeta"; }
             if (discountTag) discountTag.style.display = isSantander ? 'block' : 'none';
 
             if (cardGraphic) {
@@ -2789,25 +2742,19 @@
                 return;
             }
             posState.isCharging = true;
-            const numCuotas = parseInt(cuotas, 10) || (posState.activeTransaction ? posState.activeTransaction.cuotas : 1) || 1;
-            const sharesType = (numCuotas > 1) ? 1 : 0; // 1 = Cuotas sin interés / comercio, 0 = Sin cuotas (contado)
 
-            appendPosLog(`>>> Enviando orden de cobro al POS Getnet: Monto $${Number(amount).toLocaleString('es-CL')} | Cuotas: ${numCuotas} | Ticket #${ticketNumber}`, 'info');
+            appendPosLog(`>>> Enviando orden de cobro al POS Getnet: Monto $${Number(amount).toLocaleString('es-CL')} | Ticket #${ticketNumber}`, 'info');
             const instruction = document.getElementById('pos-instruction-text');
             const subinstruction = document.getElementById('pos-subinstruction-text');
             const livePill = document.getElementById('pos-live-pill');
 
             if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
             if (instruction) instruction.textContent = "Por favor acerque o inserte su tarjeta en el POS Getnet";
-            if (subinstruction) {
-                subinstruction.textContent = (numCuotas > 1) 
-                    ? `Pago configurado en ${numCuotas} cuotas automáticas • Digite PIN en POS...` 
-                    : `Pago al contado • Digite PIN en POS si corresponde...`;
-            }
+            if (subinstruction) subinstruction.textContent = "Siga las instrucciones en la pantalla del POS para cuotas y PIN...";
 
             try {
-                // Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, sharesNumber, sharesType, timeout)
-                Getnet.Sale(amount, ticketNumber, false, 0, true, 1, numCuotas, sharesType, 180);
+                // Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, timeout)
+                Getnet.Sale(amount, ticketNumber, false, 0, true, 1, 180);
             } catch (err) {
                 console.error("Error al invocar Getnet.Sale:", err);
                 posState.isCharging = false;
@@ -2960,8 +2907,20 @@
         }
 
         let _voucherAutoCloseTimer = null;
+        let _voucherCountdownInterval = null;
+
         function showVoucher(data) {
             if (!data) return;
+
+            // Abortar cualquier LLM pendiente para que no interfiera ni hable por encima
+            if (_activeLLMAbortController) {
+                try { _activeLLMAbortController.abort(); } catch (e) {}
+                _activeLLMAbortController = null;
+            }
+
+            posState.isCharging = false;
+            posState.lastPaidTime = Date.now();
+
             closePaymentMethodsModal();
             closePlansModal();
             closeRutModal();
@@ -3011,20 +2970,54 @@
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.add('open');
 
+            // Countdown timer en el botón de cerrar
+            let secondsLeft = 10;
+            const closeBtn = document.querySelector('.voucher-btn-close');
+            if (closeBtn) closeBtn.textContent = `Finalizar y Continuar (${secondsLeft}s)`;
+
+            clearInterval(_voucherCountdownInterval);
+            _voucherCountdownInterval = setInterval(() => {
+                secondsLeft--;
+                if (closeBtn) {
+                    closeBtn.textContent = secondsLeft > 0 ? `Finalizar y Continuar (${secondsLeft}s)` : 'Finalizar y Continuar';
+                }
+                if (secondsLeft <= 0) {
+                    clearInterval(_voucherCountdownInterval);
+                    closeVoucherModal();
+                }
+            }, 1000);
+
             clearTimeout(_voucherAutoCloseTimer);
             _voucherAutoCloseTimer = setTimeout(() => {
                 closeVoucherModal();
-            }, 20000);
+            }, 10000);
 
-            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente en el POS Getnet! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¡Bienvenido a FitLife!`;
+            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente en el POS Getnet! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas algo más en lo que pueda ayudarte?`;
+            
+            // Bloquear input de voz SOLO durante la locución del mensaje de confirmación
+            const speechDurationMs = Math.max(3500, confirmationSpeech.length * 75);
+            _disableSpeechInputUntil = Date.now() + speechDurationMs;
+            _avatarSpeakingUntil = Date.now() + speechDurationMs;
+
             queueAvatarBubble(confirmationSpeech);
             sendEchoSpeech(confirmationSpeech);
         }
 
         function closeVoucherModal() {
             clearTimeout(_voucherAutoCloseTimer);
+            clearInterval(_voucherCountdownInterval);
+            const closeBtn = document.querySelector('.voucher-btn-close');
+            if (closeBtn) closeBtn.textContent = 'Finalizar y Continuar';
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.remove('open');
+
+            // Reanudar escucha inmediatamente si el avatar ya terminó de hablar
+            if (Date.now() >= _avatarSpeakingUntil) {
+                _disableSpeechInputUntil = 0;
+                if (!isListening && isConnected && !isSpeaking) {
+                    startAlwaysOnListening();
+                }
+            }
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -3461,7 +3454,12 @@
             console.log("[FitLife User Speech]:", clean);
 
             // 1. Detección de agradecimiento o despedida (cerrar modales y responder cordialmente sin desconectarse)
-            const farewellWords = ['gracias', 'muchas gracias', 'no gracias', 'nada mas', 'nada más', 'chao', 'adios', 'adiós', 'eso es todo'];
+            const farewellWords = [
+                'gracias', 'muchas gracias', 'no gracias', 'nada mas', 'nada más', 
+                'chao', 'adios', 'adiós', 'eso es todo', 'eso seria todo', 'eso sería todo', 
+                'ninguna', 'no', 'nada', 'no nada más', 'no nada mas', 'ninguna consulta',
+                'estoy listo', 'todo bien', 'todo claro', 'ninguna duda'
+            ];
             if (farewellWords.some(w => clean === w || clean.startsWith(w + ' '))) {
                 closeVoucherModal();
                 closePaymentMethodsModal();
