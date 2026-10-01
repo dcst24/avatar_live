@@ -1,4 +1,4 @@
-﻿/*!
+/*!
  * Libreria Getnet
  * Version: 1.5.9 (Restaurado desde version funcional + fix cuotas + fix autoConnect)
  * Fecha: 2026-10-01
@@ -206,12 +206,16 @@
 
         async readLoop() {
             const textDecoder = new TextDecoder();
+            console.log('[Getnet POS] readLoop iniciado.');
             while (this.isReading && this.port && this.port.readable) {
                 try {
                     this.reader = this.port.readable.getReader();
                     while (true) {
                         const { value, done } = await this.reader.read();
-                        if (done) break;
+                        if (done) {
+                            console.warn('[Getnet POS] Stream serial cerrado (done=true). Puerto fisicamente desconectado.');
+                            break;
+                        }
                         if (value) {
                             if (this.openedAt && (Date.now() - this.openedAt < 400)) {
                                 this.text = "";
@@ -222,8 +226,9 @@
                         }
                     }
                 } catch (readErr) {
-                    console.warn("[Getnet POS] Lectura serial finalizada:", readErr);
-                    break;
+                    // NO usar break aqui: si el error es transitorio, el loop se recupera solo.
+                    // Solo salir si el puerto fue cerrado intencionalmente (isReading=false).
+                    console.warn('[Getnet POS] readLoop error (se intentara recuperar):', readErr.message || readErr);
                 } finally {
                     if (this.reader) {
                         try { this.reader.releaseLock(); } catch (_) {}
@@ -231,9 +236,11 @@
                     }
                 }
                 if (!this.isReading || !this.port || !this.port.readable) break;
+                // Pausa breve antes de reintentar adquirir el reader
                 await new Promise(r => setTimeout(r, 200));
             }
             this.isReading = false;
+            console.log('[Getnet POS] readLoop terminado.');
         }
 
         processBuffer() {
@@ -257,6 +264,11 @@
 
         async write(jsonSerialized) {
             try {
+                // Si el readLoop murio (por ejemplo tras un error de lectura), reiniciarlo
+                if (this.port && this.port.readable && !this.isReading) {
+                    console.warn('[Getnet POS] readLoop inactivo detectado antes de write. Reiniciando...');
+                    this.startReading();
+                }
                 while (!this.canProcess()) { await this.esperarProceso(); }
                 await this.send(jsonSerialized);
             } catch (error) {

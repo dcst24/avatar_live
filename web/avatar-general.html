@@ -2404,6 +2404,7 @@
             portInfo: null,
             baudRate: 115200,
             isCharging: false,
+            isCancelling: false,
             activeTransaction: null,
             lastPaidTime: 0,
             availablePorts: []
@@ -2585,17 +2586,15 @@
         }
 
         function cancelGetnetTransaction() {
-            appendPosLog("Cancelando transacción activa en POS Getnet...", "warn");
-            try {
-                if (typeof Getnet !== 'undefined') {
-                    Getnet.CancelSale();
-                }
-            } catch (e) {}
+            appendPosLog("Cancelando transaccion activa en POS Getnet...", "warn");
+            posState.isCancelling = true;
+            posState.isCharging = false;
+            try { if (typeof Getnet !== 'undefined') { Getnet.CancelSale(); } } catch (e) {}
             const instruction = document.getElementById('pos-instruction-text');
             if (instruction) instruction.textContent = "Cancelando en el terminal POS...";
-            setTimeout(() => {
-                closePosSimulator();
-            }, 1000);
+            const livePill = document.getElementById('pos-live-pill');
+            if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'CANCELADO'; }
+            setTimeout(() => { posState.isCancelling = false; closePosSimulator(); }, 2000);
         }
 
         function appendPosLog(text, type = 'info') {
@@ -2817,68 +2816,69 @@
         }
 
         async function handleGetnetCallback(msg) {
-            appendPosLog(`<<< Respuesta POS: ${JSON.stringify(msg)}`, 'info');
+            if (!msg) return;
+            let data = msg;
+            if (msg.JsonSerialized && typeof msg.JsonSerialized === 'string') {
+                try { const inner = JSON.parse(msg.JsonSerialized); data = { ...msg, ...inner }; } catch (e) {}
+            }
+            console.log("[Getnet CB] Cmd:" + (data.Command??'-') + " RC:" + (data.ResponseCode??'-') + " | charging:" + posState.isCharging + " cancelling:" + posState.isCancelling, data);
+            appendPosLog("<<< POS [Cmd:" + (data.Command??'-') + " RC:" + (data.ResponseCode??'-') + "]: " + JSON.stringify(data), 'info');
             const instruction = document.getElementById('pos-instruction-text');
             const subinstruction = document.getElementById('pos-subinstruction-text');
             const livePill = document.getElementById('pos-live-pill');
-
-            if (!msg) return;
-
-            // Desempaquetar JsonSerialized si viene en formato firmado
-            let data = msg;
-            if (msg.JsonSerialized && typeof msg.JsonSerialized === 'string') {
-                try {
-                    const inner = JSON.parse(msg.JsonSerialized);
-                    data = { ...msg, ...inner };
-                } catch (e) {}
-            }
-
-            // 1. Mensaje de confirmación de recepción inicial del POS (ACK)
             if (data.Received === true) {
-                appendPosLog("ACK recibido del POS Getnet. Esperando interacción del cliente en el POS.", "info");
+                appendPosLog("ACK recibido del POS Getnet.", "info");
                 if (instruction) instruction.textContent = "Acerque tarjeta, inserte chip o digite PIN en el POS";
                 if (subinstruction) subinstruction.textContent = "Siga las instrucciones en la pantalla del terminal...";
                 return;
             }
-
-            // 2. Resultado de comando Poll (106)
             if (data.Command === 106) {
-                appendPosLog("Poll exitoso: POS Getnet respondiendo correctamente.", "success");
-                if (livePill) { livePill.className = 'pos-status-chip online'; livePill.textContent = 'EN LÍNEA'; }
+                appendPosLog("Poll exitoso: POS Getnet respondiendo.", "success");
+                if (livePill && !posState.isCharging) { livePill.className = 'pos-status-chip online'; livePill.textContent = 'EN LINEA'; }
                 return;
             }
-
-            // 3. Identificar si es una respuesta final (tiene ResponseCode o AuthorizationCode)
-            const hasFinalResult = data.ResponseCode !== undefined || data.AuthorizationCode !== undefined || (data.SharesNumber !== undefined && data.Amount !== undefined);
-
-            // 3.1 Mensajes INTERMEDIOS de estado durante la transacción (ej: "ACERQUE TARJETA", "DIGITE PIN", "PROCESANDO...")
-            if (!hasFinalResult && data.Message) {
-                appendPosLog(`[POS Getnet Estado]: ${data.Message}`, "info");
+            if (data.Command === 116) {
+                appendPosLog("Confirmacion de cancelacion recibida del POS.", "warn");
+                posState.isCancelling = false;
+                posState.isCharging = false;
+                return;
+            }
+            if (posState.isCancelling) {
+                console.warn("[Getnet POS] Respuesta ignorada: cancelacion activa desde la web.", data);
+                appendPosLog("Respuesta del POS ignorada (cancelacion activa desde la web).", "warn");
+                posState.isCharging = false;
+                return;
+            }
+            const isSaleCommand = data.Command === 100 || data.Command === undefined || data.Command === null;
+            if (isSaleCommand && !data.ResponseCode && !data.AuthorizationCode && data.Message) {
+                appendPosLog("[POS Estado]: " + data.Message, "info");
                 if (instruction) instruction.textContent = data.Message;
                 if (subinstruction) subinstruction.textContent = "Terminal POS Getnet en proceso...";
                 return;
             }
-
-            // 4. Resultado FINAL de la transacción
+            const hasFinalResult = isSaleCommand && (
+                data.ResponseCode !== undefined ||
+                data.AuthorizationCode !== undefined ||
+                (data.SharesNumber !== undefined && data.Amount !== undefined)
+            );
             if (hasFinalResult) {
-                // Si no hay un cobro activo iniciado por la app, IGNORAR estrictamente mensajes residuales del buffer
                 if (!posState.isCharging) {
                     console.log("[Getnet POS] Ignorando mensaje residual fuera de cobro activo:", data);
                     return;
                 }
-
                 posState.isCharging = false;
+                posState.isCancelling = false;
                 posState.lastPaidTime = Date.now();
-                const respCode = data.ResponseCode !== undefined ? Number(data.ResponseCode) : 0;
-
-                if (respCode === 0) {
-                    // ¡TRANSACCIÓN APROBADA EN EL POS!
-                    const authCode = data.AuthorizationCode || `GET-${Math.floor(100000 + Math.random()*900000)}`;
-                    appendPosLog(`¡PAGO APROBADO EN POS GETNET! Auth: ${authCode}`, 'success');
-                    if (instruction) instruction.textContent = "¡Pago Aprobado con Éxito!";
+                const rcRaw = data.ResponseCode;
+                const respCode = rcRaw !== undefined ? Number(rcRaw) : -1;
+                const hasExplicitApproval = respCode === 0 && !!(data.AuthorizationCode || data.Amount);
+                console.log("[Getnet POS] Resultado final: RC=" + respCode + " hasApproval=" + hasExplicitApproval);
+                if (hasExplicitApproval) {
+                    const authCode = data.AuthorizationCode || ("GET-" + Math.floor(100000 + Math.random()*900000));
+                    appendPosLog("PAGO APROBADO EN POS GETNET! Auth: " + authCode, 'success');
+                    if (instruction) instruction.textContent = "Pago Aprobado con Exito!";
                     if (subinstruction) subinstruction.textContent = "Generando comprobante digital...";
                     if (livePill) { livePill.className = 'pos-status-chip online'; livePill.textContent = 'APROBADO'; }
-
                     const tx = posState.activeTransaction || {};
                     const payload = {
                         plan_id: tx.plan ? tx.plan.id : 'plan_1m',
@@ -2893,43 +2893,24 @@
                         nombre: tx.clientName || gymState.client.nombre || 'Socio FitLife',
                         email: tx.clientEmail || gymState.client.email || 'cliente@correo.cl',
                         codigo_autorizacion: authCode,
-                        codigo_operacion: data.OperationNumber || data.TicketNumber || tx.ticketNumber || `OP-${Math.floor(100000 + Math.random()*900000)}`,
+                        codigo_operacion: data.OperationNumber || data.TicketNumber || tx.ticketNumber || ("OP-" + Math.floor(100000 + Math.random()*900000)),
                         card_number: data.CardNumber || data.Pan || '**** **** **** ****',
                         card_brand: data.CardBrand || data.CardType || (tx.isSantander ? 'SANTANDER VISA' : 'TARJETA BANCARIA')
                     };
-
                     try {
                         fetch('/api/gym/pago/registrar', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        }).then(r => r.json()).then(json => {
-                            setTimeout(() => {
-                                closePosSimulator();
-                                if (json && json.code === 0 && json.data) {
-                                    showVoucher(json.data);
-                                } else {
-                                    showVoucher(payload);
-                                }
-                            }, 500);
-                        }).catch(() => {
-                            setTimeout(() => {
-                                closePosSimulator();
-                                showVoucher(payload);
-                            }, 500);
-                        });
-                    } catch (e) {
-                        console.error("Error registrando pago:", e);
-                        closePosSimulator();
-                        showVoucher(payload);
-                    }
+                            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                        }).then(function(r) { return r.json(); }).then(function(json) {
+                            closePosSimulator();
+                            if (json && json.code === 0 && json.data) { showVoucher(json.data); } else { showVoucher(payload); }
+                        }).catch(function() { closePosSimulator(); showVoucher(payload); });
+                    } catch (e) { console.error("Error registrando pago:", e); closePosSimulator(); showVoucher(payload); }
                 } else {
-                    // Transacción Rechazada o Cancelada en el POS
-                    const desc = data.ResponseDescription || data.Message || "Transacción no autorizada o cancelada en el POS";
-                    appendPosLog(`Transacción rechazada/cancelada: [${respCode}] ${desc}`, 'error');
-                    if (instruction) instruction.textContent = `Cobro Rechazado: ${desc}`;
+                    const desc = data.ResponseDescription || data.Message || (respCode === -1 ? "Respuesta desconocida del POS" : "Transaccion no autorizada o cancelada en el POS");
+                    appendPosLog("Transaccion rechazada/cancelada: [RC:" + respCode + "] " + desc, 'error');
+                    if (instruction) instruction.textContent = respCode === -1 ? "Respuesta inesperada del POS" : ("Cobro Rechazado: " + desc);
                     if (subinstruction) subinstruction.textContent = "Puedes intentar nuevamente o seleccionar otro medio de pago.";
-                    if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'RECHAZADO'; }
+                    if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = respCode === -1 ? 'ERROR' : 'RECHAZADO'; }
                 }
             }
         }
