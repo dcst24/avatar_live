@@ -2128,6 +2128,9 @@
         let isListening = false;
         let recognition = null;
         let isSpeaking = false;
+        let _avatarSpeakingUntil = 0;
+        let _disableSpeechInputUntil = 0;
+        let _recRestartTimer = null;
         let _audioUnlocked = false;
 
         // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
@@ -2993,6 +2996,12 @@
         }
 
         async function sendEchoSpeech(text) {
+            if (!text) return;
+            isSpeaking = true;
+            _avatarSpeakingUntil = Date.now() + Math.max(3000, text.length * 80);
+            stopAlwaysOnListening();
+            setState('speaking', 'Hablando…');
+
             const sessionid = document.getElementById('sessionid').value;
             try {
                 await fetch('/human', {
@@ -3064,7 +3073,9 @@
             isConnected = true;
 
             const _v = document.getElementById('video');
+            let _vAttempts = 0;
             const _vTimer = setInterval(() => {
+                _vAttempts++;
                 if (_v.srcObject) {
                     _v.muted = false;
                     _v.play().then(() => {
@@ -3075,6 +3086,9 @@
                         _v.play().catch(() => {});
                     });
                 }
+                if (_vAttempts > 10) {
+                    clearInterval(_vTimer);
+                }
             }, 500);
 
             setTimeout(() => {
@@ -3084,10 +3098,14 @@
             }, 2500);
         }
 
+        let _speakingMonitorActive = false;
         function startSpeakingMonitor() {
+            if (_speakingMonitorActive) return;
+            _speakingMonitorActive = true;
+
             const checkSpeaking = async () => {
                 if (!isConnected) {
-                    setTimeout(checkSpeaking, 400);
+                    setTimeout(checkSpeaking, 500);
                     return;
                 }
                 try {
@@ -3098,7 +3116,9 @@
                         body: JSON.stringify({ sessionid })
                     });
                     const data = await res.json();
-                    const speaking = data.data;
+                    const serverSpeaking = Boolean(data.data);
+                    const speaking = serverSpeaking || (Date.now() < _avatarSpeakingUntil);
+
                     if (speaking !== isSpeaking) {
                         isSpeaking = speaking;
                         if (speaking) {
@@ -3110,21 +3130,31 @@
                             }
                         } else {
                             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                            setTimeout(() => {
-                                if (!isListening && isConnected && !isSpeaking) {
-                                    startAlwaysOnListening();
-                                }
-                            }, 450);
+                            if (Date.now() >= _disableSpeechInputUntil) {
+                                clearTimeout(_recRestartTimer);
+                                _recRestartTimer = setTimeout(() => {
+                                    if (!isListening && isConnected && !isSpeaking && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
+                                        startAlwaysOnListening();
+                                    }
+                                }, 500);
+                            }
                         }
                     }
                 } catch (e) { }
-                setTimeout(checkSpeaking, isSpeaking ? 150 : 250);
+                setTimeout(checkSpeaking, isSpeaking ? 200 : 350);
             };
             checkSpeaking();
         }
 
-        // ─── Reconocimiento de Voz / Speech Recognition ─────────────────────────
+        // ─── Reconocimiento de Voz / Speech Recognition Singleton ─────────────────
+        let _recInstance = null;
+        let _questionDispatched = false;
+        let _pendingCommitTimeout = null;
+        let _lastInterim = '';
+
         function setupRecognition() {
+            if (_recInstance) return _recInstance;
+
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRec) return null;
 
@@ -3133,10 +3163,6 @@
             rec.interimResults = true;
             rec.continuous = true;
             rec.maxAlternatives = 1;
-
-            let _pendingCommitTimeout = null;
-            let _lastInterim = '';
-            let _questionDispatched = false;
 
             const _dispatchQuestion = (rawText) => {
                 if (_questionDispatched) return;
@@ -3155,7 +3181,9 @@
             };
 
             rec.onresult = (event) => {
-                if (isSpeaking || _questionDispatched) return;
+                if (isSpeaking || _questionDispatched || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) {
+                    return;
+                }
 
                 let interim = '';
                 let final = '';
@@ -3196,7 +3224,7 @@
 
                     clearTimeout(_pendingCommitTimeout);
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && _lastInterim && !_questionDispatched) {
+                        if (_conversationAwake && _lastInterim && !_questionDispatched && !isSpeaking && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
                             try { rec.stop(); } catch (e) {}
                             _dispatchQuestion(_lastInterim);
                         }
@@ -3211,37 +3239,43 @@
             rec.onend = () => {
                 isListening = false;
                 clearTimeout(_pendingCommitTimeout);
+                if (isSpeaking || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) {
+                    return;
+                }
                 if (_conversationAwake && _lastInterim && !_questionDispatched) {
                     const txt = _lastInterim;
                     _dispatchQuestion(txt);
                     return;
                 }
                 if (!isSpeaking && isConnected && !_questionDispatched) {
-                    setTimeout(() => {
-                        if (!isSpeaking && isConnected && !isListening) {
+                    clearTimeout(_recRestartTimer);
+                    _recRestartTimer = setTimeout(() => {
+                        if (!isSpeaking && isConnected && !isListening && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
                             startAlwaysOnListening();
                         }
-                    }, 250);
+                    }, 400);
                 }
             };
 
-            return rec;
+            _recInstance = rec;
+            return _recInstance;
         }
 
         function startAlwaysOnListening() {
-            if (!isConnected || isSpeaking || isListening) return;
-            recognition = setupRecognition();
-            if (recognition) {
+            if (!isConnected || isSpeaking || isListening || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) return;
+            const rec = setupRecognition();
+            if (rec) {
                 try {
-                    recognition.start();
+                    _questionDispatched = false;
+                    rec.start();
                     isListening = true;
                 } catch (e) {}
             }
         }
 
         function stopAlwaysOnListening() {
-            if (recognition) {
-                try { recognition.abort(); } catch (e) {}
+            if (_recInstance) {
+                try { _recInstance.abort(); } catch (e) {}
             }
             isListening = false;
         }

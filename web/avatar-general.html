@@ -2128,6 +2128,9 @@
         let isListening = false;
         let recognition = null;
         let isSpeaking = false;
+        let _avatarSpeakingUntil = 0;
+        let _disableSpeechInputUntil = 0;
+        let _recRestartTimer = null;
         let _audioUnlocked = false;
 
         // ─── Wake-word & Manejo Conversacional ──────────────────────────────────
@@ -2383,12 +2386,13 @@
             const cuotasText = cuotas === 1 ? "al contado" : `en ${cuotas} cuotas`;
             const planName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "mi plan";
 
-            wakeUpModel();
-            sendToLLM(`Voy a pagar el ${planName} con ${bankName} ${cuotasText}`);
+            // Abrir el terminal POS directamente para iniciar el cobro
+            openPosSimulator();
 
-            setTimeout(() => {
-                openPosSimulator();
-            }, 1000);
+            // Emitir confirmación hablada directa sin disparar un ciclo LLM adicional
+            const vocalMsg = `Perfecto, seleccionaste pagar tu ${planName} con ${bankName} ${cuotasText}. Por favor acerca o inserta tu tarjeta en el terminal Getnet.`;
+            queueAvatarBubble(vocalMsg);
+            sendEchoSpeech(vocalMsg);
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -2401,6 +2405,7 @@
             baudRate: 115200,
             isCharging: false,
             activeTransaction: null,
+            lastPaidTime: 0,
             availablePorts: []
         };
 
@@ -2620,7 +2625,19 @@
             closePlansModal();
             closeRutModal();
 
+            // Si se completó un pago recientemente (ej. últimos 15 seg), no reabrir automáticamente
+            if (Date.now() - posState.lastPaidTime < 15000) {
+                console.log("[Getnet POS] Transacción reciente completada. Evitando reapertura.");
+                return;
+            }
+
             const modal = document.getElementById('modal-pos-simulator');
+            // Si el modal ya está abierto y hay un cobro en curso, no reiniciar ni re-enviar
+            if (modal && modal.classList.contains('open') && posState.isCharging) {
+                console.log("[Getnet POS] El modal de cobro ya está abierto y en curso. Evitando duplicación.");
+                return;
+            }
+
             const totalEl = document.getElementById('pos-screen-total');
             const planEl = document.getElementById('pos-screen-plan-name');
             const cuotasEl = document.getElementById('pos-screen-cuotas-text');
@@ -2742,8 +2759,6 @@
             if (instruction) instruction.textContent = "Por favor acerque o inserte su tarjeta en el POS Getnet";
             if (subinstruction) subinstruction.textContent = "Seleccione cuotas y digite su PIN en el terminal si corresponde...";
 
-            // Parámetros oficiales Getnet SDK:
-            // Sale(amount, ticketNumber, printOnPos = false, saleType = 0, sendMessage = true, employeeId = 1, timeout = 180)
             try {
                 Getnet.Sale(amount, ticketNumber, false, 0, true, 1, 180);
             } catch (err) {
@@ -2770,31 +2785,43 @@
                 } catch (e) {}
             }
 
-            // 1. Mensaje de confirmación de recepción / ACK
+            // 1. Mensaje de confirmación de recepción inicial del POS (ACK)
             if (data.Received === true) {
                 appendPosLog("ACK recibido del POS Getnet. Esperando interacción del cliente en el POS.", "info");
-                if (instruction) instruction.textContent = "Acerque tarjeta, inserte chip o deslice en el POS";
+                if (instruction) instruction.textContent = "Acerque tarjeta, inserte chip o digite PIN en el POS";
+                if (subinstruction) subinstruction.textContent = "Siga las instrucciones en la pantalla del terminal...";
                 return;
             }
 
-            // 2. Mensajes intermedios de estado durante la transacción (ej: "ACERQUE TARJETA", "DIGITE PIN", etc.)
-            if (data.Message && data.ResponseCode === undefined && data.Command !== 100 && data.Command !== 106) {
-                if (instruction) instruction.textContent = data.Message;
-                if (subinstruction) subinstruction.textContent = "Terminal POS Getnet en proceso...";
-                return;
-            }
-
-            // 3. Resultado de comando Poll
+            // 2. Resultado de comando Poll (106)
             if (data.Command === 106) {
                 appendPosLog("Poll exitoso: POS Getnet respondiendo correctamente.", "success");
                 if (livePill) { livePill.className = 'pos-status-chip online'; livePill.textContent = 'EN LÍNEA'; }
                 return;
             }
 
-            // 4. Resultado de comando Sale (Venta - Command 100) o cualquier respuesta con ResponseCode / AuthorizationCode
-            if (data.Command === 100 || data.ResponseCode !== undefined || data.AuthorizationCode !== undefined) {
+            // 3. Identificar si es una respuesta final (tiene ResponseCode o AuthorizationCode)
+            const hasFinalResult = data.ResponseCode !== undefined || data.AuthorizationCode !== undefined || (data.SharesNumber !== undefined && data.Amount !== undefined);
+
+            // 3.1 Mensajes INTERMEDIOS de estado durante la transacción (ej: "ACERQUE TARJETA", "DIGITE PIN", "PROCESANDO...")
+            if (!hasFinalResult && data.Message) {
+                appendPosLog(`[POS Getnet Estado]: ${data.Message}`, "info");
+                if (instruction) instruction.textContent = data.Message;
+                if (subinstruction) subinstruction.textContent = "Terminal POS Getnet en proceso...";
+                return;
+            }
+
+            // 4. Resultado FINAL de la transacción
+            if (hasFinalResult) {
+                // Si no hay un cobro activo iniciado por la app, IGNORAR estrictamente mensajes residuales del buffer
+                if (!posState.isCharging) {
+                    console.log("[Getnet POS] Ignorando mensaje residual fuera de cobro activo:", data);
+                    return;
+                }
+
                 posState.isCharging = false;
-                const respCode = Number(data.ResponseCode !== undefined ? data.ResponseCode : (data.ResponseCode === 0 ? 0 : 99));
+                posState.lastPaidTime = Date.now();
+                const respCode = data.ResponseCode !== undefined ? Number(data.ResponseCode) : 0;
 
                 if (respCode === 0) {
                     // ¡TRANSACCIÓN APROBADA EN EL POS!
@@ -2814,9 +2841,9 @@
                         monto_pagado: data.Amount ? Number(data.Amount) : (tx.amount || 27990),
                         monto_original: tx.originalAmount || tx.amount,
                         descuento: tx.discount || 0,
-                        rut: tx.rut || '12.345.678-5',
-                        nombre: tx.clientName || 'Socio FitLife',
-                        email: tx.clientEmail || 'cliente@correo.cl',
+                        rut: tx.rut || gymState.client.rut || '12.345.678-5',
+                        nombre: tx.clientName || gymState.client.nombre || 'Socio FitLife',
+                        email: tx.clientEmail || gymState.client.email || 'cliente@correo.cl',
                         codigo_autorizacion: authCode,
                         codigo_operacion: data.OperationNumber || data.TicketNumber || tx.ticketNumber || `OP-${Math.floor(100000 + Math.random()*900000)}`,
                         card_number: data.CardNumber || data.Pan || '**** **** **** ****',
@@ -2824,20 +2851,25 @@
                     };
 
                     try {
-                        const res = await fetch('/api/gym/pago/registrar', {
+                        fetch('/api/gym/pago/registrar', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify(payload)
-                        });
-                        const json = await res.json();
-                        setTimeout(() => {
-                            closePosSimulator();
-                            if (json.code === 0 && json.data) {
-                                showVoucher(json.data);
-                            } else {
+                        }).then(r => r.json()).then(json => {
+                            setTimeout(() => {
+                                closePosSimulator();
+                                if (json && json.code === 0 && json.data) {
+                                    showVoucher(json.data);
+                                } else {
+                                    showVoucher(payload);
+                                }
+                            }, 500);
+                        }).catch(() => {
+                            setTimeout(() => {
+                                closePosSimulator();
                                 showVoucher(payload);
-                            }
-                        }, 1000);
+                            }, 500);
+                        });
                     } catch (e) {
                         console.error("Error registrando pago:", e);
                         closePosSimulator();
@@ -2859,6 +2891,7 @@
         }
 
         function closePosSimulator() {
+            posState.isCharging = false;
             const modal = document.getElementById('modal-pos-simulator');
             if (modal) modal.classList.remove('open');
         }
@@ -2889,7 +2922,7 @@
                     if (json.code === 0 && json.data) {
                         showVoucher(json.data);
                     }
-                }, 2000);
+                }, 1200);
 
             } catch (e) {
                 console.error("Error en simulación de pago:", e);
@@ -2899,26 +2932,48 @@
 
         let _voucherAutoCloseTimer = null;
         function showVoucher(data) {
+            if (!data) return;
             closePaymentMethodsModal();
             closePlansModal();
             closeRutModal();
             closePosSimulator();
 
-            document.getElementById('v-op-num').textContent = data.codigo_operacion;
-            document.getElementById('v-auth-code').textContent = data.codigo_autorizacion;
-            document.getElementById('v-datetime').textContent = data.fecha;
-            document.getElementById('v-rut').textContent = data.cliente.rut;
-            document.getElementById('v-plan').textContent = data.plan.nombre;
-            document.getElementById('v-cuotas').textContent = data.texto_cuotas || `${data.cuotas} Cuotas`;
-            document.getElementById('v-bank').textContent = data.banco;
-            document.getElementById('v-total').textContent = `$${Number(data.monto_pagado).toLocaleString('es-CL')}`;
-            document.getElementById('v-email').textContent = data.email_comprobante;
+            const opNum = data.codigo_operacion || data.ticketNumber || `OP-${Math.floor(100000 + Math.random()*900000)}`;
+            const authCode = data.codigo_autorizacion || data.authorizationCode || `AUTH-${Math.floor(100000 + Math.random()*900000)}`;
+            const rutStr = (data.cliente && data.cliente.rut) ? data.cliente.rut : (data.rut || gymState.client.rut || '12.345.678-5');
+            const planStr = (data.plan && data.plan.nombre) ? data.plan.nombre : (data.plan_nombre || (gymState.selectedPlan ? gymState.selectedPlan.nombre : 'Plan Gimnasio'));
+            const cuotasStr = data.texto_cuotas || (data.cuotas ? `${data.cuotas} Cuotas` : '1 Pago');
+            const bankStr = data.banco || data.bankName || 'Banco Santander';
+            const totalNum = data.monto_pagado || data.amount || 27990;
+            const emailStr = data.email_comprobante || data.email || (data.cliente && data.cliente.email) || gymState.client.email || 'socio@correo.cl';
+            const fechaStr = data.fecha || new Date().toLocaleString('es-CL');
+
+            const opEl = document.getElementById('v-op-num');
+            const authEl = document.getElementById('v-auth-code');
+            const dateEl = document.getElementById('v-datetime');
+            const rutEl = document.getElementById('v-rut');
+            const planEl = document.getElementById('v-plan');
+            const cuotasEl = document.getElementById('v-cuotas');
+            const bankEl = document.getElementById('v-bank');
+            const totalEl = document.getElementById('v-total');
+            const emailEl = document.getElementById('v-email');
+
+            if (opEl) opEl.textContent = opNum;
+            if (authEl) authEl.textContent = authCode;
+            if (dateEl) dateEl.textContent = fechaStr;
+            if (rutEl) rutEl.textContent = rutStr;
+            if (planEl) planEl.textContent = planStr;
+            if (cuotasEl) cuotasEl.textContent = cuotasStr;
+            if (bankEl) bankEl.textContent = bankStr;
+            if (totalEl) totalEl.textContent = `$${Number(totalNum).toLocaleString('es-CL')}`;
+            if (emailEl) emailEl.textContent = emailStr;
 
             const discRow = document.getElementById('v-discount-row');
             if (discRow) {
-                if (data.descuento > 0) {
+                if (data.descuento && Number(data.descuento) > 0) {
                     discRow.style.display = 'flex';
-                    document.getElementById('v-discount').textContent = `-$${Number(data.descuento).toLocaleString('es-CL')}`;
+                    const discEl = document.getElementById('v-discount');
+                    if (discEl) discEl.textContent = `-$${Number(data.descuento).toLocaleString('es-CL')}`;
                 } else {
                     discRow.style.display = 'none';
                 }
@@ -2930,9 +2985,9 @@
             clearTimeout(_voucherAutoCloseTimer);
             _voucherAutoCloseTimer = setTimeout(() => {
                 closeVoucherModal();
-            }, 8000);
+            }, 20000);
 
-            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas realizar alguna otra consulta?`;
+            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente en el POS Getnet! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¡Bienvenido a FitLife!`;
             queueAvatarBubble(confirmationSpeech);
             sendEchoSpeech(confirmationSpeech);
         }
@@ -2993,6 +3048,12 @@
         }
 
         async function sendEchoSpeech(text) {
+            if (!text) return;
+            isSpeaking = true;
+            _avatarSpeakingUntil = Date.now() + Math.max(3000, text.length * 80);
+            stopAlwaysOnListening();
+            setState('speaking', 'Hablando…');
+
             const sessionid = document.getElementById('sessionid').value;
             try {
                 await fetch('/human', {
@@ -3064,7 +3125,9 @@
             isConnected = true;
 
             const _v = document.getElementById('video');
+            let _vAttempts = 0;
             const _vTimer = setInterval(() => {
+                _vAttempts++;
                 if (_v.srcObject) {
                     _v.muted = false;
                     _v.play().then(() => {
@@ -3075,6 +3138,9 @@
                         _v.play().catch(() => {});
                     });
                 }
+                if (_vAttempts > 10) {
+                    clearInterval(_vTimer);
+                }
             }, 500);
 
             setTimeout(() => {
@@ -3084,10 +3150,14 @@
             }, 2500);
         }
 
+        let _speakingMonitorActive = false;
         function startSpeakingMonitor() {
+            if (_speakingMonitorActive) return;
+            _speakingMonitorActive = true;
+
             const checkSpeaking = async () => {
                 if (!isConnected) {
-                    setTimeout(checkSpeaking, 400);
+                    setTimeout(checkSpeaking, 500);
                     return;
                 }
                 try {
@@ -3098,7 +3168,9 @@
                         body: JSON.stringify({ sessionid })
                     });
                     const data = await res.json();
-                    const speaking = data.data;
+                    const serverSpeaking = Boolean(data.data);
+                    const speaking = serverSpeaking || (Date.now() < _avatarSpeakingUntil);
+
                     if (speaking !== isSpeaking) {
                         isSpeaking = speaking;
                         if (speaking) {
@@ -3110,21 +3182,31 @@
                             }
                         } else {
                             setState('ready', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                            setTimeout(() => {
-                                if (!isListening && isConnected && !isSpeaking) {
-                                    startAlwaysOnListening();
-                                }
-                            }, 450);
+                            if (Date.now() >= _disableSpeechInputUntil) {
+                                clearTimeout(_recRestartTimer);
+                                _recRestartTimer = setTimeout(() => {
+                                    if (!isListening && isConnected && !isSpeaking && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
+                                        startAlwaysOnListening();
+                                    }
+                                }, 500);
+                            }
                         }
                     }
                 } catch (e) { }
-                setTimeout(checkSpeaking, isSpeaking ? 150 : 250);
+                setTimeout(checkSpeaking, isSpeaking ? 200 : 350);
             };
             checkSpeaking();
         }
 
-        // ─── Reconocimiento de Voz / Speech Recognition ─────────────────────────
+        // ─── Reconocimiento de Voz / Speech Recognition Singleton ─────────────────
+        let _recInstance = null;
+        let _questionDispatched = false;
+        let _pendingCommitTimeout = null;
+        let _lastInterim = '';
+
         function setupRecognition() {
+            if (_recInstance) return _recInstance;
+
             const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
             if (!SpeechRec) return null;
 
@@ -3133,10 +3215,6 @@
             rec.interimResults = true;
             rec.continuous = true;
             rec.maxAlternatives = 1;
-
-            let _pendingCommitTimeout = null;
-            let _lastInterim = '';
-            let _questionDispatched = false;
 
             const _dispatchQuestion = (rawText) => {
                 if (_questionDispatched) return;
@@ -3155,7 +3233,9 @@
             };
 
             rec.onresult = (event) => {
-                if (isSpeaking || _questionDispatched) return;
+                if (isSpeaking || _questionDispatched || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) {
+                    return;
+                }
 
                 let interim = '';
                 let final = '';
@@ -3177,7 +3257,6 @@
                         wakeUpModel();
                         setState('listening', 'Escuchando pregunta…');
                     } else {
-                        // Modo reposo: ignorar cualquier audio que no contenga un saludo/wake-word
                         return;
                     }
                 }
@@ -3196,7 +3275,7 @@
 
                     clearTimeout(_pendingCommitTimeout);
                     _pendingCommitTimeout = setTimeout(() => {
-                        if (_conversationAwake && _lastInterim && !_questionDispatched) {
+                        if (_conversationAwake && _lastInterim && !_questionDispatched && !isSpeaking && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
                             try { rec.stop(); } catch (e) {}
                             _dispatchQuestion(_lastInterim);
                         }
@@ -3204,44 +3283,53 @@
                 }
             };
 
-            rec.onerror = () => {
+            rec.onerror = (err) => {
+                console.warn("[SpeechRec Error]:", err);
                 isListening = false;
             };
 
             rec.onend = () => {
                 isListening = false;
                 clearTimeout(_pendingCommitTimeout);
+                if (isSpeaking || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) {
+                    return;
+                }
                 if (_conversationAwake && _lastInterim && !_questionDispatched) {
                     const txt = _lastInterim;
                     _dispatchQuestion(txt);
                     return;
                 }
                 if (!isSpeaking && isConnected && !_questionDispatched) {
-                    setTimeout(() => {
-                        if (!isSpeaking && isConnected && !isListening) {
+                    clearTimeout(_recRestartTimer);
+                    _recRestartTimer = setTimeout(() => {
+                        if (!isSpeaking && isConnected && !isListening && Date.now() >= _avatarSpeakingUntil && Date.now() >= _disableSpeechInputUntil) {
                             startAlwaysOnListening();
                         }
-                    }, 250);
+                    }, 400);
                 }
             };
 
-            return rec;
+            _recInstance = rec;
+            return _recInstance;
         }
 
         function startAlwaysOnListening() {
-            if (!isConnected || isSpeaking || isListening) return;
-            recognition = setupRecognition();
-            if (recognition) {
+            if (!isConnected || isSpeaking || isListening || Date.now() < _avatarSpeakingUntil || Date.now() < _disableSpeechInputUntil) return;
+            const rec = setupRecognition();
+            if (rec) {
                 try {
-                    recognition.start();
+                    _questionDispatched = false;
+                    rec.start();
                     isListening = true;
-                } catch (e) {}
+                } catch (e) {
+                    // Si ya estaba activo, ignorar
+                }
             }
         }
 
         function stopAlwaysOnListening() {
-            if (recognition) {
-                try { recognition.abort(); } catch (e) {}
+            if (_recInstance) {
+                try { _recInstance.abort(); } catch (e) {}
             }
             isListening = false;
         }
@@ -3489,12 +3577,15 @@
                 const lowerReply = fullText.toLowerCase();
                 const isRedirectingToPayment = lowerReply.includes('redirigiendo') || lowerReply.includes('plataforma de pago') || lowerReply.includes('terminal de pago') || lowerReply.includes('acerca tu tarjeta') || lowerReply.includes('lector');
 
-                if (isRedirectingToPayment) {
+                const isVoucherOpen = document.getElementById('modal-voucher') && document.getElementById('modal-voucher').classList.contains('open');
+                const isPosOpen = document.getElementById('modal-pos-simulator') && document.getElementById('modal-pos-simulator').classList.contains('open');
+
+                if (isRedirectingToPayment && !isVoucherOpen && !isPosOpen && (Date.now() - posState.lastPaidTime > 15000)) {
                     closePaymentMethodsModal();
                     closePlansModal();
                     closeRutModal();
                     setTimeout(openPosSimulator, 600);
-                } else {
+                } else if (!isVoucherOpen && !isPosOpen) {
                     if (lowerReply.includes('digita tu rut') || lowerReply.includes('indícame o digita') || lowerReply.includes('digitar tu rut') || lowerReply.includes('teclado en pantalla')) {
                         if (!gymState.isRutIdentified) {
                             setTimeout(openRutModal, 1200);

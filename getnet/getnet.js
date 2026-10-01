@@ -172,6 +172,7 @@
         espera = 150;
         baudRate = 115200;
         isReading = false;
+        openedAt = 0;
 
         async setPort(portInstance = null, baudRate = 115200) {
             this.baudRate = baudRate || 115200;
@@ -189,6 +190,8 @@
                 }
 
                 this.port = targetPort;
+                this.text = "";
+                this.openedAt = Date.now();
                 await this.openPort();
                 this.startReading();
                 return this.port;
@@ -196,6 +199,10 @@
                 console.error("[Getnet POS] Error configurando puerto COM:", error);
                 throw error;
             }
+        }
+
+        clearBuffer() {
+            this.text = "";
         }
 
         async openPort() {
@@ -230,6 +237,11 @@
                         const { value, done } = await this.reader.read();
                         if (done) break;
                         if (value) {
+                            if (this.openedAt && (Date.now() - this.openedAt < 400)) {
+                                // Descartar bytes residuales que estaban en el chip UART antes de conectar
+                                this.text = "";
+                                continue;
+                            }
                             this.text += textDecoder.decode(value, { stream: true });
                             this.processBuffer();
                         }
@@ -263,8 +275,8 @@
                 let depth = 0;
                 let end = -1;
                 for (let i = start; i < str.length; i++) {
-                    if (str[i] === '{') depth++;
-                    else if (str[i] === '}') {
+                    if (bufferCharCheck(str, i, '{')) depth++;
+                    else if (bufferCharCheck(str, i, '}')) {
                         depth--;
                         if (depth === 0) {
                             end = i;
@@ -350,6 +362,10 @@
             this.text = "";
             console.log("[Getnet POS] Puerto desconectado limpiamente.");
         }
+    }
+
+    function bufferCharCheck(str, index, char) {
+        return str[index] === char;
     }
 
     async function connectWebSerial() {
@@ -579,6 +595,7 @@
         secondsTimeout = defaultMaxTimeout
     ) {
         try {
+            if (SerialCom) SerialCom.clearBuffer();
             const data = {
                 Command: POSCommands.Function.Sale,
                 Amount: parseInt(amount, 10),
@@ -860,8 +877,8 @@
         }
     }
 
-    function getSerialCom() {
-        return SerialCom;
+    function clearBuffer() {
+        if (SerialCom) SerialCom.clearBuffer();
     }
 
     const Getnet = {
@@ -892,6 +909,7 @@
         autoConnect,
         isConnected,
         disconnect,
+        clearBuffer,
         getSerialCom
     };
 
