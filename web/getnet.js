@@ -830,6 +830,24 @@
         LogCallback = callback;
     }
 
+    function SetTimeErrorCallback(callback) {
+        errorCallback = callback;
+    }
+
+    function establecerWebSerialCommunication() {
+        isWebSerial = true;
+        isAgentePos = false;
+    }
+
+    function utilizarAgentePOS() {
+        isWebSerial = false;
+        isAgentePos = true;
+    }
+
+    function establecerPuertoFijo(com) {
+        serialComFijo = com;
+    }
+
     function gSleep(ms = 500) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -879,6 +897,10 @@
 
     function clearBuffer() {
         if (SerialCom) SerialCom.clearBuffer();
+    }
+
+    function getSerialCom() {
+        return SerialCom;
     }
 
     const Getnet = {
