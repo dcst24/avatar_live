@@ -257,7 +257,17 @@
                 if (end === -1) { if (start > 0) { str = str.slice(start); } break; }
                 const jsonCandidate = str.slice(start, end + 1);
                 str = str.slice(end + 1);
-                try { MensajeRecibido(JSON.parse(jsonCandidate)); } catch (e) { console.warn("[Getnet POS] JSON malformado:", e); }
+                try {
+                    const parsed = JSON.parse(jsonCandidate);
+                    // PROTOCOLO OFICIAL GETNET: Si el mensaje del POS no es un ACK (Received==undefined),
+                    // responder de inmediato con { Received: true } para que el POS no se bloquee.
+                    if (parsed.Received === undefined) {
+                        this.send(JSON.stringify({ Received: true })).catch(e => console.warn("[Getnet POS] Error enviando ACK:", e));
+                    }
+                    MensajeRecibido(parsed);
+                } catch (e) {
+                    console.warn("[Getnet POS] JSON malformado:", e);
+                }
             }
             this.text = str;
         }
@@ -475,48 +485,16 @@
     function Sale(
         amount,
         ticketNumber,
-        printOnPos,
-        saleType,
-        sendMessage,
-        employeeId,
-        sharesNumberOrTimeout,
-        sharesType,
-        secondsTimeout
+        printOnPos = false,
+        saleType = POSCommands.SaleType.Sale,
+        sendMessage = false,
+        employeeId = 1,
+        secondsTimeout = defaultMaxTimeout
     ) {
-        // Valores por defecto
-        if (printOnPos === undefined) printOnPos = false;
-        if (saleType === undefined) saleType = POSCommands.SaleType.Sale;
-        if (sendMessage === undefined) sendMessage = true;
-        if (employeeId === undefined) employeeId = 1;
-        if (sharesNumberOrTimeout === undefined) sharesNumberOrTimeout = defaultMaxTimeout;
-        if (sharesType === undefined) sharesType = 0;
-        if (secondsTimeout === undefined) secondsTimeout = defaultMaxTimeout;
-
         try {
             if (SerialCom) SerialCom.clearBuffer();
 
-            var numCuotas = 1;
-            var cuotasType = 0;
-            var timeout = defaultMaxTimeout;
-            var arg7 = sharesNumberOrTimeout;
-
-            // Deteccion firma original de 7 args: si arg7 >= 30 y los args 8 y 9 son los defaults
-            if (arg7 >= 30 && sharesType === 0 && secondsTimeout === defaultMaxTimeout) {
-                // Firma original: arg7 es el timeout en segundos
-                timeout = parseInt(arg7, 10) || defaultMaxTimeout;
-                numCuotas = 1;
-                cuotasType = 0;
-            } else {
-                // Firma extendida: arg7 = numero de cuotas
-                numCuotas = parseInt(arg7, 10) || 1;
-                cuotasType = parseInt(sharesType, 10) || 0;
-                timeout = parseInt(secondsTimeout, 10) || defaultMaxTimeout;
-            }
-
-            // CRITICO: SharesNumber=0 hace que el POS pregunte cuotas al usuario. Siempre enviar >= 1.
-            var finalSharesNumber = (numCuotas >= 1) ? numCuotas : 1;
-            // SharesType: 0=contado/sin cuotas, 1=cuotas sin interes
-            var finalSharesType = (numCuotas > 1) ? (cuotasType || 1) : 0;
+            const timeout = parseInt(secondsTimeout, 10) || defaultMaxTimeout;
 
             const data = {
                 Command: POSCommands.Function.Sale,
@@ -526,12 +504,10 @@
                 SaleType: (saleType !== undefined && saleType !== null) ? saleType : POSCommands.SaleType.Sale,
                 SendMessage: Boolean(sendMessage),
                 EmployeeId: parseInt(employeeId, 10) || 1,
-                SharesNumber: finalSharesNumber,
-                SharesType: finalSharesType,
                 DateTime: new Date().toISOString(),
             };
 
-            console.log("[Getnet POS] Enviando Venta: $" + data.Amount + " | Cuotas: " + finalSharesNumber + " (Tipo: " + finalSharesType + ") | Ticket: " + data.TicketNumber + " | Timeout: " + timeout + "s");
+            console.log("[Getnet POS] Enviando Venta: $" + data.Amount + " | Ticket: " + data.TicketNumber + " | Timeout: " + timeout + "s");
             Procesar(data, timeout);
         } catch (ex) {
             console.error("[Getnet Sale Error]:", ex);
