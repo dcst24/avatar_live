@@ -1946,8 +1946,8 @@
                 <!-- Botones y Acciones del POS -->
                 <div id="pos-action-container" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
                     <!-- Botón para conectar / auto-detectar si no está conectado -->
-                    <button class="btn-pos-connect" id="btn-connect-pos-com" style="display: none;" onclick="autoScanAndProbePorts()">
-                        <span>🔍</span> Auto-Detectar y Conectar POS Getnet
+                    <button class="btn-pos-connect" id="btn-connect-pos-com" style="display: none;" onclick="requestPosPortAndPay()">
+                        <span>🔌</span> Vincular y Cobrar en POS Getnet (COM10)
                     </button>
 
                     <!-- Botón para cancelar transacción en el POS -->
@@ -2593,57 +2593,11 @@
         }
 
         async function autoScanAndProbePorts() {
-            appendPosLog("Iniciando auto-escaneo de puertos seriales para POS Getnet...", "info");
-            if (typeof navigator === 'undefined' || !navigator.serial) {
-                alert("Tu navegador no soporta Web Serial API. Usa Google Chrome o Microsoft Edge.");
-                return;
-            }
-
-            try {
-                const ports = await navigator.serial.getPorts();
-                if (!ports || ports.length === 0) {
-                    appendPosLog("Abriendo selector de puerto en el navegador...", "info");
-                    appendPosLog("Selecciona tu dispositivo USB POS (ej: COM10, COM8 o COM9)...", "warn");
-                    const selected = await Getnet.connect(null, posState.baudRate);
-                    if (selected) {
-                        const info = selected.getInfo ? selected.getInfo() : {};
-                        const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM Directo";
-                        setPosConnected(true, portDesc);
-                        appendPosLog(`¡Puerto conectado (${portDesc})! Enviando Poll de prueba...`, "success");
-                        Getnet.Poll();
-                        if (posState.activeTransaction && posState.isCharging) {
-                            dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber);
-                        }
-                    }
-                    return;
-                }
-
-                appendPosLog(`Escaneando ${ports.length} puerto(s) serial(es) ya autorizados en el navegador...`, "info");
-                let connectedPort = null;
-
-                for (let i = 0; i < ports.length; i++) {
-                    const p = ports[i];
-                    try {
-                        await Getnet.connect(p, posState.baudRate);
-                        setPosConnected(true, `COM (${i + 1})`);
-                        appendPosLog(`Probando comunicación en puerto ${i + 1}/${ports.length}...`, "info");
-                        Getnet.Poll();
-                        connectedPort = p;
-                        break;
-                    } catch (err) {
-                        console.warn("Fallo probando puerto serial:", err);
-                    }
-                }
-
-                if (!connectedPort) {
-                    appendPosLog("Solicitando selección de nuevo puerto serial...", "warn");
-                    await connectGetnetSerial();
-                } else if (posState.activeTransaction && posState.isCharging) {
-                    dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber);
-                }
-            } catch (e) {
-                appendPosLog(`Error en auto-escaneo: ${e.message || e}`, 'error');
-                await connectGetnetSerial();
+            appendPosLog("Vinculando puerto COM para POS Getnet...", "info");
+            const ok = await connectGetnetSerial();
+            if (ok) {
+                appendPosLog("Probando comunicación con Poll (106)...", "info");
+                Getnet.Poll();
             }
         }
 
@@ -2661,7 +2615,7 @@
         // ══════════════════════════════════════════════════════════════════════
         // FLUJO DE COBRO AUTOMÁTICO EN POS GETNET
         // ══════════════════════════════════════════════════════════════════════
-        async function openPosSimulator() {
+        function openPosSimulator() {
             closePaymentMethodsModal();
             closePlansModal();
             closeRutModal();
@@ -2722,38 +2676,45 @@
                 clientEmail: gymState.client.email || 'cliente@correo.cl'
             };
 
-            // VERIFICAR ESTADO DEL POS Y ENVIAR COBRO AUTOMÁTICO INMEDIATAMENTE
-            let isPosReady = typeof Getnet !== 'undefined' && Getnet.isConnected();
-            if (!isPosReady && typeof Getnet !== 'undefined') {
-                try {
-                    const autoPort = await Getnet.autoConnect(posState.baudRate);
-                    if (autoPort && Getnet.isConnected()) {
-                        setPosConnected(true, "COM10 / USB");
-                        isPosReady = true;
-                    }
-                } catch (e) {}
-            }
+            posState.isCharging = false;
 
-            if (isPosReady) {
+            if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
                 if (btnConnect) btnConnect.style.display = 'none';
                 if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
                 if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
                 if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Esperando POS...`;
-                
-                // Disparar venta al POS inmediatamente si no hay una en curso
-                if (!posState.isCharging) {
-                    dispatchGetnetSale(finalAmount, ticketNumber);
-                }
+                dispatchGetnetSale(finalAmount, ticketNumber);
             } else {
-                // Mostrar botón para conectar puerto COM
-                setPosConnected(false);
-                if (btnConnect) {
-                    btnConnect.style.display = 'flex';
-                    btnConnect.innerHTML = '<span>🔍</span> Vincular y Conectar POS Getnet (COM10)';
+                if (typeof Getnet !== 'undefined') {
+                    Getnet.autoConnect(posState.baudRate).then(port => {
+                        if (port && Getnet.isConnected()) {
+                            setPosConnected(true, "COM10 / USB");
+                            if (btnConnect) btnConnect.style.display = 'none';
+                            if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
+                            if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
+                            if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Esperando POS...`;
+                            dispatchGetnetSale(finalAmount, ticketNumber);
+                        } else {
+                            setPosConnected(false);
+                            if (btnConnect) {
+                                btnConnect.style.display = 'flex';
+                                btnConnect.innerHTML = '<span>🔌</span> Vincular y Cobrar en POS Getnet (COM10)';
+                            }
+                            if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
+                            if (instruction) instruction.textContent = "Terminal POS no vinculado";
+                            if (subinstruction) subinstruction.textContent = "Haz clic en el botón para vincular tu POS Getnet (COM10)";
+                        }
+                    }).catch(() => {
+                        setPosConnected(false);
+                        if (btnConnect) {
+                            btnConnect.style.display = 'flex';
+                            btnConnect.innerHTML = '<span>🔌</span> Vincular y Cobrar en POS Getnet (COM10)';
+                        }
+                        if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
+                        if (instruction) instruction.textContent = "Terminal POS no vinculado";
+                        if (subinstruction) subinstruction.textContent = "Haz clic en el botón para vincular tu POS Getnet (COM10)";
+                    });
                 }
-                if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
-                if (instruction) instruction.textContent = "Terminal POS no vinculado";
-                if (subinstruction) subinstruction.textContent = "Haz clic en el botón abajo para vincular tu POS Getnet (COM10)";
             }
         }
 
