@@ -1,8 +1,8 @@
-/*!
-* Librería Getnet
-* Versión: 1.5.8 (Integración Web Serial Directa / USB POS Terminal)
-* Fecha: 2026-10-01
-*/
+﻿/*!
+ * Libreria Getnet
+ * Version: 1.5.9 (Restaurado desde version funcional + fix cuotas + fix autoConnect)
+ * Fecha: 2026-10-01
+ */
 (function(root, factory) {
     if (typeof define === 'function' && define.amd) {
         define([], factory);
@@ -93,7 +93,7 @@
                         resolve();
                     };
                 } catch (error) {
-                    console.error("No se seleccionó el puerto", error);
+                    console.error("No se selecciono el puerto", error);
                     reject(error);
                 }
             });
@@ -112,11 +112,6 @@
             this.enqueueMessage({ Type: "getnet-port", OpenParams: { Port: this.port, BaudRate: 115200 }, WriteParams: null });
             this.processQueue();
         }
-        encodeMensaje(mensaje) {
-            let encoder = new TextEncoder();
-            let bytes = encoder.encode(mensaje);
-            return bytes.buffer;
-        }
         enqueueMessage(mensaje) {
             this.queue.push(mensaje);
         }
@@ -126,9 +121,7 @@
         }
         async processQueue() {
             if (this.socket.readyState == this.socket.OPEN) {
-                if (this.queue.length === 0) {
-                    return;
-                }
+                if (this.queue.length === 0) { return; }
                 const mensaje = this.queue.shift();
                 await this.processMessage(mensaje);
                 this.processQueue();
@@ -139,20 +132,14 @@
         }
         processMessage(mensaje) {
             return new Promise(async (resolve) => {
-                while (!this.canProcess()) {
-                    await this.esperarProceso();
-                }
+                while (!this.canProcess()) { await this.esperarProceso(); }
                 this.lastCommand = new Date();
                 this.socket.send(JSON.stringify(mensaje));
                 resolve();
             });
         }
         send(mensaje) {
-            try {
-                this.socket.send(mensaje);
-            } catch (error) {
-                console.log(error);
-            }
+            try { this.socket.send(mensaje); } catch (error) { console.log(error); }
         }
         canProcess() {
             if (this.waitingPort) return false;
@@ -181,14 +168,8 @@
                 if (!targetPort && navigator && navigator.serial) {
                     targetPort = await navigator.serial.requestPort();
                 }
-                if (!targetPort) {
-                    throw new Error("No se seleccionó ningún puerto COM.");
-                }
-
-                if (this.port && this.port !== targetPort) {
-                    await this.disconnect();
-                }
-
+                if (!targetPort) { throw new Error("No se selecciono ningun puerto COM."); }
+                if (this.port && this.port !== targetPort) { await this.disconnect(); }
                 this.port = targetPort;
                 this.text = "";
                 this.openedAt = Date.now();
@@ -201,30 +182,17 @@
             }
         }
 
-        clearBuffer() {
-            this.text = "";
-        }
+        clearBuffer() { this.text = ""; }
 
         async openPort() {
             if (this.port) {
                 if (!this.port.readable || !this.port.writable) {
                     try {
                         await this.port.open({ baudRate: this.baudRate });
-                        console.log(`[Getnet POS] Puerto COM abierto exitosamente a ${this.baudRate} baud`);
+                        console.log("[Getnet POS] Puerto COM abierto a " + this.baudRate + " baud");
                     } catch (err) {
-                        if (err.message && err.message.includes('already open')) {
-                            // Ya estaba abierto, continuar normalmente
-                            return;
-                        }
-                        // Si falló por lock transitorio en Windows, intentar liberar reader y reintentar
-                        console.warn("[Getnet POS] Aviso al abrir puerto, reintentando tras limpieza...", err);
-                        if (this.reader) {
-                            try { await this.reader.cancel(); } catch(_) {}
-                            try { this.reader.releaseLock(); } catch(_) {}
-                            this.reader = null;
-                        }
-                        await new Promise(r => setTimeout(r, 150));
-                        await this.port.open({ baudRate: this.baudRate });
+                        if (err.message && err.message.includes('already open')) { return; }
+                        throw err;
                     }
                 }
             }
@@ -246,7 +214,6 @@
                         if (done) break;
                         if (value) {
                             if (this.openedAt && (Date.now() - this.openedAt < 400)) {
-                                // Descartar bytes residuales que estaban en el chip UART antes de conectar
                                 this.text = "";
                                 continue;
                             }
@@ -272,53 +239,25 @@
         processBuffer() {
             let str = this.text;
             if (!str || str.indexOf('{') === -1) return;
-
             while (true) {
                 const start = str.indexOf('{');
-                if (start === -1) {
-                    str = "";
-                    break;
-                }
-
-                let depth = 0;
-                let end = -1;
+                if (start === -1) { str = ""; break; }
+                let depth = 0, end = -1;
                 for (let i = start; i < str.length; i++) {
-                    if (bufferCharCheck(str, i, '{')) depth++;
-                    else if (bufferCharCheck(str, i, '}')) {
-                        depth--;
-                        if (depth === 0) {
-                            end = i;
-                            break;
-                        }
-                    }
+                    if (str[i] === '{') depth++;
+                    else if (str[i] === '}') { depth--; if (depth === 0) { end = i; break; } }
                 }
-
-                if (end === -1) {
-                    // Mensaje JSON incompleto: mantener buffer desde start para el siguiente bloque
-                    if (start > 0) {
-                        str = str.slice(start);
-                    }
-                    break;
-                }
-
+                if (end === -1) { if (start > 0) { str = str.slice(start); } break; }
                 const jsonCandidate = str.slice(start, end + 1);
                 str = str.slice(end + 1);
-
-                try {
-                    const parsed = JSON.parse(jsonCandidate);
-                    MensajeRecibido(parsed);
-                } catch (e) {
-                    console.warn("[Getnet POS] JSON malformado recibido:", e);
-                }
+                try { MensajeRecibido(JSON.parse(jsonCandidate)); } catch (e) { console.warn("[Getnet POS] JSON malformado:", e); }
             }
             this.text = str;
         }
 
         async write(jsonSerialized) {
             try {
-                while (!this.canProcess()) {
-                    await this.esperarProceso();
-                }
+                while (!this.canProcess()) { await this.esperarProceso(); }
                 await this.send(jsonSerialized);
             } catch (error) {
                 console.error('[Getnet POS] Error en write:', error);
@@ -328,32 +267,26 @@
 
         async send(dataString) {
             if (!this.port || !this.port.writable) {
-                throw new Error("El puerto POS Getnet no está abierto para escritura");
+                throw new Error("El puerto POS Getnet no esta abierto para escritura");
             }
             let writer = null;
             try {
                 writer = this.port.writable.getWriter();
-                const encoder = new TextEncoder();
-                const bytes = encoder.encode(dataString);
+                const bytes = new TextEncoder().encode(dataString);
                 this.lastCommand = new Date();
                 await writer.write(bytes);
             } catch (error) {
                 console.error('[Getnet POS] Error en send:', error);
                 throw error;
             } finally {
-                if (writer) {
-                    try { writer.releaseLock(); } catch (_) {}
-                }
+                if (writer) { try { writer.releaseLock(); } catch (_) {} }
             }
         }
 
-        canProcess() {
-            return (new Date() - this.lastCommand) >= this.espera;
-        }
+        canProcess() { return (new Date() - this.lastCommand) >= this.espera; }
 
         esperarProceso() {
-            const remaining = Math.max(10, this.espera - (new Date() - this.lastCommand));
-            return new Promise(res => setTimeout(res, remaining));
+            return new Promise(res => setTimeout(res, Math.max(10, this.espera - (new Date() - this.lastCommand))));
         }
 
         async disconnect() {
@@ -372,10 +305,6 @@
         }
     }
 
-    function bufferCharCheck(str, index, char) {
-        return str[index] === char;
-    }
-
     async function connectWebSerial() {
         return new Promise((resolve) => {
             if (WebSerialCom) WebSerialCom.setPort("");
@@ -384,22 +313,17 @@
     }
 
     async function WebSerialComunication(jsonSerialized) {
-        if (!WebSerialCom && !isAgentePos) {
-            WebSerialCom = new WebSerial();
-        }
+        if (!WebSerialCom && !isAgentePos) { WebSerialCom = new WebSerial(); }
         await connectWebSerial();
         if (WebSerialCom) WebSerialCom.write(jsonSerialized);
     }
 
+    // RESTAURADO al original funcional: si no hay conexion, pide puerto al usuario
     async function SerialComunication(jsonSerialized) {
-        if (getIsWebSerialCommunication()) {
-            await WebSerialComunication(jsonSerialized);
-            return;
-        }
-        // IMPORTANTE: No intentar abrir un selector de puerto automáticamente aquí.
-        // Si no hay conexión activa, lanzar error para que la capa superior lo maneje.
-        if (!SerialCom || !SerialCom.port || !SerialCom.port.readable || !SerialCom.port.writable) {
-            throw new Error("POS Getnet no conectado. Por favor conecte el POS antes de enviar comandos.");
+        if (getIsWebSerialCommunication()) { await WebSerialComunication(jsonSerialized); return; }
+        if (!SerialCom || !SerialCom.port) {
+            SerialCom = new Serial();
+            await SerialCom.setPort();
         }
         await SerialCom.write(jsonSerialized);
     }
@@ -413,14 +337,8 @@
             try {
                 var jsonSerialized = JSON.stringify(data);
                 var sign = await SignWithSha256(jsonSerialized);
-                var signedData = {
-                    JsonSerialized: jsonSerialized,
-                    Sign: sign.toUpperCase(),
-                };
-                resolve(JSON.stringify(signedData));
-            } catch (error) {
-                reject(error);
-            }
+                resolve(JSON.stringify({ JsonSerialized: jsonSerialized, Sign: sign.toUpperCase() }));
+            } catch (error) { reject(error); }
         });
     }
 
@@ -428,13 +346,8 @@
         return new Promise(async (resolve, reject) => {
             try {
                 const hashArray = await hashJsonSerialized(jsonSerialized);
-                const hashHex = hashArray
-                    .map((b) => b.toString(16).padStart(2, "0"))
-                    .join("");
-                resolve(hashHex);
-            } catch (error) {
-                reject(error);
-            }
+                resolve(hashArray.map((b) => b.toString(16).padStart(2, "0")).join(""));
+            } catch (error) { reject(error); }
         });
     }
 
@@ -442,17 +355,14 @@
         return new Promise(async (resolve) => {
             try {
                 if (typeof CryptoJS !== 'undefined' && CryptoJS.SHA256) {
-                    resolve(hashWithCryptoJs(jsonSerialized));
-                    return;
+                    resolve(hashWithCryptoJs(jsonSerialized)); return;
                 }
             } catch (_) {}
-
             try {
                 const encoder = new TextEncoder();
                 const data = encoder.encode(jsonSerialized);
                 const hash = await window.crypto.subtle.digest("SHA-256", data);
-                const hashArray = Array.from(new Uint8Array(hash));
-                resolve(hashArray);
+                resolve(Array.from(new Uint8Array(hash)));
             } catch (err) {
                 console.error("Error al calcular hash SHA-256", err);
                 resolve([]);
@@ -473,68 +383,28 @@
         return hashArray;
     }
 
-    function establecerWebSerialCommunication() {
-        isWebSerial = true;
-    }
-
-    function utilizarAgentePOS() {
-        try {
-            isWebSerial = true;
-            isAgentePos = true;
-            if (!WebSerialCom) {
-                WebSerialCom = new WebSerial();
-            }
-            WebSerialCom.useGetnetPosAgent();
-        } catch (error) {
-            throw new Error("Se debe seleccionar webserial para utilizar esta función");
-        }
-    }
-
-    function establecerPuertoFijo(puerto) {
-        if (getIsWebSerialCommunication()) {
-            serialComFijo = puerto;
-            return;
-        }
-        throw new Error("Se debe seleccionar webserial para utilizar esta función");
-    }
+    function establecerWebSerialCommunication() { isWebSerial = true; isAgentePos = false; }
+    function utilizarAgentePOS() { isWebSerial = false; isAgentePos = true; }
+    function establecerPuertoFijo(com) { serialComFijo = com; }
 
     function startTimeoutForResponse(segundos) {
         stopTimeoutForResponse();
-        TimeoutForResponse = setTimeout(() => {
-            TimeOutError();
-        }, segundos * 1000);
+        TimeoutForResponse = setTimeout(() => { TimeOutError(); }, segundos * 1000);
     }
-
     function stopTimeoutForResponse() {
-        if (TimeoutForResponse) {
-            clearTimeout(TimeoutForResponse);
-            TimeoutForResponse = null;
-        }
+        if (TimeoutForResponse) { clearTimeout(TimeoutForResponse); TimeoutForResponse = null; }
     }
-
     function startReveivedTimeout() {
         stopReceivedTimeout();
-        ReceivedTimeout = setTimeout(() => {
-            console.warn("[Getnet POS] Esperando confirmación inicial del POS...");
-        }, defaultReceivedTimeout * 1000);
+        ReceivedTimeout = setTimeout(() => { console.warn("[Getnet POS] Esperando confirmacion inicial del POS..."); }, defaultReceivedTimeout * 1000);
     }
-
     function stopReceivedTimeout() {
-        if (ReceivedTimeout) {
-            clearTimeout(ReceivedTimeout);
-            ReceivedTimeout = null;
-        }
+        if (ReceivedTimeout) { clearTimeout(ReceivedTimeout); ReceivedTimeout = null; }
     }
-
     function TimeOutError() {
-        if (typeof errorCallback === 'function') {
-            errorCallback("Tiempo de espera agotado esperando confirmación del POS Getnet");
-        }
+        if (typeof errorCallback === 'function') { errorCallback("Tiempo de espera agotado esperando confirmacion del POS Getnet"); }
     }
-
-    function SetTimeErrorCallback(callback) {
-        errorCallback = callback;
-    }
+    function SetTimeErrorCallback(callback) { errorCallback = callback; }
 
     async function Procesar(data, segundosTimeout = defaultTimeout) {
         try {
@@ -545,26 +415,17 @@
             await SerialComunication(jsonSerialized);
         } catch (error) {
             console.error("[Getnet POS] Error enviando comando:", error);
-            if (typeof errorCallback === 'function') {
-                errorCallback("Error enviando comando al POS: " + (error.message || error));
-            }
+            if (typeof errorCallback === 'function') { errorCallback("Error enviando comando al POS: " + (error.message || error)); }
         }
     }
 
     function MensajeRecibido(mensaje) {
         if (!mensaje) return;
-
-        // Desempaquetar JsonSerialized si el POS responde en formato firmado
         let parsedData = mensaje;
         if (mensaje.JsonSerialized && typeof mensaje.JsonSerialized === 'string') {
-            try {
-                const inner = JSON.parse(mensaje.JsonSerialized);
-                parsedData = { ...mensaje, ...inner };
-            } catch (e) {
-                console.warn("[Getnet POS] Error parseando JsonSerialized interno:", e);
-            }
+            try { const inner = JSON.parse(mensaje.JsonSerialized); parsedData = { ...mensaje, ...inner }; }
+            catch (e) { console.warn("[Getnet POS] Error parseando JsonSerialized interno:", e); }
         }
-
         if (parsedData.Received === true) {
             stopReceivedTimeout();
             textoCallback = JSON.stringify(parsedData);
@@ -576,351 +437,223 @@
             textoCallback = JSON.stringify(parsedData);
             if (typeof LogCallback === 'function') LogCallback(textoCallback);
         }
-
-        if (typeof Callback === 'function') {
-            Callback(parsedData);
-        }
+        if (typeof Callback === 'function') { Callback(parsedData); }
     }
 
     function Poll() {
         try {
-            const data = {
-                Command: POSCommands.Function.Poll,
-                DateTime: new Date().toISOString(),
-            };
+            const data = { Command: POSCommands.Function.Poll, DateTime: new Date().toISOString() };
             Procesar(data, defaultMinTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+        } catch (ex) { console.error(ex); }
     }
 
+    /**
+     * Sale - Envia cobro al POS Getnet.
+     *
+     * Firma original (7 args) - COMPATIBLE CON LLAMADAS EXISTENTES:
+     *   Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, secondsTimeout)
+     *   Ejemplo: Getnet.Sale(27990, "123456", false, 0, true, 1, 180)
+     *
+     * Firma extendida con cuotas (9 args):
+     *   Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, sharesNumber, sharesType, secondsTimeout)
+     *   Ejemplo: Getnet.Sale(27990, "123456", false, 0, true, 1, 3, 1, 180)
+     *
+     * Deteccion de firma: si arg7 >= 30 Y sharesType=0 Y secondsTimeout=defaultMaxTimeout => firma original (arg7=timeout).
+     */
     function Sale(
         amount,
         ticketNumber,
-        printOnPos = false,
-        saleType = POSCommands.SaleType.Sale,
-        sendMessage = true,
-        employeeId = 1,
-        sharesNumber = 1,
-        sharesType = 0,
-        secondsTimeout = defaultMaxTimeout
+        printOnPos,
+        saleType,
+        sendMessage,
+        employeeId,
+        sharesNumberOrTimeout,
+        sharesType,
+        secondsTimeout
     ) {
+        // Valores por defecto
+        if (printOnPos === undefined) printOnPos = false;
+        if (saleType === undefined) saleType = POSCommands.SaleType.Sale;
+        if (sendMessage === undefined) sendMessage = true;
+        if (employeeId === undefined) employeeId = 1;
+        if (sharesNumberOrTimeout === undefined) sharesNumberOrTimeout = defaultMaxTimeout;
+        if (sharesType === undefined) sharesType = 0;
+        if (secondsTimeout === undefined) secondsTimeout = defaultMaxTimeout;
+
         try {
             if (SerialCom) SerialCom.clearBuffer();
 
-            // Soportar pase por objeto: Getnet.Sale({ amount, cuotas, ... })
-            let finalAmount = amount;
-            let finalTicket = ticketNumber;
-            let finalPrint = printOnPos;
-            let finalSaleType = saleType;
-            let finalSendMessage = sendMessage;
-            let finalEmployeeId = employeeId;
-            let finalCuotas = sharesNumber;
-            let finalSharesType = sharesType;
-            let finalTimeout = secondsTimeout;
+            var numCuotas = 1;
+            var cuotasType = 0;
+            var timeout = defaultMaxTimeout;
+            var arg7 = sharesNumberOrTimeout;
 
-            if (typeof amount === 'object' && amount !== null) {
-                finalAmount = amount.amount || amount.Amount || 0;
-                finalTicket = amount.ticketNumber || amount.TicketNumber || Date.now().toString().slice(-6);
-                finalPrint = Boolean(amount.printOnPos || amount.PrintOnPos || false);
-                finalSaleType = amount.saleType !== undefined ? amount.saleType : (amount.SaleType !== undefined ? amount.SaleType : POSCommands.SaleType.Sale);
-                finalSendMessage = amount.sendMessage !== undefined ? Boolean(amount.sendMessage) : true;
-                finalEmployeeId = amount.employeeId || amount.EmployeeId || 1;
-                finalCuotas = amount.sharesNumber || amount.SharesNumber || amount.cuotas || amount.Cuotas || amount.installments || amount.Installments || 1;
-                finalSharesType = amount.sharesType !== undefined ? amount.sharesType : (amount.SharesType !== undefined ? amount.SharesType : 0);
-                finalTimeout = amount.timeout || amount.secondsTimeout || defaultMaxTimeout;
-            } else if (typeof sharesNumber === 'number' && sharesNumber > 50 && sharesType === 0 && secondsTimeout === defaultMaxTimeout) {
-                // Caso legado donde el 7mo argumento era timeout (ej. Getnet.Sale(amount, ticket, false, 0, true, 1, 180))
-                finalTimeout = sharesNumber;
-                finalCuotas = 1;
-                finalSharesType = 0;
+            // Deteccion firma original de 7 args: si arg7 >= 30 y los args 8 y 9 son los defaults
+            if (arg7 >= 30 && sharesType === 0 && secondsTimeout === defaultMaxTimeout) {
+                // Firma original: arg7 es el timeout en segundos
+                timeout = parseInt(arg7, 10) || defaultMaxTimeout;
+                numCuotas = 1;
+                cuotasType = 0;
+            } else {
+                // Firma extendida: arg7 = numero de cuotas
+                numCuotas = parseInt(arg7, 10) || 1;
+                cuotasType = parseInt(sharesType, 10) || 0;
+                timeout = parseInt(secondsTimeout, 10) || defaultMaxTimeout;
             }
 
-            const numCuotas = parseInt(finalCuotas, 10) || 1;
-            const isCuotas = numCuotas > 1;
-            // Para Venta en Cuotas: Tipo 1 = Cuotas Comercio (Sin Interés), Tipo 0 = Sin cuotas (Venta Directa / Contado)
-            // CRÍTICO: SharesNumber=0 hace que el POS PREGUNTE las cuotas al usuario. Siempre enviar >= 1.
-            const resolvedSharesType = isCuotas ? (parseInt(finalSharesType, 10) || 1) : 0;
-            const resolvedSharesNumber = numCuotas; // Siempre enviar la cantidad de cuotas (mínimo 1)
+            // CRITICO: SharesNumber=0 hace que el POS pregunte cuotas al usuario. Siempre enviar >= 1.
+            var finalSharesNumber = (numCuotas >= 1) ? numCuotas : 1;
+            // SharesType: 0=contado/sin cuotas, 1=cuotas sin interes
+            var finalSharesType = (numCuotas > 1) ? (cuotasType || 1) : 0;
 
             const data = {
                 Command: POSCommands.Function.Sale,
-                Amount: parseInt(finalAmount, 10),
-                TicketNumber: String(finalTicket || Date.now().toString().slice(-6)),
-                PrintOnPos: Boolean(finalPrint),
-                SaleType: finalSaleType !== undefined ? finalSaleType : POSCommands.SaleType.Sale,
-                SendMessage: Boolean(finalSendMessage),
-                EmployeeId: parseInt(finalEmployeeId, 10) || 1,
-                // Mapeo exhaustivo para todas las revisiones de firmware POS Getnet / Santander Chile:
-                // SharesNumber >= 1 es OBLIGATORIO para evitar que el POS pregunte cuotas al usuario
-                SharesNumber: resolvedSharesNumber,
-                SharesType: resolvedSharesType,
-                Shares: resolvedSharesNumber,
-                ShareNumber: resolvedSharesNumber,
-                ShareType: resolvedSharesType,
-                Installments: numCuotas,
-                InstallmentsNumber: resolvedSharesNumber,
-                InstallmentType: resolvedSharesType,
-                Cuotas: numCuotas,
-                NumeroCuotas: resolvedSharesNumber,
-                TipoCuota: resolvedSharesType,
-                TipoCuotas: resolvedSharesType,
-                Quotas: numCuotas,
-                QuotaNumber: resolvedSharesNumber,
-                QuotaType: resolvedSharesType,
-                SharesQuantity: resolvedSharesNumber,
-                SharesCount: resolvedSharesNumber,
+                Amount: parseInt(amount, 10),
+                TicketNumber: String(ticketNumber || Date.now().toString().slice(-6)),
+                PrintOnPos: Boolean(printOnPos),
+                SaleType: (saleType !== undefined && saleType !== null) ? saleType : POSCommands.SaleType.Sale,
+                SendMessage: Boolean(sendMessage),
+                EmployeeId: parseInt(employeeId, 10) || 1,
+                SharesNumber: finalSharesNumber,
+                SharesType: finalSharesType,
                 DateTime: new Date().toISOString(),
             };
 
-            console.log(`[Getnet POS] Enviando Venta: $${data.Amount} | Cuotas: ${numCuotas} (SharesNumber: ${resolvedSharesNumber}, SharesType: ${resolvedSharesType}) | Ticket: ${data.TicketNumber}`);
-            Procesar(data, finalTimeout);
+            console.log("[Getnet POS] Enviando Venta: $" + data.Amount + " | Cuotas: " + finalSharesNumber + " (Tipo: " + finalSharesType + ") | Ticket: " + data.TicketNumber + " | Timeout: " + timeout + "s");
+            Procesar(data, timeout);
         } catch (ex) {
             console.error("[Getnet Sale Error]:", ex);
         }
     }
 
-    function LastVoucher(printOnPos = false, secondsTimeout = defaultTimeout) {
+    function LastVoucher(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.LastVoucher,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.LastVoucher, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function Refund(
-        operationId,
-        printOnPos = false,
-        secondsTimeout = defaultTimeout
-    ) {
+    function Refund(operationId, printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.Refund,
-                OperationId: operationId,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.Refund, OperationId: operationId, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function Close(printOnPos = false, secondsTimeout = defaultTimeout) {
+    function Close(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.Close,
-                DateTime: new Date().toISOString(),
-                PrintOnPos: printOnPos,
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.Close, DateTime: new Date().toISOString(), PrintOnPos: printOnPos }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function Totals(printOnPos = false, secondsTimeout = defaultTimeout) {
+    function Totals(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.Totals,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.Totals, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function Details(printOnPos = false, secondsTimeout = defaultTimeout) {
+    function Details(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.Details,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.Details, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function SetNormalMode(secondsTimeout = defaultMinTimeout) {
+    function SetNormalMode(secondsTimeout) {
+        if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.SetNormalMode,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.SetNormalMode, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function Return(
-        authorizationCode,
-        amount,
-        printOnPos = false,
-        secondsTimeout = defaultTimeout
-    ) {
+    function Return(authorizationCode, amount, printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.Return,
-                AuthorizationCode: authorizationCode,
-                Amount: amount,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.Return, AuthorizationCode: authorizationCode, Amount: amount, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function DuplicateOthers(
-        operationId,
-        printOnPos = false,
-        secondsTimeout = defaultTimeout
-    ) {
+    function DuplicateOthers(operationId, printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.DuplicateOthers,
-                OperationId: operationId,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.DuplicateOthers, OperationId: operationId, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function SalesBySeller(
-        employeeId,
-        printOnPos = false,
-        secondsTimeout = defaultTimeout
-    ) {
+    function SalesBySeller(employeeId, printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.SalesBySeller,
-                EmployeeId: employeeId,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.SalesBySeller, EmployeeId: employeeId, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function TipReport(
-        employeeId,
-        printOnPos = false,
-        secondsTimeout = defaultTimeout
-    ) {
+    function TipReport(employeeId, printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.TipReport,
-                EmployeeId: employeeId,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.TipReport, EmployeeId: employeeId, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function DefaultSaleType(saleType, secondsTimeout = defaultMinTimeout) {
+    function DefaultSaleType(saleType, secondsTimeout) {
+        if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.DefaultSaleType,
-                SaleType: saleType,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.DefaultSaleType, SaleType: saleType, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function ParameterReport(
-        printOnPos = false,
-        secondsTimeout = defaultMinTimeout
-    ) {
+    function ParameterReport(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.ParameterReport,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.ParameterReport, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function SimReport(printOnPos = false, secondsTimeout = defaultMinTimeout) {
+    function SimReport(printOnPos, secondsTimeout) {
+        if (printOnPos === undefined) printOnPos = false;
+        if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.SimReport,
-                PrintOnPos: printOnPos,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.SimReport, PrintOnPos: printOnPos, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function CancelSale(secondsTimeout = defaultMinTimeout) {
+    function CancelSale(secondsTimeout) {
+        if (secondsTimeout === undefined) secondsTimeout = defaultMinTimeout;
         try {
-            const data = {
-                Command: POSCommands.Function.CancelSale,
-                DateTime: new Date().toISOString(),
-            };
-            Procesar(data, secondsTimeout);
-        } catch (ex) {
-            console.error(ex);
-        }
+            Procesar({ Command: POSCommands.Function.CancelSale, DateTime: new Date().toISOString() }, secondsTimeout);
+        } catch (ex) { console.error(ex); }
     }
 
-    function SetCallback(callback) {
-        Callback = callback;
-    }
+    function SetCallback(callback) { Callback = callback; }
+    function SetLogCallback(callback) { LogCallback = callback; }
 
-    function SetLogCallback(callback) {
-        LogCallback = callback;
-    }
-
-    function SetTimeErrorCallback(callback) {
-        errorCallback = callback;
-    }
-
-    // NOTA: Las funciones establecerWebSerialCommunication, utilizarAgentePOS y establecerPuertoFijo
-    // están definidas arriba (líneas ~475-498) con su implementación completa.
-    // Esta sección fue eliminada para evitar la doble definición que sobreescribía las versiones correctas.
-
-    function gSleep(ms = 500) {
+    function gSleep(ms) {
+        if (ms === undefined) ms = 500;
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    async function connect(portObj = null, baudRate = 115200) {
-        if (!SerialCom) {
-            SerialCom = new Serial();
-        }
+    async function connect(portObj, baudRate) {
+        if (baudRate === undefined) baudRate = 115200;
+        if (!SerialCom) { SerialCom = new Serial(); }
         return await SerialCom.setPort(portObj, baudRate);
     }
 
-    async function probePortWithPoll(timeoutMs = 600) {
+    async function probePortWithPoll(timeoutMs) {
+        if (timeoutMs === undefined) timeoutMs = 600;
         if (!isConnected()) return false;
         return new Promise((resolve) => {
-            let timer = null;
+            var timer = null;
             const originalCallback = Callback;
             const probeCallback = (msg) => {
                 if (msg && (msg.Command === 106 || msg.Received === true || msg.ResponseCode !== undefined)) {
@@ -931,51 +664,35 @@
                 }
             };
             Callback = probeCallback;
-            timer = setTimeout(() => {
-                Callback = originalCallback;
-                resolve(false);
-            }, timeoutMs);
-            try {
-                Poll();
-            } catch (e) {
-                if (timer) clearTimeout(timer);
-                Callback = originalCallback;
-                resolve(false);
-            }
+            timer = setTimeout(() => { Callback = originalCallback; resolve(false); }, timeoutMs);
+            try { Poll(); } catch (e) { if (timer) clearTimeout(timer); Callback = originalCallback; resolve(false); }
         });
     }
 
-    async function autoConnect(baudRate = 115200) {
+    /**
+     * autoConnect: conecta al COM previamente autorizado con reintentos progresivos.
+     * Los delays [0, 400, 1000] ms permiten al OS de Windows liberar el puerto tras un refresh.
+     */
+    async function autoConnect(baudRate) {
+        if (baudRate === undefined) baudRate = 115200;
         if (isConnected()) return SerialCom.port;
-        if (typeof navigator === 'undefined' || !navigator.serial || !navigator.serial.getPorts) {
-            return null;
-        }
+        if (typeof navigator === 'undefined' || !navigator.serial || !navigator.serial.getPorts) { return null; }
         try {
             const ports = await navigator.serial.getPorts();
-            if (!ports || ports.length === 0) {
-                console.log("[Getnet POS] No hay puertos COM autorizados previamente.");
-                return null;
-            }
-
+            if (!ports || ports.length === 0) { return null; }
             if (!SerialCom) SerialCom = new Serial();
-
-            // Intentar conectar a cada puerto con hasta 3 reintentos y backoff progresivo
-            const delays = [0, 300, 800]; // ms de espera antes de cada intento
-            const portsToTry = ports.length === 1 ? [ports[0]] : [...ports].reverse();
-
-            for (const port of portsToTry) {
-                let connected = false;
-                for (let attempt = 0; attempt < delays.length; attempt++) {
-                    if (delays[attempt] > 0) {
-                        console.log(`[Getnet POS] Reintento ${attempt + 1}/${delays.length} en ${delays[attempt]}ms...`);
-                        await new Promise(r => setTimeout(r, delays[attempt]));
+            const portsToTry = ports.slice().reverse(); // del mas reciente al mas antiguo
+            const retryDelays = [0, 400, 1000];
+            for (var pi = 0; pi < portsToTry.length; pi++) {
+                var port = portsToTry[pi];
+                for (var attempt = 0; attempt < retryDelays.length; attempt++) {
+                    if (retryDelays[attempt] > 0) {
+                        console.log("[Getnet POS] autoConnect: reintento " + attempt + " (" + retryDelays[attempt] + "ms)...");
+                        await new Promise(r => setTimeout(r, retryDelays[attempt]));
                     }
                     try {
-                        // Limpiar estado previo antes de reconectar
-                        if (SerialCom.port && SerialCom.port !== port) {
-                            try { await SerialCom.disconnect(); } catch (_) {}
-                        } else if (SerialCom.port === port && !isConnected()) {
-                            // Mismo puerto pero estado inconsistente: forzar limpieza
+                        // Limpiar lector si el mismo puerto quedo en estado inconsistente
+                        if (SerialCom.port === port && !isConnected()) {
                             SerialCom.isReading = false;
                             if (SerialCom.reader) {
                                 try { await SerialCom.reader.cancel(); } catch (_) {}
@@ -985,34 +702,19 @@
                         }
                         await SerialCom.setPort(port, baudRate);
                         if (isConnected()) {
-                            connected = true;
-                            console.log(`[Getnet POS] Puerto COM conectado (intento ${attempt + 1}).`);
-                            break;
+                            console.log("[Getnet POS] Auto-conectado (intento " + (attempt + 1) + ").");
+                            return port;
                         }
                     } catch (err) {
-                        console.warn(`[Getnet POS] Error en intento ${attempt + 1}:`, err.message || err);
-                        if (attempt < delays.length - 1) {
+                        console.warn("[Getnet POS] autoConnect intento " + (attempt + 1) + " fallo:", err.message || err);
+                        if (attempt < retryDelays.length - 1) {
                             try { await SerialCom.disconnect(); } catch (_) {}
                         }
                     }
-                }
-
-                if (connected) {
-                    // Si hay múltiples puertos, verificar cuál es el POS con Poll
-                    if (ports.length > 1) {
-                        const responded = await probePortWithPoll(500);
-                        if (!responded) {
-                            console.log(`[Getnet POS] Puerto conectado pero POS no respondió Poll. Probando siguiente...`);
-                            try { await SerialCom.disconnect(); } catch (_) {}
-                            continue;
-                        }
-                    }
-                    console.log(`[Getnet POS] Auto-conectado exitosamente.`);
-                    return port;
                 }
             }
         } catch (e) {
-            console.warn("[Getnet POS] autoConnect error general:", e);
+            console.warn("[Getnet POS] autoConnect error:", e);
         }
         return null;
     }
@@ -1022,64 +724,25 @@
     }
 
     async function disconnect() {
-        if (SerialCom) {
-            await SerialCom.disconnect();
-            SerialCom = null;
-        }
+        if (SerialCom) { await SerialCom.disconnect(); SerialCom = null; }
     }
 
-    function clearBuffer() {
-        if (SerialCom) SerialCom.clearBuffer();
-    }
-
-    function getSerialCom() {
-        return SerialCom;
-    }
+    function clearBuffer() { if (SerialCom) SerialCom.clearBuffer(); }
+    function getSerialCom() { return SerialCom; }
 
     if (typeof window !== 'undefined') {
-        window.addEventListener('beforeunload', () => {
-            if (SerialCom) {
-                try { SerialCom.disconnect(); } catch (_) {}
-            }
-        });
         window.addEventListener('pagehide', () => {
-            if (SerialCom) {
-                try { SerialCom.disconnect(); } catch (_) {}
-            }
+            if (SerialCom) { try { SerialCom.disconnect(); } catch (_) {} }
         });
     }
 
     const Getnet = {
-        Poll,
-        Sale,
-        LastVoucher,
-        Refund,
-        Close,
-        Totals,
-        Details,
-        SetNormalMode,
-        Return,
-        DuplicateOthers,
-        SalesBySeller,
-        TipReport,
-        DefaultSaleType,
-        ParameterReport,
-        SimReport,
-        CancelSale,
-        POSCommands,
-        SetCallback,
-        SetTimeErrorCallback,
-        SetLogCallback,
-        establecerWebSerialCommunication,
-        utilizarAgentePOS,
-        establecerPuertoFijo,
-        connect,
-        autoConnect,
-        probePortWithPoll,
-        isConnected,
-        disconnect,
-        clearBuffer,
-        getSerialCom
+        Poll, Sale, LastVoucher, Refund, Close, Totals, Details, SetNormalMode,
+        Return, DuplicateOthers, SalesBySeller, TipReport, DefaultSaleType,
+        ParameterReport, SimReport, CancelSale, POSCommands,
+        SetCallback, SetTimeErrorCallback, SetLogCallback,
+        establecerWebSerialCommunication, utilizarAgentePOS, establecerPuertoFijo,
+        connect, autoConnect, probePortWithPoll, isConnected, disconnect, clearBuffer, getSerialCom
     };
 
     return { Getnet, POSCommands, default: Getnet };
