@@ -492,10 +492,15 @@ async def post_registrar_pago_real(request):
         return json_error(str(e))
 
 
+async def favicon(request):
+    return aiohttp.web.Response(status=204)
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
     """注册所有路由到 aiohttp app"""
+    app.router.add_get("/favicon.ico", favicon)
     app.router.add_post("/human", human)
     app.router.add_post("/humanaudio", humanaudio)
     app.router.add_post("/set_audiotype", set_audiotype)
@@ -515,6 +520,7 @@ def setup_routes(app):
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
     app.router.add_static('/getnet', path='getnet')
     app.router.add_static('/', path='web')
+
 
 
 
