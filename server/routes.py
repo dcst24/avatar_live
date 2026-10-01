@@ -382,6 +382,116 @@ async def post_simular_pago(request):
         return json_error(str(e))
 
 
+async def get_pos_ports(request):
+    """Retorna los puertos COM / Serial disponibles en el sistema para conectar el POS Getnet"""
+    import platform
+    import glob
+    ports = []
+    try:
+        if platform.system() == "Windows":
+            import winreg
+            try:
+                key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"HARDWARE\DEVICEMAP\SERIALCOMM")
+                for i in range(128):
+                    try:
+                        val_name, port_name, _ = winreg.EnumValue(key, i)
+                        ports.append({
+                            "port": port_name,
+                            "device": val_name,
+                            "description": f"Puerto Serial {port_name} ({val_name.split(chr(92))[-1]})"
+                        })
+                    except OSError:
+                        break
+                winreg.CloseKey(key)
+            except FileNotFoundError:
+                pass
+        else:
+            # Linux / macOS / Jetson
+            device_paths = glob.glob('/dev/ttyUSB*') + glob.glob('/dev/ttyACM*') + glob.glob('/dev/ttyS*')
+            for path in sorted(device_paths):
+                ports.append({
+                    "port": path,
+                    "device": path,
+                    "description": f"Puerto Serial {path}"
+                })
+        return json_ok(data={"ports": ports, "count": len(ports)})
+    except Exception as e:
+        logger.exception("Error listando puertos seriales:")
+        return json_error(str(e))
+
+
+async def post_registrar_pago_real(request):
+    """Registra una transacción confirmada y aprobada por el terminal físico POS Getnet"""
+    try:
+        body = await request.json()
+        plan_id = body.get('plan_id', 'plan_1m')
+        banco_nombre = body.get('banco', 'Banco Santander')
+        es_santander = body.get('es_santander', False)
+        cuotas = int(body.get('cuotas', 1))
+        monto_pagado = int(body.get('monto_pagado', 0))
+        monto_original = int(body.get('monto_original', monto_pagado))
+        descuento = int(body.get('descuento', 0))
+        rut = body.get('rut', '12.345.678-5')
+        cliente_nombre = body.get('nombre', 'Socio FitLife')
+        cliente_email = body.get('email', 'cliente@correo.cl')
+        auth_code = body.get('codigo_autorizacion') or f"GET-{random.randint(100000, 999999)}"
+        op_num = body.get('codigo_operacion') or f"OP-{random.randint(100000, 999999)}"
+        card_number = body.get('card_number', '**** **** **** ****')
+        card_brand = body.get('card_brand', 'TRANSACCIÓN POS')
+
+        data = load_gym_data()
+        plan = next((p for p in data.get('planes', []) if p['id'] == plan_id), None)
+        if not plan:
+            plan = {"id": plan_id, "nombre": body.get('plan_nombre', 'Plan Gym'), "meses": 1}
+
+        now_str = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+        if cuotas == 1:
+            texto_cuotas = "1 Pago (Contado)"
+            monto_cuota = monto_pagado
+        elif cuotas in (3, 6) or (cuotas == 12 and es_santander):
+            texto_cuotas = f"{cuotas} Cuotas Sin Interés"
+            monto_cuota = round(monto_pagado / cuotas)
+        else:
+            texto_cuotas = f"{cuotas} Cuotas"
+            monto_cuota = round(monto_pagado / cuotas)
+
+        comprobante = {
+            "codigo_operacion": str(op_num),
+            "codigo_autorizacion": str(auth_code),
+            "estado": "APROBADO",
+            "mensaje": "Transacción aprobada exitosamente por POS Getnet",
+            "origen": "GETNET_POS_REAL",
+            "card_number": card_number,
+            "card_brand": card_brand,
+            "plan": {
+                "id": plan["id"],
+                "nombre": plan["nombre"],
+                "meses": plan.get("meses", 1)
+            },
+            "cliente": {
+                "rut": rut,
+                "nombre": cliente_nombre,
+                "email": cliente_email
+            },
+            "banco": banco_nombre,
+            "es_santander": es_santander,
+            "monto_original": monto_original,
+            "descuento": descuento,
+            "monto_pagado": monto_pagado,
+            "cuotas": cuotas,
+            "monto_cuota": monto_cuota,
+            "texto_cuotas": texto_cuotas,
+            "fecha": now_str,
+            "email_comprobante": cliente_email
+        }
+        logger.info(f"[Pago Real POS Getnet] Auth: {auth_code} | Op: {op_num} | Plan: {plan['nombre']} | Cuotas: {texto_cuotas} | Monto: ${monto_pagado:,} | RUT: {rut}")
+        return json_ok(data=comprobante)
+    except Exception as e:
+        logger.exception('post_registrar_pago_real exception:')
+        return json_error(str(e))
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
@@ -397,10 +507,14 @@ def setup_routes(app):
     app.router.add_get("/api/gym/planes", get_gym_data)
     app.router.add_get("/api/gym/cliente/{rut}", get_gym_cliente)
     app.router.add_post("/api/gym/pago/simular", post_simular_pago)
+    app.router.add_post("/api/gym/pago/registrar", post_registrar_pago_real)
+    app.router.add_get("/api/pos/ports", get_pos_ports)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)
     app.router.add_get("/avatar-experimental-pendon-2", avatar_experimental_pendon_2)
+    app.router.add_static('/getnet', path='getnet')
     app.router.add_static('/', path='web')
+
 
 

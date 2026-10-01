@@ -1192,6 +1192,322 @@
             box-shadow: 0 10px 28px rgba(16, 185, 129, 0.5);
         }
 
+        /* ── POS Status Pill & Live Chips ───────────────────── */
+        #btn-pos-status {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 11px;
+            font-weight: 600;
+            background: rgba(24, 24, 27, 0.7);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #d4d4d8;
+        }
+
+        #btn-pos-status.connected {
+            border-color: rgba(16, 185, 129, 0.5);
+            background: rgba(16, 185, 129, 0.15);
+            color: #34d399;
+        }
+
+        #btn-pos-status.error {
+            border-color: rgba(239, 68, 68, 0.5);
+            background: rgba(239, 68, 68, 0.15);
+            color: #f87171;
+        }
+
+        .pos-status-chip {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .pos-status-chip.online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+
+        .pos-status-chip.offline {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .pos-status-chip.busy {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+            animation: nfcPulse 1.5s infinite;
+        }
+
+        .pos-screen-header-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        .btn-pos-connect {
+            width: 100%;
+            padding: 13px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(99, 102, 241, 0.6);
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            color: #ffffff;
+            font-family: var(--font-title);
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(99, 102, 241, 0.35);
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn-pos-connect:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 28px rgba(99, 102, 241, 0.5);
+        }
+
+        .btn-pos-cancel {
+            width: 100%;
+            padding: 9px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            background: rgba(239, 68, 68, 0.15);
+            color: #fca5a5;
+            font-family: var(--font-title);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .btn-pos-cancel:hover {
+            background: rgba(239, 68, 68, 0.25);
+            color: #ffffff;
+        }
+
+        .btn-pos-demo-link {
+            background: transparent;
+            border: none;
+            color: #a1a1aa;
+            font-size: 11px;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 4px;
+            transition: color 0.2s;
+        }
+
+        .btn-pos-demo-link:hover {
+            color: #f4f4f5;
+        }
+
+        /* ── MODAL 6: CONFIGURACIÓN POS GETNET ──────────────── */
+        .pos-diag-box {
+            background: rgba(9, 9, 11, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            padding: 14px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .pos-diag-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+        }
+
+        .pos-diag-label {
+            color: var(--text-muted);
+        }
+
+        .pos-diag-val {
+            font-weight: 600;
+            color: #f4f4f5;
+            font-family: monospace;
+        }
+
+        .pos-diag-badge {
+            padding: 2px 8px;
+            border-radius: 999px;
+            font-size: 11px;
+            font-weight: 700;
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+        }
+
+        .pos-diag-badge.online {
+            background: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border-color: rgba(16, 185, 129, 0.4);
+        }
+
+        .pos-ports-section {
+            margin-bottom: 16px;
+        }
+
+        .diag-ports-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 120px;
+            overflow-y: auto;
+        }
+
+        .diag-port-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+        }
+
+        .diag-port-name {
+            font-weight: 700;
+            color: #60a5fa;
+            font-family: monospace;
+        }
+
+        .diag-port-desc {
+            color: #a1a1aa;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+
+        .btn-port-select {
+            padding: 4px 10px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(99, 102, 241, 0.4);
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .btn-port-select:hover {
+            background: #6366f1;
+            color: #fff;
+        }
+
+        .pos-diag-buttons {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .btn-diag-action {
+            padding: 10px;
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            background: rgba(255, 255, 255, 0.05);
+            color: #f4f4f5;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: all 0.2s;
+        }
+
+        .btn-diag-action:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .btn-diag-action.primary {
+            grid-column: span 2;
+            background: linear-gradient(135deg, #6366f1, #4f46e5);
+            border-color: rgba(99, 102, 241, 0.5);
+            font-size: 13px;
+        }
+
+        .btn-diag-action.danger {
+            color: #fca5a5;
+            border-color: rgba(239, 68, 68, 0.3);
+            background: rgba(239, 68, 68, 0.1);
+        }
+
+        .btn-diag-action.danger:hover {
+            background: rgba(239, 68, 68, 0.2);
+        }
+
+        .pos-log-container {
+            background: #09090b;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+
+        .pos-log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 10px;
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #71717a;
+        }
+
+        .pos-log-clear {
+            background: transparent;
+            border: none;
+            color: #a1a1aa;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .pos-log-clear:hover {
+            color: #fff;
+        }
+
+        .pos-logs-console {
+            height: 100px;
+            overflow-y: auto;
+            padding: 8px 10px;
+            font-family: monospace;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .log-line {
+            line-height: 1.3;
+            word-break: break-all;
+        }
+
+        .log-line.info { color: #60a5fa; }
+        .log-line.success { color: #34d399; }
+        .log-line.warn { color: #fbbf24; }
+        .log-line.error { color: #f87171; }
+
         /* ── MODAL VOUCHER / COMPROBANTE DE PAGO ─────────────── */
         #voucher-card {
             background: #ffffff;
@@ -1382,6 +1698,9 @@
 
             <!-- Top Action Buttons -->
             <div id="top-actions">
+                <button class="action-pill-btn" id="btn-pos-status" onclick="openPosConfigModal()" title="Configuración y Diagnóstico POS Getnet">
+                    <span id="pos-status-icon">🔌</span> <span id="pos-status-label">POS Getnet (COM)</span>
+                </button>
                 <button class="action-pill-btn primary" onclick="openPlansModal()">
                     <span>🏋️</span> Ver Planes
                 </button>
@@ -1595,13 +1914,16 @@
     </div>
 
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
-    <!-- MODAL 4: SIMULADOR TERMINAL DE PAGO POS / CONTACTLESS                  -->
+    <!-- MODAL 4: TERMINAL DE PAGO POS GETNET (INTEGRACIÓN OFICIAL REAL)          -->
     <!-- ═══════════════════════════════════════════════════════════════════════ -->
     <div id="modal-pos-simulator" class="modal-backdrop">
-        <div class="modal-card" style="max-width: 440px; padding: 0; background: transparent; border: none; box-shadow: none;">
+        <div class="modal-card" style="max-width: 450px; padding: 0; background: transparent; border: none; box-shadow: none;">
             <div id="pos-terminal-card">
                 <div class="pos-screen">
-                    <div class="pos-screen-header">FITLIFE POS TERMINAL #01</div>
+                    <div class="pos-screen-header-row">
+                        <span class="pos-screen-header">GETNET POS DIRECT • FITLIFE #01</span>
+                        <span id="pos-live-pill" class="pos-status-chip offline">OFFLINE</span>
+                    </div>
                     <div class="pos-amount" id="pos-screen-total">$0</div>
                     <div class="pos-screen-plan" id="pos-screen-plan-name">Plan Seleccionado</div>
                     <div class="pos-screen-cuotas" id="pos-screen-cuotas-text">Modalidad: 3 Cuotas Sin Interés</div>
@@ -1617,12 +1939,26 @@
                     </div>
                 </div>
 
-                <div class="pos-instruction" id="pos-instruction-text">Acerque su tarjeta o inserte chip</div>
-                <div class="pos-subinstruction">Dispositivo listo para procesar la transacción</div>
+                <div class="pos-instruction" id="pos-instruction-text">Iniciando cobro en terminal POS Getnet...</div>
+                <div class="pos-subinstruction" id="pos-subinstruction-text">Por favor acerque o inserte su tarjeta en el terminal POS físico</div>
 
-                <button class="btn-simulate-tap" id="btn-do-payment" onclick="executeSimulatedPayment()">
-                    <span>📲</span> Simular Acercar Tarjeta / Pagar
-                </button>
+                <!-- Botones y Acciones del POS -->
+                <div id="pos-action-container" style="width: 100%; display: flex; flex-direction: column; gap: 8px;">
+                    <!-- Botón para conectar si no está conectado -->
+                    <button class="btn-pos-connect" id="btn-connect-pos-com" style="display: none;" onclick="requestPosPortAndPay()">
+                        <span>🔌</span> Conectar POS Getnet (Seleccionar Puerto COM)
+                    </button>
+
+                    <!-- Botón para cancelar transacción en el POS -->
+                    <button class="btn-pos-cancel" id="btn-cancel-pos" onclick="cancelGetnetTransaction()">
+                        <span>✖</span> Cancelar Transacción en POS
+                    </button>
+
+                    <!-- Botón secundario para simulación manual de respaldo si el POS no está conectado -->
+                    <button class="btn-pos-demo-link" id="btn-fallback-demo" onclick="executeSimulatedPayment()">
+                        O simular pago sin terminal físico (Modo Demo)
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1690,6 +2026,76 @@
         </div>
     </div>
 
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <!-- MODAL 6: CONFIGURACIÓN Y DIAGNÓSTICO POS GETNET                          -->
+    <!-- ═══════════════════════════════════════════════════════════════════════ -->
+    <div id="modal-pos-config" class="modal-backdrop">
+        <div class="modal-card" style="max-width: 520px;">
+            <div class="modal-header">
+                <div>
+                    <div class="modal-title">⚙️ Terminal POS Getnet</div>
+                    <div class="modal-subtitle">Conexión por Puerto COM / Web Serial y Diagnóstico</div>
+                </div>
+                <button class="modal-close-btn" onclick="closePosConfigModal()">✕</button>
+            </div>
+
+            <!-- Estado Actual del Puerto -->
+            <div class="pos-diag-box">
+                <div class="pos-diag-row">
+                    <span class="pos-diag-label">Estado de Conexión:</span>
+                    <span class="pos-diag-badge" id="diag-conn-status">Desconectado</span>
+                </div>
+                <div class="pos-diag-row">
+                    <span class="pos-diag-label">Puerto COM Activo:</span>
+                    <span class="pos-diag-val" id="diag-active-port">Ninguno</span>
+                </div>
+                <div class="pos-diag-row">
+                    <span class="pos-diag-label">Baud Rate:</span>
+                    <span class="pos-diag-val">115200</span>
+                </div>
+            </div>
+
+            <!-- Puertos detectados en el PC -->
+            <div class="pos-ports-section">
+                <div style="font-size: 12px; font-weight: 700; color: #a1a1aa; margin-bottom: 6px; text-transform: uppercase;">
+                    Puertos COM detectados en este computador:
+                </div>
+                <div id="diag-ports-list" class="diag-ports-list">
+                    <div style="font-size: 12px; color: #71717a; padding: 4px;">Buscando puertos COM...</div>
+                </div>
+            </div>
+
+            <!-- Botones de Acción -->
+            <div class="pos-diag-buttons">
+                <button class="btn-diag-action primary" onclick="connectGetnetSerial()">
+                    <span>🔌</span> Conectar / Seleccionar Puerto COM
+                </button>
+                <button class="btn-diag-action" onclick="testGetnetPoll()">
+                    <span>🔄</span> Test Comunicación (Poll)
+                </button>
+                <button class="btn-diag-action" onclick="requestGetnetLastVoucher()">
+                    <span>📄</span> Consultar Último Voucher
+                </button>
+                <button class="btn-diag-action danger" onclick="disconnectGetnetSerial()">
+                    <span>⏏️</span> Desconectar
+                </button>
+            </div>
+
+            <!-- Consola de Logs del POS -->
+            <div class="pos-log-container">
+                <div class="pos-log-header">
+                    <span>REGISTRO DE COMUNICACIÓN GETNET POS</span>
+                    <button class="pos-log-clear" onclick="clearPosLogs()">Limpiar</button>
+                </div>
+                <div id="pos-logs-console" class="pos-logs-console">
+                    <div class="log-line info">[Sistema] SDK Getnet 1.5.6 cargado. Listo para conectar puerto COM.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Getnet POS SDK -->
+    <script src="getnet.js"></script>
     <!-- WebRTC client -->
     <script src="client.js"></script>
 
@@ -1982,9 +2388,215 @@
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // SIMULADOR TERMINAL POS / CONTACTLESS
+        // GESTOR Y CONTROLADOR TERMINAL POS GETNET (INTEGRACIÓN OFICIAL REAL)
         // ══════════════════════════════════════════════════════════════════════
-        function openPosSimulator() {
+        const posState = {
+            connected: false,
+            port: null,
+            portInfo: null,
+            baudRate: 115200,
+            isCharging: false,
+            activeTransaction: null,
+            availablePorts: []
+        };
+
+        function initGetnetSDK() {
+            if (typeof Getnet === 'undefined') {
+                console.warn("[Getnet POS] SDK no disponible en este momento.");
+                return;
+            }
+
+            Getnet.SetCallback((msg) => {
+                handleGetnetCallback(msg);
+            });
+
+            Getnet.SetLogCallback((log) => {
+                appendPosLog(log, 'info');
+            });
+
+            Getnet.SetTimeErrorCallback((err) => {
+                handleGetnetTimeout(err);
+            });
+
+            // Autoconectar si el puerto ya fue previamente autorizado en este navegador
+            checkAutoConnectPos();
+            // Cargar puertos COM detectados en el sistema desde el backend
+            fetchDetectedComPorts();
+        }
+
+        async function fetchDetectedComPorts() {
+            try {
+                const res = await fetch('/api/pos/ports');
+                const json = await res.json();
+                if (json.code === 0 && json.data) {
+                    posState.availablePorts = json.data.ports || [];
+                    renderDiagPortsList();
+                }
+            } catch (e) {
+                console.warn("Error cargando puertos COM del sistema:", e);
+            }
+        }
+
+        async function checkAutoConnectPos() {
+            if (typeof navigator !== 'undefined' && navigator.serial) {
+                try {
+                    const port = await Getnet.autoConnect(posState.baudRate);
+                    if (port) {
+                        setPosConnected(true, "COM (Guardado)");
+                        appendPosLog("Conectado automáticamente al puerto serial autorizado.", "success");
+                    }
+                } catch (e) {
+                    console.warn("No se pudo autoconectar POS:", e);
+                }
+            }
+        }
+
+        function setPosConnected(connected, portName = "COM") {
+            posState.connected = connected;
+            const btnPill = document.getElementById('btn-pos-status');
+            const statusLabel = document.getElementById('pos-status-label');
+            const livePill = document.getElementById('pos-live-pill');
+            const diagStatus = document.getElementById('diag-conn-status');
+            const diagActivePort = document.getElementById('diag-active-port');
+
+            if (connected) {
+                if (btnPill) { btnPill.className = 'action-pill-btn connected'; }
+                if (statusLabel) { statusLabel.textContent = `POS Conectado (${portName})`; }
+                if (livePill) {
+                    livePill.className = 'pos-status-chip online';
+                    livePill.textContent = `EN LÍNEA (${portName})`;
+                }
+                if (diagStatus) {
+                    diagStatus.className = 'pos-diag-badge online';
+                    diagStatus.textContent = 'CONECTADO';
+                }
+                if (diagActivePort) { diagActivePort.textContent = portName; }
+            } else {
+                if (btnPill) { btnPill.className = 'action-pill-btn'; }
+                if (statusLabel) { statusLabel.textContent = 'POS Desconectado'; }
+                if (livePill) {
+                    livePill.className = 'pos-status-chip offline';
+                    livePill.textContent = 'DESCONECTADO';
+                }
+                if (diagStatus) {
+                    diagStatus.className = 'pos-diag-badge';
+                    diagStatus.textContent = 'DESCONECTADO';
+                }
+                if (diagActivePort) { diagActivePort.textContent = 'Ninguno'; }
+            }
+        }
+
+        async function connectGetnetSerial() {
+            try {
+                appendPosLog("Solicitando selección de puerto COM en el navegador...", "info");
+                const port = await Getnet.connect(null, posState.baudRate);
+                if (port) {
+                    const info = port.getInfo ? port.getInfo() : {};
+                    const portDesc = info.usbVendorId ? `USB:${info.usbVendorId.toString(16)}` : "COM Directo";
+                    posState.port = port;
+                    setPosConnected(true, portDesc);
+                    appendPosLog(`¡Puerto COM conectado exitosamente (${portDesc})!`, "success");
+                    return true;
+                }
+            } catch (err) {
+                appendPosLog(`Error conectando puerto COM: ${err.message || err}`, "error");
+                alert(`Error al conectar puerto COM: ${err.message || err}. Asegúrate de seleccionar el puerto donde conectaste el POS Getnet.`);
+                return false;
+            }
+            return false;
+        }
+
+        async function disconnectGetnetSerial() {
+            try {
+                await Getnet.disconnect();
+                setPosConnected(false);
+                appendPosLog("Puerto COM desconectado.", "warn");
+            } catch (e) {
+                console.error("Error desconectando:", e);
+            }
+        }
+
+        function testGetnetPoll() {
+            if (!Getnet.isConnected()) {
+                alert("Primero debes conectar el terminal POS Getnet por puerto COM.");
+                return;
+            }
+            appendPosLog("Enviando comando Poll (106) al POS Getnet...", "info");
+            Getnet.Poll();
+        }
+
+        function requestGetnetLastVoucher() {
+            if (!Getnet.isConnected()) {
+                alert("Primero debes conectar el terminal POS Getnet por puerto COM.");
+                return;
+            }
+            appendPosLog("Consultando último comprobante (101) al POS Getnet...", "info");
+            Getnet.LastVoucher(false);
+        }
+
+        function cancelGetnetTransaction() {
+            appendPosLog("Cancelando transacción activa en POS Getnet...", "warn");
+            try {
+                if (typeof Getnet !== 'undefined') {
+                    Getnet.CancelSale();
+                }
+            } catch (e) {}
+            const instruction = document.getElementById('pos-instruction-text');
+            if (instruction) instruction.textContent = "Cancelando en el terminal POS...";
+            setTimeout(() => {
+                closePosSimulator();
+            }, 1000);
+        }
+
+        function appendPosLog(text, type = 'info') {
+            const consoleEl = document.getElementById('pos-logs-console');
+            if (!consoleEl) return;
+            const line = document.createElement('div');
+            line.className = `log-line ${type}`;
+            const time = new Date().toLocaleTimeString();
+            line.textContent = `[${time}] ${typeof text === 'object' ? JSON.stringify(text) : text}`;
+            consoleEl.appendChild(line);
+            consoleEl.scrollTop = consoleEl.scrollHeight;
+        }
+
+        function clearPosLogs() {
+            const consoleEl = document.getElementById('pos-logs-console');
+            if (consoleEl) consoleEl.innerHTML = '';
+        }
+
+        function renderDiagPortsList() {
+            const listEl = document.getElementById('diag-ports-list');
+            if (!listEl) return;
+            if (posState.availablePorts.length === 0) {
+                listEl.innerHTML = `<div style="font-size: 12px; color: #71717a; padding: 4px;">No se detectaron puertos seriales activos en el sistema. Conecta el POS por USB.</div>`;
+                return;
+            }
+            listEl.innerHTML = posState.availablePorts.map(p => `
+                <div class="diag-port-item">
+                    <div>
+                        <span class="diag-port-name">${p.port}</span>
+                        <span class="diag-port-desc">${p.description || p.device}</span>
+                    </div>
+                    <button class="btn-port-select" onclick="connectGetnetSerial()">Conectar</button>
+                </div>
+            `).join('');
+        }
+
+        function openPosConfigModal() {
+            fetchDetectedComPorts();
+            const modal = document.getElementById('modal-pos-config');
+            if (modal) modal.classList.add('open');
+        }
+
+        function closePosConfigModal() {
+            const modal = document.getElementById('modal-pos-config');
+            if (modal) modal.classList.remove('open');
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // FLUJO DE COBRO AUTOMÁTICO EN POS GETNET
+        // ══════════════════════════════════════════════════════════════════════
+        async function openPosSimulator() {
             closePaymentMethodsModal();
             closePlansModal();
             closeRutModal();
@@ -1995,8 +2607,12 @@
             const cuotasEl = document.getElementById('pos-screen-cuotas-text');
             const discountTag = document.getElementById('pos-screen-discount-tag');
             const cardGraphic = document.getElementById('pos-card-color');
+            const instruction = document.getElementById('pos-instruction-text');
+            const subinstruction = document.getElementById('pos-subinstruction-text');
+            const btnConnect = document.getElementById('btn-connect-pos-com');
+            const livePill = document.getElementById('pos-live-pill');
 
-            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
+            const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m', nombre: 'Plan Mensual', precio: 34990, precio_santander: 27990 });
             const isSantander = gymState.selectedBank === 'santander';
             const finalAmount = isSantander ? plan.precio_santander : plan.precio;
             const cuotas = gymState.selectedCuotas || 1;
@@ -2024,6 +2640,186 @@
             }
 
             if (modal) modal.classList.add('open');
+
+            // Preparar objeto de transacción actual
+            const ticketNumber = String(Date.now()).slice(-6);
+            posState.activeTransaction = {
+                plan: plan,
+                isSantander: isSantander,
+                amount: finalAmount,
+                originalAmount: plan.precio,
+                discount: isSantander ? (plan.precio - plan.precio_santander) : 0,
+                cuotas: cuotas,
+                bankName: isSantander ? "Banco Santander" : "Transbank / Otros Bancos",
+                ticketNumber: ticketNumber,
+                rut: gymState.client.rut || '12.345.678-5',
+                clientName: gymState.client.nombre || 'Socio FitLife',
+                clientEmail: gymState.client.email || 'cliente@correo.cl'
+            };
+
+            // VERIFICAR ESTADO DEL POS Y ENVIAR COBRO AUTOMÁTICO INMEDIATAMENTE
+            if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
+                if (btnConnect) btnConnect.style.display = 'none';
+                if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
+                if (instruction) instruction.textContent = "Enviando orden de cobro al POS Getnet...";
+                if (subinstruction) subinstruction.textContent = `Monto: $${Number(finalAmount).toLocaleString('es-CL')} • Esperando POS...`;
+                
+                // Disparar venta al POS inmediatamente
+                dispatchGetnetSale(finalAmount, ticketNumber);
+            } else {
+                // Intentar autoconectar si hay puerto serial recordado
+                let autoOk = false;
+                try {
+                    if (typeof Getnet !== 'undefined') {
+                        const port = await Getnet.autoConnect(posState.baudRate);
+                        if (port) {
+                            setPosConnected(true, "COM");
+                            autoOk = true;
+                        }
+                    }
+                } catch (e) {}
+
+                if (autoOk) {
+                    if (btnConnect) btnConnect.style.display = 'none';
+                    if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'PROCESANDO'; }
+                    dispatchGetnetSale(finalAmount, ticketNumber);
+                } else {
+                    // Mostrar botón para conectar puerto COM
+                    if (btnConnect) btnConnect.style.display = 'flex';
+                    if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'COM REQUERIDO'; }
+                    if (instruction) instruction.textContent = "Terminal POS no conectado";
+                    if (subinstruction) subinstruction.textContent = "Selecciona el puerto COM donde conectaste el POS Getnet";
+                }
+            }
+        }
+
+        async function requestPosPortAndPay() {
+            const ok = await connectGetnetSerial();
+            if (ok && posState.activeTransaction) {
+                const btnConnect = document.getElementById('btn-connect-pos-com');
+                if (btnConnect) btnConnect.style.display = 'none';
+                dispatchGetnetSale(posState.activeTransaction.amount, posState.activeTransaction.ticketNumber);
+            }
+        }
+
+        function dispatchGetnetSale(amount, ticketNumber) {
+            posState.isCharging = true;
+            appendPosLog(`>>> Enviando Sale al POS: Monto $${amount} | Ticket ${ticketNumber}`, 'info');
+            const instruction = document.getElementById('pos-instruction-text');
+            const subinstruction = document.getElementById('pos-subinstruction-text');
+
+            if (instruction) instruction.textContent = "Por favor acerque o inserte su tarjeta en el POS Getnet";
+            if (subinstruction) subinstruction.textContent = "Siga las instrucciones en la pantalla del terminal...";
+
+            // Parámetros oficiales Getnet SDK:
+            // Sale(amount, ticketNumber, printOnPos = false, saleType = 0, sendMessage = true, employeeId = 1, timeout = 120)
+            try {
+                Getnet.Sale(amount, ticketNumber, false, 0, true, 1, 120);
+            } catch (err) {
+                console.error("Error al invocar Getnet.Sale:", err);
+                appendPosLog(`Error invocando Getnet.Sale: ${err.message || err}`, 'error');
+            }
+        }
+
+        async function handleGetnetCallback(msg) {
+            appendPosLog(`<<< Respuesta POS: ${JSON.stringify(msg)}`, 'info');
+            const instruction = document.getElementById('pos-instruction-text');
+            const subinstruction = document.getElementById('pos-subinstruction-text');
+            const livePill = document.getElementById('pos-live-pill');
+
+            if (!msg) return;
+
+            // 1. Mensaje de confirmación de recepción / ACK
+            if (msg.Received === true) {
+                appendPosLog("ACK recibido del POS Getnet. Esperando interacción del cliente.", "info");
+                if (instruction) instruction.textContent = "Acerque tarjeta, inserte chip o deslice en el POS";
+                return;
+            }
+
+            // 2. Mensajes intermedios de estado durante la transacción (ej: "ACERQUE TARJETA", "DIGITE PIN", etc.)
+            if (msg.Message) {
+                if (instruction) instruction.textContent = msg.Message;
+                if (subinstruction) subinstruction.textContent = "Terminal POS Getnet en proceso...";
+                return;
+            }
+
+            // 3. Resultado de comando Poll
+            if (msg.Command === 106) {
+                appendPosLog("Poll exitoso: POS Getnet respondiendo correctamente.", "success");
+                alert("¡Terminal POS Getnet conectado y respondiendo con éxito!");
+                return;
+            }
+
+            // 4. Resultado de comando Sale (Venta - Command 100)
+            if (msg.Command === 100 || msg.ResponseCode !== undefined) {
+                posState.isCharging = false;
+                const respCode = Number(msg.ResponseCode);
+
+                if (respCode === 0) {
+                    // ¡TRANSACCIÓN APROBADA EN EL POS!
+                    appendPosLog(`¡PAGO APROBADO EN POS GETNET! Auth: ${msg.AuthorizationCode || 'N/A'}`, 'success');
+                    if (instruction) instruction.textContent = "¡Pago Aprobado con Éxito!";
+                    if (subinstruction) subinstruction.textContent = "Generando comprobante digital...";
+                    if (livePill) { livePill.className = 'pos-status-chip online'; livePill.textContent = 'APROBADO'; }
+
+                    const tx = posState.activeTransaction || {};
+                    const payload = {
+                        plan_id: tx.plan ? tx.plan.id : 'plan_1m',
+                        plan_nombre: tx.plan ? tx.plan.nombre : 'Plan Gimnasio',
+                        banco: tx.bankName || 'Banco Santander',
+                        es_santander: tx.isSantander || false,
+                        cuotas: tx.cuotas || 1,
+                        monto_pagado: msg.Amount ? Number(msg.Amount) : (tx.amount || 27990),
+                        monto_original: tx.originalAmount || tx.amount,
+                        descuento: tx.discount || 0,
+                        rut: tx.rut || '12.345.678-5',
+                        nombre: tx.clientName || 'Socio FitLife',
+                        email: tx.clientEmail || 'cliente@correo.cl',
+                        codigo_autorizacion: msg.AuthorizationCode || `GET-${Math.floor(100000 + Math.random()*900000)}`,
+                        codigo_operacion: msg.OperationNumber || msg.TicketNumber || tx.ticketNumber || `OP-${Math.floor(100000 + Math.random()*900000)}`,
+                        card_number: msg.CardNumber || msg.Pan || '**** **** **** ****',
+                        card_brand: msg.CardBrand || msg.CardType || (tx.isSantander ? 'SANTANDER VISA' : 'TARJETA BANCARIA')
+                    };
+
+                    try {
+                        const res = await fetch('/api/gym/pago/registrar', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const json = await res.json();
+                        setTimeout(() => {
+                            closePosSimulator();
+                            if (json.code === 0 && json.data) {
+                                showVoucher(json.data);
+                            } else {
+                                showVoucher(payload);
+                            }
+                        }, 1200);
+                    } catch (e) {
+                        console.error("Error registrando pago:", e);
+                        closePosSimulator();
+                        showVoucher(payload);
+                    }
+                } else {
+                    // Transacción Rechazada o Cancelada en el POS
+                    const desc = msg.ResponseDescription || msg.Message || "Transacción no autorizada o cancelada en el POS";
+                    appendPosLog(`Transacción rechazada/cancelada: [${respCode}] ${desc}`, 'error');
+                    if (instruction) instruction.textContent = `Cobro Rechazado: ${desc}`;
+                    if (subinstruction) subinstruction.textContent = "Puedes intentar nuevamente o seleccionar otro medio de pago.";
+                    if (livePill) { livePill.className = 'pos-status-chip offline'; livePill.textContent = 'RECHAZADO'; }
+                }
+            }
+        }
+
+        function handleGetnetTimeout(err) {
+            appendPosLog(`Timeout en POS Getnet: ${err}`, 'warn');
+            if (posState.isCharging) {
+                const instruction = document.getElementById('pos-instruction-text');
+                const subinstruction = document.getElementById('pos-subinstruction-text');
+                if (instruction) instruction.textContent = "Tiempo de espera agotado en el POS";
+                if (subinstruction) subinstruction.textContent = "Puedes reintentar acercar la tarjeta o simular el pago en modo demo.";
+            }
         }
 
         function closePosSimulator() {
@@ -2032,13 +2828,8 @@
         }
 
         async function executeSimulatedPayment() {
-            const btn = document.getElementById('btn-do-payment');
             const instruction = document.getElementById('pos-instruction-text');
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = `<span>⏳</span> Procesando con el banco...`;
-            }
-            if (instruction) instruction.textContent = "Procesando pago seguro...";
+            if (instruction) instruction.textContent = "Procesando pago en modo demo...";
 
             const plan = gymState.selectedPlan || (gymState.plans.length > 0 ? gymState.plans[0] : { id: 'plan_1m' });
 
@@ -2059,20 +2850,15 @@
 
                 setTimeout(() => {
                     closePosSimulator();
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = `<span>📲</span> Simular Acercar Tarjeta / Pagar`;
-                    }
                     if (json.code === 0 && json.data) {
                         showVoucher(json.data);
                     }
-                }, 3000);
+                }, 2000);
 
             } catch (e) {
                 console.error("Error en simulación de pago:", e);
                 closePosSimulator();
             }
-        }
 
         let _voucherAutoCloseTimer = null;
         function showVoucher(data) {
@@ -2735,6 +3521,7 @@
         // ─── Inicialización al cargar la página ──────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
             loadGymData();
+            initGetnetSDK();
 
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             if (isMobile) {
