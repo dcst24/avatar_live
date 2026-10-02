@@ -3,6 +3,7 @@ import queue
 from queue import Queue
 from io import BytesIO
 from enum import Enum
+import re
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -36,7 +37,9 @@ class BaseTTS:
 
     def put_msg_txt(self, msg: str, datainfo: dict = {}): 
         if len(msg) > 0:
-            self.msgqueue.put((msg, datainfo))
+            clean_msg = re.sub(r'\b1\s+(mes(?:es)?|a[ñn]o(?:s)?|pago(?:s)?|d[íi]a(?:s)?)\b', r'un \1', msg, flags=re.IGNORECASE)
+            clean_msg = re.sub(r'\(1\s*mes\)', 'un mes', clean_msg, flags=re.IGNORECASE)
+            self.msgqueue.put((clean_msg, datainfo))
 
     def render(self, quit_event):
         process_thread = Thread(target=self.process_tts, args=(quit_event,))

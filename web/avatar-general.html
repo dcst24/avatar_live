@@ -2285,6 +2285,11 @@
         }
 
         function selectPlan(planId) {
+            const isVoucherOpen = document.getElementById('modal-voucher') && document.getElementById('modal-voucher').classList.contains('open');
+            if (isVoucherOpen || (Date.now() - (posState.lastPaidTime || 0) < 10000)) {
+                console.log("[FitLife] Comprobante activo o cobro reciente. No se selecciona nuevo plan.");
+                return;
+            }
             const plan = gymState.plans.find(p => p.id === planId);
             if (!plan) return;
             gymState.selectedPlan = plan;
@@ -2294,7 +2299,8 @@
             openPaymentMethodsModal();
 
             // Locución directa del avatar sin bloquear la navegación
-            const speech = `Excelente elección, ${plan.nombre}. Por favor selecciona tu medio de pago en pantalla.`;
+            const planDisplayName = (plan.nombre || '').replace(/\b1\s*mes\b/gi, 'un mes').replace(/\(1\s*mes\)/gi, 'un mes');
+            const speech = `Excelente elección, ${planDisplayName}. Por favor selecciona tu medio de pago en pantalla.`;
             queueAvatarBubble(speech);
             sendEchoSpeech(speech);
         }
@@ -2303,7 +2309,8 @@
             const modal = document.getElementById('modal-payment-methods');
             const subtitle = document.getElementById('payment-modal-subtitle');
             if (gymState.selectedPlan && subtitle) {
-                subtitle.textContent = `Pagando ${gymState.selectedPlan.nombre}`;
+                const planName = (gymState.selectedPlan.nombre || '').replace(/\b1\s*mes\b/gi, 'un mes').replace(/\(1\s*mes\)/gi, 'un mes');
+                subtitle.textContent = `Pagando ${planName}`;
             }
             if (modal) modal.classList.add('open');
         }
@@ -2314,12 +2321,18 @@
         }
 
         function selectPaymentBank(bankId) {
+            const isVoucherOpen = document.getElementById('modal-voucher') && document.getElementById('modal-voucher').classList.contains('open');
+            if (isVoucherOpen || (Date.now() - (posState.lastPaidTime || 0) < 10000)) {
+                console.log("[FitLife] Comprobante activo o cobro reciente. No se selecciona banco.");
+                return;
+            }
             gymState.selectedBank = bankId;
             closePaymentMethodsModal();
 
             const isSantander = bankId === 'santander';
             const bankName = isSantander ? "Banco Santander" : "tu tarjeta";
-            const planName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "tu plan";
+            const rawPlanName = gymState.selectedPlan ? gymState.selectedPlan.nombre : "tu plan";
+            const planName = rawPlanName.replace(/\b1\s*mes\b/gi, 'un mes').replace(/\(1\s*mes\)/gi, 'un mes');
 
             // Abrir el terminal POS directamente para iniciar el cobro
             openPosSimulator();
@@ -2617,8 +2630,8 @@
         // ══════════════════════════════════════════════════════════════════════
         async function openPosSimulator() {
             const isVoucherOpen = document.getElementById('modal-voucher') && document.getElementById('modal-voucher').classList.contains('open');
-            if (isVoucherOpen) {
-                console.log("[Getnet POS] Comprobante en pantalla. No se reabre terminal.");
+            if (isVoucherOpen || (Date.now() - (posState.lastPaidTime || 0) < 10000)) {
+                console.log("[Getnet POS] Comprobante en pantalla o cobro reciente. No se reabre terminal.");
                 return;
             }
 
@@ -3036,19 +3049,19 @@
                 }
                 if (secondsLeft <= 0) {
                     clearInterval(_voucherCountdownInterval);
-                    closeVoucherModal();
+                    closeVoucherModal(true);
                 }
             }, 1000);
 
             clearTimeout(_voucherAutoCloseTimer);
             _voucherAutoCloseTimer = setTimeout(() => {
-                closeVoucherModal();
+                closeVoucherModal(true);
             }, 10000);
 
-            const confirmationSpeech = `¡Tu pago ha sido aprobado exitosamente en el POS Getnet! Tu plan ya está activo y hemos enviado el comprobante a tu correo. ¿Deseas algo más en lo que pueda ayudarte?`;
+            const confirmationSpeech = `¡Pago aprobado! ¿Necesitas algo más?`;
             
-            // Bloquear input de voz SOLO durante la locución del mensaje de confirmación
-            const speechDurationMs = Math.max(3500, confirmationSpeech.length * 75);
+            // Bloquear input de voz SOLO durante la locución de la pregunta (~1.8s)
+            const speechDurationMs = Math.max(1800, confirmationSpeech.length * 65);
             _disableSpeechInputUntil = Date.now() + speechDurationMs;
             _avatarSpeakingUntil = Date.now() + speechDurationMs;
 
@@ -3056,7 +3069,7 @@
             sendEchoSpeech(confirmationSpeech);
         }
 
-        function closeVoucherModal() {
+        function closeVoucherModal(shouldSleep = true) {
             clearTimeout(_voucherAutoCloseTimer);
             clearInterval(_voucherCountdownInterval);
             const closeBtn = document.querySelector('.voucher-btn-close');
@@ -3064,11 +3077,15 @@
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.remove('open');
 
-            // Reanudar escucha inmediatamente si el avatar ya terminó de hablar
-            if (Date.now() >= _avatarSpeakingUntil) {
-                _disableSpeechInputUntil = 0;
-                if (!isListening && isConnected && !isSpeaking) {
-                    startAlwaysOnListening();
+            if (shouldSleep) {
+                sleepModel();
+            } else {
+                // Reanudar escucha si el avatar ya terminó de hablar
+                if (Date.now() >= _avatarSpeakingUntil) {
+                    _disableSpeechInputUntil = 0;
+                    if (!isListening && isConnected && !isSpeaking) {
+                        startAlwaysOnListening();
+                    }
                 }
             }
         }
@@ -3124,8 +3141,12 @@
 
         async function sendEchoSpeech(text) {
             if (!text) return;
+            const normalizedText = text
+                .replace(/\b1\s*meses\b/gi, 'un mes')
+                .replace(/\b1\s*mes\b/gi, 'un mes')
+                .replace(/\(1\s*mes\)/gi, 'un mes');
             isSpeaking = true;
-            const estMs = Math.min(4500, Math.max(1800, text.length * 65));
+            const estMs = Math.min(4500, Math.max(1800, normalizedText.length * 65));
             _avatarSpeakingUntil = Date.now() + estMs;
             stopAlwaysOnListening();
             setState('speaking', 'Hablando…');
@@ -3136,7 +3157,7 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        text,
+                        text: normalizedText,
                         type: 'echo',
                         sessionid: String(sessionid)
                     })
@@ -3156,7 +3177,7 @@
             closePlansModal();
             closePaymentMethodsModal();
             closePosSimulator();
-            closeVoucherModal();
+            closeVoucherModal(false);
             setState('ready', 'Esperando activación…');
             addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
         }
@@ -3507,7 +3528,7 @@
             const clean = text.toLowerCase().trim();
             console.log("[FitLife User Speech]:", clean);
 
-            // 1. Detección de agradecimiento o despedida (cerrar modales y responder cordialmente sin desconectarse)
+            // 1. Detección de agradecimiento o despedida
             const farewellWords = [
                 'gracias', 'muchas gracias', 'no gracias', 'nada mas', 'nada más', 
                 'chao', 'adios', 'adiós', 'eso es todo', 'eso seria todo', 'eso sería todo', 
@@ -3515,13 +3536,17 @@
                 'estoy listo', 'todo bien', 'todo claro', 'ninguna duda'
             ];
             if (farewellWords.some(w => clean === w || clean.startsWith(w + ' '))) {
-                closeVoucherModal();
+                closeVoucherModal(false);
                 closePaymentMethodsModal();
                 closePosSimulator();
                 closePlansModal();
                 closeRutModal();
-                wakeUpModel();
-                sendToLLM(text);
+                const byeText = "¡De nada! Que disfrutes tu entrenamiento en FitLife. ¡Hasta pronto!";
+                queueAvatarBubble(byeText);
+                sendEchoSpeech(byeText);
+                setTimeout(() => {
+                    sleepModel();
+                }, 2500);
                 return;
             }
 

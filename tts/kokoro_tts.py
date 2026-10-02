@@ -40,7 +40,12 @@ def normalize_text_for_tts(text: str) -> str:
     text = re.sub(r'(?:CLP|clp)\s*(\d[\d\.]*)', r'\1 pesos', text)
     text = re.sub(r'(\d[\d\.]*)\s*(?:CLP|clp)', r'\1 pesos', text)
 
-    # 2b. Reemplazo fonético de unidades técnicas y medidas para Kokoro TTS:
+    # 2b. Normalización fonética para '1 mes' -> 'un mes', '1 año' -> 'un año', '1 pago' -> 'un pago'
+    text = re.sub(r'\b1\s+(mes(?:es)?|a[ñn]o(?:s)?|pago(?:s)?|d[íi]a(?:s)?)\b', r'un \1', text, flags=re.IGNORECASE)
+    text = re.sub(r'\(1\s*mes\)', 'un mes', text, flags=re.IGNORECASE)
+    text = re.sub(r'\b1\s*m\b', 'un mes', text, flags=re.IGNORECASE)
+
+    # 2c. Reemplazo fonético de unidades técnicas y medidas para Kokoro TTS:
     # Velocidades (ej: 5” /seg. -> 5 pulgadas por segundo, 300mm/seg -> 300 milímetros por segundo)
     text = re.sub(r'(\d+)\s*(?:”|"|\'\')\s*/\s*seg\.?', r'\1 pulgadas por segundo', text)
     text = re.sub(r'(\d+)\s*mm\s*/\s*seg\.?', r'\1 milímetros por segundo', text)
