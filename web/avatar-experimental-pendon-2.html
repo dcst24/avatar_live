@@ -1992,7 +1992,7 @@
                     <span>Comprobante enviado a: <strong id="v-email">juan.perez@gmail.com</strong></span>
                 </div>
 
-                <button class="voucher-btn-close" onclick="closeVoucherModal()">Finalizar y Continuar</button>
+                <button class="voucher-btn-close" onclick="handleVoucherCompletion()">Finalizar y Continuar</button>
             </div>
         </div>
     </div>
@@ -3035,6 +3035,8 @@
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.add('open');
 
+            _isFinishingVoucher = false;
+
             // Countdown timer en el botón de cerrar
             let secondsLeft = 10;
             const closeBtn = document.querySelector('.voucher-btn-close');
@@ -3048,13 +3050,13 @@
                 }
                 if (secondsLeft <= 0) {
                     clearInterval(_voucherCountdownInterval);
-                    closeVoucherModal(true);
+                    handleVoucherCompletion();
                 }
             }, 1000);
 
             clearTimeout(_voucherAutoCloseTimer);
             _voucherAutoCloseTimer = setTimeout(() => {
-                closeVoucherModal(true);
+                handleVoucherCompletion();
             }, 10000);
 
             const confirmationSpeech = `¡Pago aprobado! ¿Necesitas algo más?`;
@@ -3068,25 +3070,42 @@
             sendEchoSpeech(confirmationSpeech);
         }
 
-        function closeVoucherModal(shouldSleep = true) {
+        let _isFinishingVoucher = false;
+
+        function handleVoucherCompletion() {
+            if (_isFinishingVoucher) return;
+            _isFinishingVoucher = true;
+
             clearTimeout(_voucherAutoCloseTimer);
             clearInterval(_voucherCountdownInterval);
+            _voucherAutoCloseTimer = null;
+            _voucherCountdownInterval = null;
+
+            closeVoucherModal();
+            closePaymentMethodsModal();
+            closePosSimulator();
+            closePlansModal();
+            closeRutModal();
+
+            const byeText = "Si necesitas algo más, no dudes en llamarme.";
+            queueAvatarBubble(byeText);
+            sendEchoSpeech(byeText);
+
+            setTimeout(() => {
+                sleepModel();
+                _isFinishingVoucher = false;
+            }, 3000);
+        }
+
+        function closeVoucherModal() {
+            clearTimeout(_voucherAutoCloseTimer);
+            clearInterval(_voucherCountdownInterval);
+            _voucherAutoCloseTimer = null;
+            _voucherCountdownInterval = null;
             const closeBtn = document.querySelector('.voucher-btn-close');
             if (closeBtn) closeBtn.textContent = 'Finalizar y Continuar';
             const modal = document.getElementById('modal-voucher');
             if (modal) modal.classList.remove('open');
-
-            if (shouldSleep) {
-                sleepModel(true);
-            } else {
-                // Reanudar escucha si el avatar ya terminó de hablar
-                if (Date.now() >= _avatarSpeakingUntil) {
-                    _disableSpeechInputUntil = 0;
-                    if (!isListening && isConnected && !isSpeaking) {
-                        startAlwaysOnListening();
-                    }
-                }
-            }
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -3166,7 +3185,7 @@
             }
         }
 
-        function sleepModel(speakFarewell = false) {
+        function sleepModel() {
             console.log("[FitLife] Durmiendo el avatar.");
             _conversationAwake = false;
             clearTimeout(_inactivityTimeoutId);
@@ -3176,12 +3195,7 @@
             closePlansModal();
             closePaymentMethodsModal();
             closePosSimulator();
-            closeVoucherModal(false);
-            if (speakFarewell) {
-                const sleepMsg = "Si necesitas algo más, no dudes en llamarme.";
-                queueAvatarBubble(sleepMsg);
-                sendEchoSpeech(sleepMsg);
-            }
+            closeVoucherModal();
             setState('ready', 'Esperando activación…');
             addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
         }
@@ -3538,17 +3552,7 @@
                 'estoy listo', 'todo bien', 'todo claro', 'ninguna duda'
             ];
             if (farewellWords.some(w => clean === w || clean.startsWith(w + ' '))) {
-                closeVoucherModal(false);
-                closePaymentMethodsModal();
-                closePosSimulator();
-                closePlansModal();
-                closeRutModal();
-                const byeText = "Si necesitas algo más, no dudes en llamarme.";
-                queueAvatarBubble(byeText);
-                sendEchoSpeech(byeText);
-                setTimeout(() => {
-                    sleepModel(false);
-                }, 2500);
+                handleVoucherCompletion();
                 return;
             }
 
