@@ -2757,7 +2757,7 @@
             const subinstruction = document.getElementById('pos-subinstruction-text');
             const livePill = document.getElementById('pos-live-pill');
 
-            // 1. ACK del POS (Received: true)
+            // 1. ACK de transporte del POS (Received: true)
             if (data.Received === true) {
                 appendPosLog("ACK recibido del POS Getnet. Esperando tarjeta/PIN del cliente...", "info");
                 if (instruction) instruction.textContent = "Acerque tarjeta, inserte chip o digite PIN en el POS";
@@ -2784,7 +2784,7 @@
 
             // 4. Mensajes de estado intermedios o iniciales del POS (sin ResponseCode definitivo)
             // (ej: "INSERTE TARJETA", "DIGITE CLAVE", "PROCESANDO...", etc.)
-            // NUNCA deben tratarse como resultado final ni marcar rechazo.
+            // NUNCA deben tratarse como resultado final ni marcar rechazo ni aprobación.
             if (data.ResponseCode === undefined || data.ResponseCode === null || data.ResponseCode === '') {
                 const statusMsg = data.ResponseMessage || data.Message || data.ResponseDescription;
                 if (statusMsg) {
@@ -2796,10 +2796,9 @@
                 return;
             }
 
-            // 5. De aquí en adelante tenemos un ResponseCode DEFINITIVO del POS
+            // 5. De aquí en adelante tenemos un ResponseCode numérico
             const rcRaw = data.ResponseCode;
             const respCode = Number(rcRaw);
-            const isApproved = respCode === 0;
 
             // Si el front canceló explícitamente desde la web:
             if (posState.isCancelling) {
@@ -2809,6 +2808,21 @@
                 closePosSimulator();
                 return;
             }
+
+            // 6. DETECCIÓN DE ACK INICIAL vs VENTA APROBADA FINAL:
+            // Al recibir la orden de venta, el POS emite un ResponseCode 0 confirmando la recepción del comando,
+            // pero AÚN NO CONTIENE datos de tarjeta ni código de autorización bancaria (AuthorizationCode / Last4Digits / etc.).
+            // Si tiene RC:0 pero carece de estos datos, es únicamente el inicio del cobro. NO debe abrir el voucher.
+            const hasCardOrAuth = !!(data.AuthorizationCode || data.Last4Digits || data.CardBrand || data.CardType || data.SharesNumber !== undefined || data.AccountingDate || data.Pan || data.CardNumber);
+            if (respCode === 0 && !hasCardOrAuth) {
+                appendPosLog(`POS Getnet listo para cobro: ${data.ResponseMessage || 'Esperando tarjeta'}`, "info");
+                if (instruction) instruction.textContent = data.ResponseMessage || "Acerque tarjeta, inserte chip o digite PIN en el POS";
+                if (subinstruction) subinstruction.textContent = "Siga las instrucciones en la pantalla del terminal...";
+                if (livePill) { livePill.className = 'pos-status-chip busy'; livePill.textContent = 'EN PROCESO'; }
+                return;
+            }
+
+            const isApproved = (respCode === 0 && hasCardOrAuth);
 
             // Si no estamos en cobro activo:
             if (!posState.isCharging) {
