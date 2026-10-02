@@ -3078,7 +3078,7 @@
             if (modal) modal.classList.remove('open');
 
             if (shouldSleep) {
-                sleepModel();
+                sleepModel(true);
             } else {
                 // Reanudar escucha si el avatar ya terminó de hablar
                 if (Date.now() >= _avatarSpeakingUntil) {
@@ -3167,7 +3167,7 @@
             }
         }
 
-        function sleepModel() {
+        function sleepModel(speakFarewell = false) {
             console.log("[FitLife] Durmiendo el avatar.");
             _conversationAwake = false;
             clearTimeout(_inactivityTimeoutId);
@@ -3178,6 +3178,11 @@
             closePaymentMethodsModal();
             closePosSimulator();
             closeVoucherModal(false);
+            if (speakFarewell) {
+                const sleepMsg = "Si necesitas algo más, no dudes en llamarme.";
+                queueAvatarBubble(sleepMsg);
+                sendEchoSpeech(sleepMsg);
+            }
             setState('ready', 'Esperando activación…');
             addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
         }
@@ -3541,11 +3546,11 @@
                 closePosSimulator();
                 closePlansModal();
                 closeRutModal();
-                const byeText = "¡De nada! Que disfrutes tu entrenamiento en FitLife. ¡Hasta pronto!";
+                const byeText = "Si necesitas algo más, no dudes en llamarme.";
                 queueAvatarBubble(byeText);
                 sendEchoSpeech(byeText);
                 setTimeout(() => {
-                    sleepModel();
+                    sleepModel(false);
                 }, 2500);
                 return;
             }
