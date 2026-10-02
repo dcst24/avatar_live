@@ -2124,7 +2124,6 @@
                     gymState.plans = json.data.planes || [];
                     gymState.banks = json.data.bancos || [];
                     renderPlansGrid();
-                    updateCuotasDisplay();
                     console.log('[FitLife] Datos cargados con éxito:', gymState.plans.length, 'planes');
                 }
             } catch (e) {
@@ -2132,6 +2131,9 @@
             }
         }
 
+        
+        function updateCuotasDisplay() {}
+        function selectCuotas(n) { if (n) gymState.selectedCuotas = n; }
         function renderPlansGrid() {
             const container = document.getElementById('plans-container');
             if (!container) return;
@@ -3545,11 +3547,7 @@
             // 4. Intención de selección de Plan específico por voz (prioridad antes de abrir catálogo general)
             const planSelectedByVoice = detectPlanFromSpeech(clean);
             if (planSelectedByVoice) {
-                gymState.selectedPlan = planSelectedByVoice;
-                closePlansModal();
-                updateCuotasDisplay();
-                wakeUpModel();
-                sendToLLM(text);
+                selectPlan(planSelectedByVoice.id);
                 return;
             }
 
@@ -3561,21 +3559,16 @@
                 return;
             }
 
-            // 6. Detección precisa de Cuotas y/o Banco
-            const detectedCuotas = detectCuotasFromSpeech(clean);
+            // 6. Detección precisa de Banco o Cuotas por voz
             const detectedBank = detectBankFromSpeech(clean);
-
-            if (detectedCuotas !== null || detectedBank !== null) {
-                if (detectedCuotas !== null) {
-                    selectCuotas(detectedCuotas);
-                }
-                if (detectedBank !== null) {
-                    selectPaymentBank(detectedBank);
-                    return;
-                }
-                wakeUpModel();
-                sendToLLM(text);
+            if (detectedBank !== null) {
+                selectPaymentBank(detectedBank);
                 return;
+            }
+
+            const detectedCuotas = detectCuotasFromSpeech(clean);
+            if (detectedCuotas !== null) {
+                gymState.selectedCuotas = detectedCuotas;
             }
 
             wakeUpModel();
