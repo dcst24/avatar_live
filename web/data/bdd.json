@@ -268,6 +268,67 @@
             "x": 18,
             "y": 25
           }
+        },
+        {
+          "sku": "PA-TEC-00009",
+          "nombre": "Samsung Galaxy A15 128GB Negro Liberado",
+          "marca": "Samsung",
+          "categoria": "Smartphones",
+          "descripcion": "Smartphone accesible con pantalla Super AMOLED de 6.5 pulgadas a 90Hz, camara triple de 50MP y bateria de 5000mAh. Liberado para cualquier compania.",
+          "precio": 99990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.5,
+          "tags_recomendacion": [
+            "economico",
+            "samsung",
+            "gama de entrada",
+            "buena bateria"
+          ],
+          "codigo_barra": "780100100009",
+          "articulo": "El",
+          "pasillo": "Pasillo T-01 - Smartphones",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Tecno",
+            "pasillo": "T-01",
+            "x": 18,
+            "y": 25
+          }
+        },
+        {
+          "sku": "PA-TEC-00010",
+          "nombre": "iPhone 16 Pro Max 1TB Titanio Desierto Liberado",
+          "marca": "Apple",
+          "categoria": "Smartphones",
+          "descripcion": "Version tope de linea con 1TB de almacenamiento, chip A18 Pro, cuerpo de titanio y camaras profesionales. Modelo de altisima demanda.",
+          "precio": 1799990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "apple",
+            "gama alta",
+            "tope de gama",
+            "mucho almacenamiento",
+            "premium"
+          ],
+          "codigo_barra": "780100100010",
+          "articulo": "El",
+          "pasillo": "Pasillo T-01 - Smartphones",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Tecno",
+            "pasillo": "T-01",
+            "x": 18,
+            "y": 25
+          }
         }
       ]
     },
@@ -464,6 +525,37 @@
             "x": 32,
             "y": 25
           }
+        },
+        {
+          "sku": "PA-TV-00007",
+          "nombre": "LG OLED evo G4 77 pulgadas 4K Smart TV con IA",
+          "marca": "LG",
+          "categoria": "Televisores",
+          "descripcion": "Televisor premium con panel OLED evo, procesador alpha 11 con inteligencia artificial, brillo superior y diseno Gallery para colgar al muro.",
+          "precio": 3499990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "lg",
+            "oled",
+            "gama alta",
+            "pantalla gigante",
+            "cine en casa"
+          ],
+          "codigo_barra": "780100200007",
+          "articulo": "El",
+          "pasillo": "Pasillo T-02 - Televisores y Smart TV",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Tecno",
+            "pasillo": "T-02",
+            "x": 18,
+            "y": 35
+          }
         }
       ]
     },
@@ -618,6 +710,38 @@
             "apple pencil"
           ],
           "codigo_barra": "780160100005",
+          "articulo": "El",
+          "pasillo": "Pasillo T-03 - Computacion y Tablets",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Tecno",
+            "pasillo": "T-03",
+            "x": 18,
+            "y": 45
+          }
+        },
+        {
+          "sku": "PA-COM-00006",
+          "nombre": "MacBook Pro 16 pulgadas M3 Max 36GB 1TB Negro Espacial",
+          "marca": "Apple",
+          "categoria": "Notebooks",
+          "descripcion": "El notebook mas potente de Apple para profesionales exigentes, edicion de video 8K, diseno 3D y autonomia de hasta 22 horas.",
+          "precio": 3899990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 5.0,
+          "tags_recomendacion": [
+            "apple",
+            "macbook",
+            "m3 max",
+            "profesional",
+            "premium",
+            "edicion"
+          ],
+          "codigo_barra": "780160100006",
           "articulo": "El",
           "pasillo": "Pasillo T-03 - Computacion y Tablets",
           "piso": 3,
@@ -924,6 +1048,38 @@
             "x": 32,
             "y": 45
           }
+        },
+        {
+          "sku": "PA-AUD-00010",
+          "nombre": "Consola PlayStation 5 Pro 2TB Blanco",
+          "marca": "Sony",
+          "categoria": "Consolas",
+          "descripcion": "Consola de ultima generacion con GPU mejorada, trazado de rayos avanzado y tecnologia PSSR para jugar a 4K 60fps constantes.",
+          "precio": 899990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "sony",
+            "playstation",
+            "ps5 pro",
+            "consola",
+            "gamer",
+            "videojuegos"
+          ],
+          "codigo_barra": "780100300010",
+          "articulo": "La",
+          "pasillo": "Pasillo T-04 - Audio, Gaming y Smartwatches",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Tecno",
+            "pasillo": "T-04",
+            "x": 18,
+            "y": 55
+          }
         }
       ]
     },
@@ -1153,6 +1309,37 @@
             "x": 72,
             "y": 30
           }
+        },
+        {
+          "sku": "PA-PER-00008",
+          "nombre": "Perfume Mujer Chanel N°5 Eau de Parfum 100ml",
+          "marca": "Chanel",
+          "categoria": "Perfumes Mujer",
+          "descripcion": "La fragancia clasica por excelencia. Notas de aldehidos, jazmin de Grasse, rosa de mayo y sandalo. Elegancia y sofisticacion eterna.",
+          "precio": 189990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.8,
+          "tags_recomendacion": [
+            "chanel",
+            "clasico",
+            "elegante",
+            "floral",
+            "regalo mujer"
+          ],
+          "codigo_barra": "780100400008",
+          "articulo": "El",
+          "pasillo": "Pasillo B-01 - Perfumeria Mujer",
+          "piso": 1,
+          "posicion_mapa": {
+            "piso": 1,
+            "sector": "Belleza",
+            "pasillo": "B-01",
+            "x": 25,
+            "y": 30
+          }
         }
       ]
     },
@@ -1349,6 +1536,38 @@
             "pasillo": "B-02",
             "x": 78,
             "y": 30
+          }
+        },
+        {
+          "sku": "PA-PER-00015",
+          "nombre": "Perfume Hombre Creed Aventus Eau de Parfum 100ml",
+          "marca": "Creed",
+          "categoria": "Perfumes Hombre",
+          "descripcion": "Fragancia de perfumeria de nicho, aclamada mundialmente por sus notas de piña, bergamota, abedul y ambar gris. Potencia y masculinidad.",
+          "precio": 349990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "creed",
+            "aventus",
+            "nicho",
+            "lujo",
+            "amaderado",
+            "exclusivo"
+          ],
+          "codigo_barra": "780100400015",
+          "articulo": "El",
+          "pasillo": "Pasillo B-02 - Perfumeria Hombre",
+          "piso": 1,
+          "posicion_mapa": {
+            "piso": 1,
+            "sector": "Belleza",
+            "pasillo": "B-02",
+            "x": 25,
+            "y": 45
           }
         }
       ]
@@ -1663,6 +1882,38 @@
             "x": 18,
             "y": 28
           }
+        },
+        {
+          "sku": "PA-ZAP-00009",
+          "nombre": "Zapatillas Nike Air Jordan 1 Retro High OG Chicago",
+          "marca": "Nike",
+          "categoria": "Zapatillas",
+          "descripcion": "La silueta iconica de Michael Jordan en su colorway original Chicago. Confeccionada en cuero premium. Modelo de coleccion agotado en tiendas fisicas.",
+          "precio": 179990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 5.0,
+          "tags_recomendacion": [
+            "nike",
+            "jordan",
+            "retro",
+            "urbanas",
+            "coleccion",
+            "clasico"
+          ],
+          "codigo_barra": "780100500009",
+          "articulo": "Las",
+          "pasillo": "Pasillo D-06 - Zapatillas Deportivas y Urbanas",
+          "piso": 1,
+          "posicion_mapa": {
+            "piso": 1,
+            "sector": "Deportes",
+            "pasillo": "D-06",
+            "x": 75,
+            "y": 30
+          }
         }
       ]
     },
@@ -1902,6 +2153,37 @@
             "x": 65,
             "y": 20
           }
+        },
+        {
+          "sku": "PA-ROP-00007",
+          "nombre": "Chaqueta Biker Cuero Genuino Mujer Mango Negra",
+          "marca": "Mango",
+          "categoria": "Chaquetas",
+          "descripcion": "Chaqueta de cuero genuino ovino, corte regular biker con cierres metalicos y forro interior suave. Estilo atemporal y urbano.",
+          "precio": 149990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.8,
+          "tags_recomendacion": [
+            "mango",
+            "cuero",
+            "chaqueta",
+            "moda",
+            "biker"
+          ],
+          "codigo_barra": "780100600007",
+          "articulo": "La",
+          "pasillo": "Pasillo M-01 - Moda Mujer",
+          "piso": 2,
+          "posicion_mapa": {
+            "piso": 2,
+            "sector": "Moda",
+            "pasillo": "M-01",
+            "x": 50,
+            "y": 25
+          }
         }
       ]
     },
@@ -2138,6 +2420,37 @@
             "x": 75,
             "y": 20
           }
+        },
+        {
+          "sku": "PA-ROP-00013",
+          "nombre": "Parka The North Face McMurdo Down 550 Negro",
+          "marca": "The North Face",
+          "categoria": "Parkas",
+          "descripcion": "Parka insulada con relleno de plumas 550 cuin y membrana impermeable DryVent. Disenada para climas extremos y frio polar.",
+          "precio": 329990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "the north face",
+            "parka",
+            "pluma",
+            "invierno",
+            "outdoor"
+          ],
+          "codigo_barra": "780100600013",
+          "articulo": "La",
+          "pasillo": "Pasillo M-02 - Moda Hombre",
+          "piso": 2,
+          "posicion_mapa": {
+            "piso": 2,
+            "sector": "Moda",
+            "pasillo": "M-02",
+            "x": 50,
+            "y": 45
+          }
         }
       ]
     },
@@ -2263,6 +2576,37 @@
             "pasillo": "C-01",
             "x": 55,
             "y": 35
+          }
+        },
+        {
+          "sku": "PA-CAL-00004",
+          "nombre": "Botas Caña Alta Cuero Gacel Negra",
+          "marca": "Gacel",
+          "categoria": "Botas",
+          "descripcion": "Bota caña alta de cuero vacuno liso con taco medio comodo de 5cm y cierre lateral completo. Elegancia para otono e invierno.",
+          "precio": 139990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.7,
+          "tags_recomendacion": [
+            "gacel",
+            "botas",
+            "cuero",
+            "invierno",
+            "elegante"
+          ],
+          "codigo_barra": "780100700004",
+          "articulo": "Las",
+          "pasillo": "Pasillo C-01 - Calzado Mujer",
+          "piso": 2,
+          "posicion_mapa": {
+            "piso": 2,
+            "sector": "Calzado",
+            "pasillo": "C-01",
+            "x": 50,
+            "y": 65
           }
         }
       ]
@@ -2550,6 +2894,37 @@
             "x": 20,
             "y": 20
           }
+        },
+        {
+          "sku": "PA-ELE-00010",
+          "nombre": "Cafetera Automatica DeLonghi Magnifica S Negra",
+          "marca": "DeLonghi",
+          "categoria": "Cafeteras",
+          "descripcion": "Cafetera superautomatica de grano a taza con molinillo conico integrado, sistema de espuma de leche tradicional y presion de 15 bar.",
+          "precio": 549990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "delonghi",
+            "cafetera",
+            "grano",
+            "espresso",
+            "premium"
+          ],
+          "codigo_barra": "780100800010",
+          "articulo": "La",
+          "pasillo": "Pasillo H-12 - Pequenos Electrodomesticos",
+          "piso": 3,
+          "posicion_mapa": {
+            "piso": 3,
+            "sector": "Electrohogar",
+            "pasillo": "H-12",
+            "x": 80,
+            "y": 40
+          }
         }
       ]
     },
@@ -2654,6 +3029,38 @@
             "pasillo": "DH-01",
             "x": 75,
             "y": 25
+          }
+        },
+        {
+          "sku": "PA-DEC-00004",
+          "nombre": "Plumon Plumon Ganso Siberiano King Rosen Blanco",
+          "marca": "Rosen",
+          "categoria": "Ropa de Cama",
+          "descripcion": "Plumon termico relleno 100% plumon de ganso blanco siberiano con funda de algodon percal de 300 hilos. Aislacion termica de lujo.",
+          "precio": 299990,
+          "en_oferta": false,
+          "precio_oferta": null,
+          "descuento_pct": 0,
+          "stock": 0,
+          "rating": 4.9,
+          "tags_recomendacion": [
+            "rosen",
+            "plumon",
+            "ganso",
+            "cama king",
+            "descanso",
+            "lujo"
+          ],
+          "codigo_barra": "780100900004",
+          "articulo": "El",
+          "pasillo": "Pasillo DH-01 - Ropa de Cama y Almohadas",
+          "piso": 2,
+          "posicion_mapa": {
+            "piso": 2,
+            "sector": "Decohogar",
+            "pasillo": "DH-01",
+            "x": 75,
+            "y": 40
           }
         }
       ]

@@ -306,10 +306,53 @@ async def get_producto_barcode(request):
         return json_error(str(e))
 
 
+from server.pos_getnet import pos_manager
+
+async def pos_status(request):
+    """Obtener estado del terminal POS Getnet"""
+    return json_ok(data=pos_manager.get_status())
+
+async def pos_sale(request):
+    """Iniciar una transacción de venta en el POS Getnet"""
+    try:
+        body = await request.json()
+        amount = int(body.get('amount', 0))
+        if amount <= 0:
+            return json_error("Monto inválido para cobro")
+        ticket = body.get('ticket')
+        timeout = int(body.get('timeout', 180))
+        result = await pos_manager.execute_sale(amount, ticket, timeout)
+        return json_ok(data=result)
+    except Exception as e:
+        logger.exception("Error en pos_sale:")
+        return json_error(str(e))
+
+async def pos_cancel(request):
+    """Cancelar la transacción activa en el POS Getnet"""
+    try:
+        result = await pos_manager.cancel_sale()
+        return json_ok(data=result)
+    except Exception as e:
+        logger.exception("Error en pos_cancel:")
+        return json_error(str(e))
+
+async def pos_connect(request):
+    """Forzar conexión a un puerto serial específico"""
+    try:
+        body = await request.json()
+        port = body.get('port')
+        success = pos_manager.connect_port(port)
+        return json_ok(data={"success": success, "status": pos_manager.get_status()})
+    except Exception as e:
+        logger.exception("Error en pos_connect:")
+        return json_error(str(e))
+
+
 # ─── 路由注册 ──────────────────────────────────────────────────────────────
 
 def setup_routes(app):
     """注册所有路由到 aiohttp app"""
+    pos_manager.start()
     app.router.add_post("/human", human)
     app.router.add_post("/humanaudio", humanaudio)
     app.router.add_post("/set_audiotype", set_audiotype)
@@ -319,6 +362,10 @@ def setup_routes(app):
     app.router.add_post("/clear_history", clear_history)
     app.router.add_get("/api/productos", get_productos)
     app.router.add_get("/api/producto/barcode/{codigo}", get_producto_barcode)
+    app.router.add_get("/api/pos/status", pos_status)
+    app.router.add_post("/api/pos/sale", pos_sale)
+    app.router.add_post("/api/pos/cancel", pos_cancel)
+    app.router.add_post("/api/pos/connect", pos_connect)
     app.router.add_get("/avatar-general", avatar_general)
     app.router.add_get("/avatar-experimental", avatar_experimental)
     app.router.add_get("/avatar-experimental-pendon", avatar_experimental_pendon)

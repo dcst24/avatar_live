@@ -1466,6 +1466,591 @@
                 font-size: 12px;
             }
         }
+
+        /* ══════════════════════════════════════════════════════════════════════
+           WIDGET FLOTANTE DE BOLSA DE COMPRA (PARIS COSTANERA)
+           ══════════════════════════════════════════════════════════════════════ */
+        .cart-floating-widget {
+            position: absolute;
+            top: 72px;
+            right: 18px;
+            z-index: 40;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 9999px;
+            background: rgba(15, 23, 42, 0.78);
+            border: 1px solid rgba(56, 189, 248, 0.35);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            color: #f8fafc;
+            font-family: inherit;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 15px rgba(6, 182, 212, 0.2);
+            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .cart-floating-widget:hover {
+            background: rgba(30, 41, 59, 0.92);
+            border-color: rgba(56, 189, 248, 0.7);
+            transform: translateY(-2px) scale(1.03);
+            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.55), 0 0 22px rgba(6, 182, 212, 0.38);
+        }
+        .cart-floating-widget:active {
+            transform: translateY(0) scale(0.98);
+        }
+        .cart-widget-icon {
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+        }
+        .cart-widget-label {
+            font-size: 13px;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+        }
+        .cart-badge {
+            background: linear-gradient(135deg, #0284c7, #06b6d4);
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 9999px;
+            min-width: 18px;
+            text-align: center;
+        }
+        .cart-total {
+            font-size: 13px;
+            font-weight: 700;
+            color: #38bdf8;
+            margin-left: 2px;
+        }
+
+        /* Botón Agregar a la Bolsa dentro de la Tarjeta de Producto */
+        .product-card-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        .btn-card-add-cart {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 8px;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .btn-card-add-cart:hover {
+            background: linear-gradient(135deg, #0369a1, #0284c7);
+            border-color: rgba(56, 189, 248, 0.8);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
+        }
+
+        /* ══════════════════════════════════════════════════════════════════════
+           CHECKOUT EMBEBIDO A PANTALLA COMPLETA (PARIS FULLSCREEN OVERLAY)
+           ══════════════════════════════════════════════════════════════════════ */
+        .checkout-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: radial-gradient(circle at top right, rgba(14, 116, 144, 0.18), transparent 45%),
+                        radial-gradient(circle at bottom left, rgba(30, 27, 75, 0.4), transparent 50%),
+                        rgba(10, 15, 30, 0.94);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: none;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.28s ease;
+            overflow-y: auto;
+            color: #f1f5f9;
+            font-family: inherit;
+        }
+        .checkout-overlay.open {
+            display: flex;
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .checkout-container {
+            width: 100%;
+            max-width: 1100px;
+            margin: auto;
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        .checkout-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 16px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .checkout-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .brand-logo {
+            font-size: 24px;
+            font-weight: 900;
+            letter-spacing: 0.1em;
+            background: linear-gradient(135deg, #ffffff, #38bdf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .brand-divider {
+            color: rgba(255, 255, 255, 0.25);
+            font-size: 18px;
+        }
+        .brand-store {
+            font-size: 14px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+        .checkout-close-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #e2e8f0;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .checkout-close-btn:hover {
+            background: rgba(255, 255, 255, 0.18);
+            color: #ffffff;
+        }
+
+        .checkout-body {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 24px;
+            flex: 1;
+        }
+        @media (max-width: 860px) {
+            .checkout-body {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* Columna Izquierda: Lista de productos */
+        .checkout-left {
+            background: rgba(15, 23, 42, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .checkout-section-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+        .checkout-section-header h2 {
+            margin: 0;
+            font-size: 17px;
+            font-weight: 700;
+            color: #f8fafc;
+        }
+        .btn-clear-cart {
+            background: none;
+            border: none;
+            color: #ef4444;
+            font-size: 12px;
+            font-weight: 500;
+            cursor: pointer;
+            padding: 4px 8px;
+        }
+        .btn-clear-cart:hover {
+            text-decoration: underline;
+        }
+        .checkout-cart-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 480px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        .checkout-item-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(30, 41, 59, 0.45);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 12px 14px;
+            gap: 12px;
+        }
+        .chk-item-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .chk-item-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #f1f5f9;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .chk-item-sub {
+            font-size: 12px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+        .chk-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .chk-qty-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: #f8fafc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .chk-qty-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+        .chk-item-qty {
+            font-size: 13px;
+            font-weight: 700;
+            min-width: 20px;
+            text-align: center;
+        }
+        .chk-item-price {
+            font-size: 14px;
+            font-weight: 700;
+            color: #38bdf8;
+            min-width: 75px;
+            text-align: right;
+        }
+        .chk-item-remove {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px;
+            line-height: 1;
+        }
+        .chk-item-remove:hover {
+            color: #ef4444;
+        }
+        .chk-empty-cart {
+            text-align: center;
+            padding: 40px 10px;
+            color: #94a3b8;
+        }
+
+        /* Columna Derecha: Resumen de Compra y Pago */
+        .checkout-right {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .checkout-summary-card {
+            background: rgba(15, 23, 42, 0.85);
+            border: 1px solid rgba(56, 189, 248, 0.25);
+            border-radius: 16px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+        }
+        .checkout-summary-card h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 700;
+            color: #f8fafc;
+            padding-bottom: 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        .summary-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 13px;
+            color: #cbd5e1;
+        }
+        .summary-row.discount {
+            color: #34d399;
+        }
+        .summary-divider {
+            height: 1px;
+            background: rgba(255, 255, 255, 0.08);
+            margin: 4px 0;
+        }
+        .summary-total-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+            padding: 6px 0;
+        }
+        .summary-total-amount {
+            font-size: 24px;
+            font-weight: 900;
+            color: #38bdf8;
+            letter-spacing: -0.02em;
+        }
+
+        .payment-selection-section h4 {
+            margin: 12px 0 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        .payment-methods-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+        .payment-method-card {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: left;
+            color: #cbd5e1;
+        }
+        .payment-method-card:hover {
+            border-color: rgba(56, 189, 248, 0.4);
+            background: rgba(30, 41, 59, 0.85);
+        }
+        .payment-method-card.active {
+            border-color: #38bdf8;
+            background: rgba(14, 116, 144, 0.25);
+            box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+            color: #ffffff;
+        }
+        .pm-icon {
+            font-size: 22px;
+        }
+        .pm-title {
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .pm-sub {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .btn-checkout-pay {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            border: 1px solid rgba(56, 189, 248, 0.5);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
+            margin-top: 8px;
+        }
+        .btn-checkout-pay:hover:not(:disabled) {
+            background: linear-gradient(135deg, #0369a1, #0284c7);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 25px rgba(2, 132, 199, 0.55);
+        }
+        .btn-checkout-pay:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Caja de Estado POS Interactivo */
+        .pos-interactive-box {
+            background: rgba(15, 23, 42, 0.9);
+            border: 1px solid rgba(56, 189, 248, 0.4);
+            border-radius: 14px;
+            padding: 24px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            animation: fadeIn 0.3s ease;
+        }
+        .pos-status-spinner {
+            width: 36px;
+            height: 36px;
+            border: 3px solid rgba(56, 189, 248, 0.2);
+            border-top-color: #38bdf8;
+            border-radius: 50%;
+            animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .pos-status-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        .pos-status-instruction {
+            font-size: 13px;
+            color: #94a3b8;
+            max-width: 280px;
+        }
+        .pos-interactive-amount {
+            font-size: 28px;
+            font-weight: 900;
+            color: #38bdf8;
+            margin: 6px 0;
+        }
+        .pos-cancel-btn {
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+            color: #fca5a5;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-top: 4px;
+        }
+        .pos-cancel-btn:hover {
+            background: rgba(239, 68, 68, 0.25);
+        }
+
+        /* Vista de Boleta Electrónica / Voucher */
+        .checkout-voucher-view {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            animation: fadeIn 0.3s ease;
+        }
+        .voucher-success-header {
+            text-align: center;
+        }
+        .voucher-success-header .success-icon {
+            width: 44px;
+            height: 44px;
+            background: #10b981;
+            color: #ffffff;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin: 0 auto 8px;
+            font-weight: 900;
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+        .voucher-success-header h3 {
+            margin: 0;
+            font-size: 18px;
+            color: #ffffff;
+            border: none;
+            padding: 0;
+        }
+        .voucher-success-header p {
+            margin: 2px 0 0;
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        .voucher-ticket-paper {
+            background: #ffffff;
+            color: #0f172a;
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .voucher-ticket-paper .v-header {
+            font-size: 13px;
+            font-weight: 900;
+            text-align: center;
+            letter-spacing: 0.05em;
+        }
+        .voucher-ticket-paper .v-sub {
+            text-align: center;
+            font-size: 11px;
+            color: #475569;
+        }
+        .voucher-ticket-paper .v-line {
+            text-align: center;
+            color: #cbd5e1;
+            margin: 4px 0;
+            font-weight: bold;
+        }
+        .voucher-ticket-paper .v-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+        }
+        .voucher-ticket-paper .v-row.total {
+            font-size: 13px;
+            font-weight: 900;
+            margin-top: 4px;
+        }
+        .voucher-ticket-paper .v-footer {
+            text-align: center;
+            font-size: 11px;
+            font-weight: bold;
+            margin-top: 8px;
+            color: #334155;
+        }
+        .btn-finish-checkout {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            background: linear-gradient(135deg, #10b981, #059669);
+            border: 1px solid rgba(52, 211, 153, 0.4);
+            color: #ffffff;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
+        }
+        .btn-finish-checkout:hover {
+            background: linear-gradient(135deg, #059669, #10b981);
+        }
+
     </style>
 </head>
 
@@ -1548,6 +2133,15 @@
                     <line x1="16" y1="6" x2="16" y2="22"></line>
                 </svg>
             </button>
+
+            <!-- Widget Flotante de Bolsa de Compras (Paris Costanera) -->
+            <button id="btn-cart-widget" class="cart-floating-widget" onclick="openParisCheckout()" title="Ver bolsa de compras">
+                <span class="cart-widget-icon">🛍️</span>
+                <span class="cart-widget-label">Bolsa</span>
+                <span id="cart-badge-count" class="cart-badge">0</span>
+                <span id="cart-badge-total" class="cart-total">$0</span>
+            </button>
+
 
             <!-- Botón conectar (discreto, bottom-left) -->
             <button id="btn-connect" onclick="connectRTC()">
@@ -1658,6 +2252,120 @@
             </div>
         </div>
     </div>
+
+    
+        <!-- Checkout Embebido a Pantalla Completa (Paris Costanera Center) -->
+        <div id="paris-checkout-overlay" class="checkout-overlay">
+            <div class="checkout-container">
+                <header class="checkout-header">
+                    <div class="checkout-brand">
+                        <span class="brand-logo">PARIS</span>
+                        <span class="brand-divider">|</span>
+                        <span class="brand-store">Costanera Center · Auto-Atención</span>
+                    </div>
+                    <button class="checkout-close-btn" onclick="closeParisCheckout()" title="Volver al Asesor">
+                        ✕ Volver al Asesor
+                    </button>
+                </header>
+
+                <div class="checkout-body">
+                    <div class="checkout-left">
+                        <div class="checkout-section-header">
+                            <h2>🛍️ Bolsa de Compras (<span id="chk-item-count">0</span>)</h2>
+                            <button class="btn-clear-cart" onclick="clearCartInteractive()">Vaciar bolsa</button>
+                        </div>
+                        <div id="checkout-cart-list" class="checkout-cart-list">
+                            <!-- Items dinámicos -->
+                        </div>
+                    </div>
+
+                    <div class="checkout-right">
+                        <div class="checkout-summary-card">
+                            <h3>📋 Resumen de Compra</h3>
+                            <div class="summary-row">
+                                <span>Subtotal</span>
+                                <strong id="chk-subtotal">$0</strong>
+                            </div>
+                            <div class="summary-row discount" id="chk-row-discount" style="display:none;">
+                                <span>Descuentos Cyber</span>
+                                <strong id="chk-discount">-$0</strong>
+                            </div>
+                            <div class="summary-row">
+                                <span>IVA (19% incluido)</span>
+                                <span id="chk-iva">$0</span>
+                            </div>
+                            <div class="summary-divider"></div>
+                            <div class="summary-total-row">
+                                <span>Total a Pagar</span>
+                                <span id="chk-total" class="summary-total-amount">$0</span>
+                            </div>
+
+                            <div class="payment-selection-section">
+                                <h4>💳 Medio de Pago</h4>
+                                <div class="payment-methods-grid">
+                                    <button id="btn-pay-getnet" class="payment-method-card active" onclick="selectCheckoutPaymentMethod('getnet')">
+                                        <div class="pm-icon">💳</div>
+                                        <div class="pm-info">
+                                            <div class="pm-title">Tarjeta Débito / Crédito</div>
+                                            <div class="pm-sub">Terminal POS Getnet</div>
+                                        </div>
+                                    </button>
+                                    <button id="btn-pay-cencosud" class="payment-method-card" onclick="selectCheckoutPaymentMethod('cencosud')">
+                                        <div class="pm-icon">🔴</div>
+                                        <div class="pm-info">
+                                            <div class="pm-title">Puntos Cencosud</div>
+                                            <div class="pm-sub">Canje en Kiosko</div>
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div id="checkout-action-container">
+                                <button id="btn-submit-payment" class="btn-checkout-pay" onclick="handleStartCheckoutPayment()">
+                                    Pagar con Tarjeta POS Getnet
+                                </button>
+                            </div>
+
+                            <div id="pos-interactive-box" class="pos-interactive-box" style="display:none;">
+                                <div class="pos-status-spinner"></div>
+                                <div class="pos-status-title" id="pos-interactive-title">Esperando tarjeta...</div>
+                                <div class="pos-status-instruction" id="pos-interactive-desc">
+                                    Acerque o inserte su tarjeta en el terminal Getnet.
+                                </div>
+                                <div class="pos-interactive-amount" id="pos-interactive-amount">$0</div>
+                                <button class="pos-cancel-btn" onclick="handleCancelCheckoutPayment()">Cancelar Cobro</button>
+                            </div>
+
+                            <div id="checkout-voucher-view" class="checkout-voucher-view" style="display:none;">
+                                <div class="voucher-success-header">
+                                    <div class="success-icon">✓</div>
+                                    <h3>¡PAGO EXITOSO!</h3>
+                                    <p>Transacción aprobada por Getnet</p>
+                                </div>
+                                <div class="voucher-ticket-paper">
+                                    <div class="v-header">PARIS COSTANERA CENTER</div>
+                                    <div class="v-sub">R.U.T.: 76.123.456-7</div>
+                                    <div class="v-line">------------------------------------</div>
+                                    <div class="v-row"><span>BOLETA ELECTRÓNICA</span><strong id="v-op-number">OP-001234</strong></div>
+                                    <div class="v-row"><span>FECHA:</span><span id="v-date">05/10/2026</span></div>
+                                    <div class="v-row"><span>TERMINAL GETNET:</span><span id="v-auth">123456</span></div>
+                                    <div class="v-row"><span>TARJETA:</span><span id="v-card">4111********1111</span></div>
+                                    <div class="v-line">------------------------------------</div>
+                                    <div id="v-items-list"></div>
+                                    <div class="v-line">------------------------------------</div>
+                                    <div class="v-row total"><span>TOTAL PAGADO:</span><strong id="v-total">$0</strong></div>
+                                    <div class="v-footer">¡Gracias por tu compra en Paris!</div>
+                                </div>
+                                <button class="btn-finish-checkout" onclick="handleFinishSuccessfulCheckout()">
+                                    Finalizar y Salir
+                                </button>
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
     <!-- Debug log panel (tap 🪲 to open) -->
     <div id="dbg-panel">
@@ -2088,6 +2796,9 @@
                     const prod = result.data;
                     LOG('Producto encontrado:', prod.nombre);
                     showProductCard(prod);
+                    _pendingCartProduct = prod;
+                    _pendingAction = 'CONFIRM_ADD_CART';
+                    LOG('[Cart] Producto escaneado registrado para confirmación de compra:', prod.nombre);
 
                     // Desbloquear audio del video explícitamente ante el escaneo
                     const videoEl = document.getElementById('video');
@@ -2249,6 +2960,11 @@
                     <span class="view-map-pill">📍 Ver en Mapa</span>
                 </div>
                 ${tagsHtml ? `<div class="product-card-tags">${tagsHtml}</div>` : ''}
+                <div class="product-card-actions">
+                    <button class="btn-card-add-cart" onclick="event.stopPropagation(); handleDirectAddToCart('${prod.sku || prod.codigo_barra}')">
+                        🛍️ Agregar a la Bolsa
+                    </button>
+                </div>
             `;
 
             container.appendChild(card);
@@ -2491,14 +3207,13 @@
                                 }
                             }
 
-                            // Margen acústico seguro (450ms): garantiza que los buffers de audio WebRTC
-                            // y los altavoces del dispositivo hayan terminado de sonar por completo antes de abrir el micrófono
+                            // Margen acústico optimizado (200ms) para respuesta inmediata a preguntas del avatar
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 450);
+                            }, 200);
                         }
                     }
                 } catch (e) {
@@ -2598,6 +3313,69 @@
 
                 if (question) {
                     clearTimeout(_wakeBufferTimeout);
+
+                    // 1. Intercepción directa de intención de pago / abrir caja
+                    if (_isPayIntent(question)) {
+                        LOG(`[Checkout] Intención de pago detectada: "${question}" → abriendo checkout`);
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        if (_parisCart.length === 0) {
+                            const emptyMsg = "Tu bolsa de compras está vacía. Escanea un código de barras o dime qué buscas para agregar productos.";
+                            queueAvatarBubble(emptyMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: emptyMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        }
+                        openParisCheckout();
+                        return;
+                    }
+
+                    // 2. Intercepción inmediata de afirmación de agregar al carrito
+                    if (_pendingAction === 'CONFIRM_ADD_CART' && _isAffirmativeWord(question) && _pendingCartProduct) {
+                        const prod = _pendingCartProduct;
+                        _pendingAction = null;
+                        _pendingCartProduct = null;
+                        addToCart(prod);
+                        const count = getCartItemsCount();
+                        const total = getCartTotal();
+                        const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${count} ${count === 1 ? 'producto' : 'productos'} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas seguir comprando?`;
+                        LOG(`[Cart] Confirmación afirmativa instantánea procesada: "${question}"`);
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        queueAvatarBubble(ackMsg);
+                        stopAlwaysOnListening();
+                        const sessionid = document.getElementById('sessionid').value;
+                        fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid) })
+                        }).catch(e => WARN('echo error:', e));
+                        return;
+                    }
+
+                    // 3. Intercepción inmediata de rechazo a agregar al carrito
+                    if (_pendingAction === 'CONFIRM_ADD_CART' && _isNegativeWord(question)) {
+                        _pendingAction = null;
+                        _pendingCartProduct = null;
+                        const noMsg = "Perfecto, no lo agregaré. ¿Te gustaría saber en qué pasillo encontrarlo o necesitas orientación con otro producto?";
+                        LOG(`[Cart] Rechazo instantáneo procesado: "${question}"`);
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        queueAvatarBubble(noMsg);
+                        stopAlwaysOnListening();
+                        const sessionid = document.getElementById('sessionid').value;
+                        fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: noMsg, type: 'echo', sessionid: String(sessionid) })
+                        }).catch(e => WARN('echo error:', e));
+                        return;
+                    }
 
                     if (_isSleepWord(question)) {
                         LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
@@ -3767,6 +4545,369 @@
             }
             setInterval(keepBarcodeFocus, 400);
         });
+    
+        // ══════════════════════════════════════════════════════════════════════
+        // GESTOR DE CARRITO Y CHECKOUT EMBEBIDO (PARIS COSTANERA CENTER)
+        // ══════════════════════════════════════════════════════════════════════
+        let _parisCart = JSON.parse(localStorage.getItem('paris_cart') || '[]');
+        let _pendingCartProduct = null;
+        let _pendingAction = null; // 'CONFIRM_ADD_CART' | null
+        let _selectedPaymentMethod = 'getnet';
+        let _isPaymentProcessing = false;
+
+        function _isAffirmativeWord(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const affirmativePhrases = [
+                'si', 'sí', 'claro', 'por favor', 'dale', 'bueno', 'agrega', 'agregalo', 'agrégalo', 
+                'agregalo por favor', 'añadelo', 'añádelo', 'si por favor', 'si claro', 'obvio',
+                'pongalo', 'mételo', 'metelo', 'dale por favor', 'porfa', 'ok', 'bueno dale',
+                'agregar', 'anadir', 'añadir', 'compra', 'compralo', 'cómpralo'
+            ];
+            return affirmativePhrases.some(w => clean === w || clean.startsWith(w + ' ') || clean.endsWith(' ' + w));
+        }
+
+        function _isNegativeWord(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const negativePhrases = [
+                'no', 'no gracias', 'no por ahora', 'no lo agregues', 'cancelar', 'no por el momento',
+                'no gracias chao', 'no me interesa', 'dejarlo', 'no nada mas'
+            ];
+            return negativePhrases.some(w => clean === w || clean.startsWith(w + ' '));
+        }
+
+        function _isPayIntent(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const payKeywords = [
+                'pagar', 'ir a pagar', 'quiero pagar', 'vamos a pagar', 'ir a la caja', 'ir a caja', 
+                'cobrar', 'terminar compra', 'finalizar compra', 'ver bolsa', 'ver carrito', 'ir a pagar ahora',
+                'abrir caja', 'proceder al pago', 'hacer el pago'
+            ];
+            return payKeywords.some(w => clean === w || clean.includes(w));
+        }
+
+        function getCartTotal() {
+            return _parisCart.reduce((sum, item) => sum + (Number(item.precio) * Number(item.cantidad)), 0);
+        }
+
+        function getCartOriginalTotal() {
+            return _parisCart.reduce((sum, item) => sum + (Number(item.precio_original || item.precio) * Number(item.cantidad)), 0);
+        }
+
+        function getCartItemsCount() {
+            return _parisCart.reduce((sum, item) => sum + Number(item.cantidad), 0);
+        }
+
+        function saveCart() {
+            localStorage.setItem('paris_cart', JSON.stringify(_parisCart));
+            updateCartWidget();
+            if (document.getElementById('paris-checkout-overlay').classList.contains('open')) {
+                renderCheckoutCart();
+            }
+        }
+
+        function updateCartWidget() {
+            const countEl = document.getElementById('cart-badge-count');
+            const totalEl = document.getElementById('cart-badge-total');
+            const count = getCartItemsCount();
+            const total = getCartTotal();
+
+            if (countEl) countEl.textContent = String(count);
+            if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
+        }
+
+        function addToCart(product, quantity = 1) {
+            if (!product) return;
+            const sku = product.sku || product.codigo_barra;
+            const existing = _parisCart.find(i => i.sku === sku);
+            const isOffer = product.oferta === 'SI' && product.precio_oferta;
+            const finalPrice = isOffer ? product.precio_oferta : product.precio;
+
+            if (existing) {
+                existing.cantidad += quantity;
+            } else {
+                _parisCart.push({
+                    sku: sku,
+                    codigo_barra: product.codigo_barra,
+                    nombre: product.nombre,
+                    marca: product.marca || '',
+                    precio: finalPrice,
+                    precio_original: product.precio,
+                    en_oferta: isOffer,
+                    descuento_pct: product.descuento_pct || 0,
+                    categoria: product.categoria || '',
+                    cantidad: quantity,
+                    piso: product.piso || 1,
+                    pasillo: product.pasillo || ''
+                });
+            }
+            saveCart();
+            LOG(`[Cart] Producto añadido: ${product.nombre} (x${quantity}). Total items: ${getCartItemsCount()}`);
+        }
+
+        async function handleDirectAddToCart(skuOrBarcode) {
+            try {
+                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(skuOrBarcode)}`);
+                const json = await res.json();
+                if (json.code === 0 && json.data) {
+                    addToCart(json.data);
+                    const toast = addChatBubble('system', `🛍️ ${json.data.nombre} añadido a tu bolsa.`);
+                    setTimeout(() => { if (toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 3500);
+                }
+            } catch (err) {
+                ERR('Error al agregar directamente al carrito:', err);
+            }
+        }
+
+        function removeFromCart(sku) {
+            _parisCart = _parisCart.filter(i => i.sku !== sku);
+            saveCart();
+        }
+
+        function updateCartItemQuantity(sku, delta) {
+            const item = _parisCart.find(i => i.sku === sku);
+            if (!item) return;
+            item.cantidad += delta;
+            if (item.cantidad <= 0) {
+                removeFromCart(sku);
+            } else {
+                saveCart();
+            }
+        }
+
+        function clearCartInteractive() {
+            _parisCart = [];
+            saveCart();
+        }
+
+        function openParisCheckout() {
+            const overlay = document.getElementById('paris-checkout-overlay');
+            if (!overlay) return;
+            renderCheckoutCart();
+            overlay.classList.add('open');
+            LOG('[Checkout] Pantalla completa de Checkout abierta.');
+
+            // Consultar estado de POS en segundo plano
+            fetch('/api/pos/status')
+                .then(r => r.json())
+                .then(data => {
+                    LOG('[POS Status]:', data);
+                })
+                .catch(e => WARN('Error consultando POS status:', e));
+        }
+
+        function closeParisCheckout() {
+            const overlay = document.getElementById('paris-checkout-overlay');
+            if (overlay) overlay.classList.remove('open');
+            LOG('[Checkout] Pantalla completa de Checkout cerrada.');
+        }
+
+        function renderCheckoutCart() {
+            const listEl = document.getElementById('checkout-cart-list');
+            const countEl = document.getElementById('chk-item-count');
+            const subtotalEl = document.getElementById('chk-subtotal');
+            const rowDiscountEl = document.getElementById('chk-row-discount');
+            const discountEl = document.getElementById('chk-discount');
+            const ivaEl = document.getElementById('chk-iva');
+            const totalEl = document.getElementById('chk-total');
+            const submitBtn = document.getElementById('btn-submit-payment');
+
+            const count = getCartItemsCount();
+            const total = getCartTotal();
+            const originalTotal = getCartOriginalTotal();
+            const discount = Math.max(0, originalTotal - total);
+            const iva = Math.round(total * 0.19);
+
+            if (countEl) countEl.textContent = String(count);
+            if (subtotalEl) subtotalEl.textContent = `$${originalTotal.toLocaleString('es-CL')}`;
+            if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
+            if (ivaEl) ivaEl.textContent = `$${iva.toLocaleString('es-CL')}`;
+
+            if (rowDiscountEl && discountEl) {
+                if (discount > 0) {
+                    rowDiscountEl.style.display = 'flex';
+                    discountEl.textContent = `-$${discount.toLocaleString('es-CL')}`;
+                } else {
+                    rowDiscountEl.style.display = 'none';
+                }
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = (_parisCart.length === 0 || _isPaymentProcessing);
+                submitBtn.textContent = `Pagar $${total.toLocaleString('es-CL')} con POS Getnet`;
+            }
+
+            if (!listEl) return;
+            if (_parisCart.length === 0) {
+                listEl.innerHTML = '<div class="chk-empty-cart">🛍️ Tu bolsa está vacía.<br>Escanea un producto con el lector de barra para agregar.</div>';
+                return;
+            }
+
+            listEl.innerHTML = _parisCart.map(item => `
+                <div class="checkout-item-row">
+                    <div class="chk-item-info">
+                        <div class="chk-item-title">${item.nombre}</div>
+                        <div class="chk-item-sub">${item.marca ? item.marca + ' · ' : ''}SKU: ${item.sku}</div>
+                    </div>
+                    <div class="chk-item-controls">
+                        <button class="chk-qty-btn" onclick="updateCartItemQuantity('${item.sku}', -1)">-</button>
+                        <span class="chk-item-qty">${item.cantidad}</span>
+                        <button class="chk-qty-btn" onclick="updateCartItemQuantity('${item.sku}', 1)">+</button>
+                    </div>
+                    <div class="chk-item-price">$${(item.precio * item.cantidad).toLocaleString('es-CL')}</div>
+                    <button class="chk-item-remove" onclick="removeFromCart('${item.sku}')" title="Eliminar">✕</button>
+                </div>
+            `).join('');
+        }
+
+        function selectCheckoutPaymentMethod(method) {
+            _selectedPaymentMethod = method;
+            const btnGetnet = document.getElementById('btn-pay-getnet');
+            const btnCenco = document.getElementById('btn-pay-cencosud');
+            const submitBtn = document.getElementById('btn-submit-payment');
+
+            if (btnGetnet) btnGetnet.classList.toggle('active', method === 'getnet');
+            if (btnCenco) btnCenco.classList.toggle('active', method === 'cencosud');
+
+            if (submitBtn) {
+                if (method === 'getnet') {
+                    submitBtn.textContent = `Pagar $${getCartTotal().toLocaleString('es-CL')} con POS Getnet`;
+                } else {
+                    submitBtn.textContent = `Canjear Puntos Cencosud`;
+                }
+            }
+        }
+
+        async function handleStartCheckoutPayment() {
+            const total = getCartTotal();
+            if (total <= 0 || _isPaymentProcessing) return;
+
+            _isPaymentProcessing = true;
+            const actionContainer = document.getElementById('checkout-action-container');
+            const posBox = document.getElementById('pos-interactive-box');
+            const posAmountEl = document.getElementById('pos-interactive-amount');
+            const posTitleEl = document.getElementById('pos-interactive-title');
+            const posDescEl = document.getElementById('pos-interactive-desc');
+            const voucherView = document.getElementById('checkout-voucher-view');
+
+            if (actionContainer) actionContainer.style.display = 'none';
+            if (voucherView) voucherView.style.display = 'none';
+            if (posBox) posBox.style.display = 'flex';
+            if (posAmountEl) posAmountEl.textContent = `$${total.toLocaleString('es-CL')}`;
+            if (posTitleEl) posTitleEl.textContent = 'Iniciando terminal POS...';
+            if (posDescEl) posDescEl.textContent = 'Conectando con terminal Getnet...';
+
+            try {
+                // Notificar al avatar que el cobro está en curso
+                LOG(`[Checkout] Enviando orden de cobro a POS Getnet por $${total}`);
+                if (posTitleEl) posTitleEl.textContent = 'Acerque o inserte tarjeta';
+                if (posDescEl) posDescEl.textContent = 'Por favor, siga las instrucciones en el terminal físico Getnet.';
+
+                const res = await fetch('/api/pos/sale', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ amount: total, timeout: 180 })
+                });
+                const data = await res.json();
+                LOG('[Checkout] Respuesta POS Getnet:', data);
+
+                if (data.code === 0 && data.data && data.data.ResponseCode === 0) {
+                    // ¡TRANSACCIÓN APROBADA!
+                    handlePaymentApproved(data.data);
+                } else {
+                    // Error o Cancelación
+                    const errMsg = (data.data && data.data.ResponseMessage) || data.msg || 'Transacción rechazada en terminal POS.';
+                    alert(`Pago no completado: ${errMsg}`);
+                    resetPaymentUI();
+                }
+            } catch (err) {
+                ERR('Error al procesar cobro POS:', err);
+                alert('Error de comunicación con el terminal POS.');
+                resetPaymentUI();
+            } finally {
+                _isPaymentProcessing = false;
+            }
+        }
+
+        async function handleCancelCheckoutPayment() {
+            try {
+                await fetch('/api/pos/cancel', { method: 'POST' });
+            } catch (e) {
+                WARN('Error cancelando pago:', e);
+            }
+            resetPaymentUI();
+        }
+
+        function resetPaymentUI() {
+            _isPaymentProcessing = false;
+            const actionContainer = document.getElementById('checkout-action-container');
+            const posBox = document.getElementById('pos-interactive-box');
+            if (posBox) posBox.style.display = 'none';
+            if (actionContainer) actionContainer.style.display = 'block';
+            renderCheckoutCart();
+        }
+
+        function handlePaymentApproved(saleResult) {
+            const posBox = document.getElementById('pos-interactive-box');
+            const voucherView = document.getElementById('checkout-voucher-view');
+            if (posBox) posBox.style.display = 'none';
+            if (voucherView) voucherView.style.display = 'flex';
+
+            const total = saleResult.Amount || getCartTotal();
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('es-CL') + ' ' + now.toLocaleTimeString('es-CL');
+
+            const opEl = document.getElementById('v-op-number');
+            const dateEl = document.getElementById('v-date');
+            const authEl = document.getElementById('v-auth');
+            const cardEl = document.getElementById('v-card');
+            const itemsListEl = document.getElementById('v-items-list');
+            const totalEl = document.getElementById('v-total');
+
+            if (opEl) opEl.textContent = saleResult.OperationNumber || 'OP-' + Math.floor(Math.random() * 89999 + 10000);
+            if (dateEl) dateEl.textContent = dateStr;
+            if (authEl) authEl.textContent = saleResult.AuthorizationCode || 'GET-' + Math.floor(Math.random() * 89999 + 10000);
+            if (cardEl) cardEl.textContent = (saleResult.CardBrand || 'TARJETA') + ' ' + (saleResult.CardNumber || '**** **** **** 1111');
+            if (totalEl) totalEl.textContent = `$${Number(total).toLocaleString('es-CL')}`;
+
+            if (itemsListEl) {
+                itemsListEl.innerHTML = _parisCart.map(i => `
+                    <div class="v-row">
+                        <span>${i.cantidad}x ${i.nombre.slice(0, 22)}</span>
+                        <span>$${(i.precio * i.cantidad).toLocaleString('es-CL')}</span>
+                    </div>
+                `).join('');
+            }
+
+            // Vaciar el carrito tras pago exitoso
+            _parisCart = [];
+            saveCart();
+            LOG('[Checkout] Venta completada y voucher generado exitosamente.');
+        }
+
+        function handleFinishSuccessfulCheckout() {
+            closeParisCheckout();
+            resetPaymentUI();
+
+            const thankMsg = "¡Muchas gracias por tu compra en Paris! Tu boleta electrónica ha sido emitida con éxito. Que tengas un excelente día.";
+            queueAvatarBubble(thankMsg);
+            stopAlwaysOnListening();
+
+            const sessionid = document.getElementById('sessionid').value;
+            fetch('/human', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: thankMsg,
+                    type: 'echo',
+                    sessionid: String(sessionid)
+                })
+            }).catch(e => WARN('echo error:', e));
+
+            setTimeout(() => {
+                sleepModel(false);
+            }, 3500);
+        }
+
     </script>
 </body>
 </html>
