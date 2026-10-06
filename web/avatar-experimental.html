@@ -1472,23 +1472,32 @@
            ══════════════════════════════════════════════════════════════════════ */
         .cart-floating-widget {
             position: absolute;
-            top: 72px;
-            right: 18px;
+            bottom: 24px;
+            right: 24px;
             z-index: 40;
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 14px;
+            gap: 10px;
+            padding: 10px 18px;
             border-radius: 9999px;
-            background: rgba(15, 23, 42, 0.78);
-            border: 1px solid rgba(56, 189, 248, 0.35);
+            background: linear-gradient(135deg, rgba(0, 47, 108, 0.95), rgba(0, 169, 224, 0.92));
+            border: 1.5px solid rgba(255, 255, 255, 0.35);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
-            color: #f8fafc;
+            color: #ffffff;
             font-family: inherit;
             cursor: pointer;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 15px rgba(6, 182, 212, 0.2);
+            box-shadow: 0 8px 25px rgba(0, 47, 108, 0.45), 0 0 20px rgba(0, 169, 224, 0.35);
             transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .cart-floating-widget:hover {
+            background: linear-gradient(135deg, rgba(0, 47, 108, 1), rgba(0, 169, 224, 1));
+            border-color: #ffffff;
+            transform: translateY(-3px) scale(1.04);
+            box-shadow: 0 12px 30px rgba(0, 47, 108, 0.55), 0 0 25px rgba(0, 169, 224, 0.5);
+        }
+        .cart-floating-widget:active {
+            transform: translateY(0) scale(0.98);
         }
         .cart-floating-widget:hover {
             background: rgba(30, 41, 59, 0.92);
@@ -2259,13 +2268,18 @@
             <div class="checkout-container">
                 <header class="checkout-header">
                     <div class="checkout-brand">
-                        <span class="brand-logo">PARIS</span>
+                        <span class="brand-logo-img">paris</span>
                         <span class="brand-divider">|</span>
-                        <span class="brand-store">Costanera Center · Auto-Atención</span>
+                        <span class="brand-store">Bolsa de Compras · Costanera Center</span>
                     </div>
-                    <button class="checkout-close-btn" onclick="closeParisCheckout()" title="Volver al Asesor">
-                        ✕ Volver al Asesor
-                    </button>
+                    <div style="display:flex;align-items:center;gap:12px;">
+                        <span id="pos-header-status-pill" class="header-pos-pill" onclick="connectGetnetSerial()" title="Estado de conexión con terminal Getnet (haz clic para conectar)">
+                            <span id="pos-status-bullet">●</span> <span id="pos-header-status-text">POS Getnet (Desconectado)</span>
+                        </span>
+                        <button class="checkout-close-btn" onclick="closeParisCheckout()" title="Volver al Asesor">
+                            ← Volver a la Tienda
+                        </button>
+                    </div>
                 </header>
 
                 <div class="checkout-body">
@@ -2295,6 +2309,10 @@
                                 <span id="chk-iva">$0</span>
                             </div>
                             <div class="summary-divider"></div>
+                            <div class="cenco-points-badge">
+                                <span class="cenco-points-icon">⭐</span>
+                                <span>Acumulas <strong id="chk-cenco-points">0</strong> Puntos Cencosud con esta compra</span>
+                            </div>
                             <div class="summary-total-row">
                                 <span>Total a Pagar</span>
                                 <span id="chk-total" class="summary-total-amount">$0</span>
@@ -2389,6 +2407,7 @@
     </div>
 
     <!-- WebRTC client -->
+    <script src="getnet.js"></script>
     <script src="client.js"></script>
 
     <script>
@@ -2720,7 +2739,8 @@
             _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
             _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Preguntando si necesita algo más.");
+                LOG("30 segundos de silencio → Cerrando mapa interactivo y preguntando si necesita algo más.");
+                closeStoreMap();
                 const followUpText = "¿Necesitas algo más?";
                 _waitingFollowUpAck = true;
                 
@@ -3207,13 +3227,13 @@
                                 }
                             }
 
-                            // Margen acústico optimizado (200ms) para respuesta inmediata a preguntas del avatar
+                            // Margen acústico optimizado (450ms) para asegurar que el parlante termine de reproducir la última palabra y evitar eco/corte
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
                                     startAlwaysOnListening();
                                 }
-                            }, 200);
+                            }, 450);
                         }
                     }
                 } catch (e) {
@@ -3335,46 +3355,109 @@
                         return;
                     }
 
-                    // 2. Intercepción inmediata de afirmación de agregar al carrito
-                    if (_pendingAction === 'CONFIRM_ADD_CART' && _isAffirmativeWord(question) && _pendingCartProduct) {
+                    // 2. Manejo de intenciones tras escaneo de producto (_pendingCartProduct activo)
+                    if (_pendingCartProduct && _pendingAction === 'CONFIRM_ADD_CART') {
                         const prod = _pendingCartProduct;
-                        _pendingAction = null;
-                        _pendingCartProduct = null;
-                        addToCart(prod);
-                        const count = getCartItemsCount();
-                        const total = getCartTotal();
-                        const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${count} ${count === 1 ? 'producto' : 'productos'} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas seguir comprando?`;
-                        LOG(`[Cart] Confirmación afirmativa instantánea procesada: "${question}"`);
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        queueAvatarBubble(ackMsg);
-                        stopAlwaysOnListening();
-                        const sessionid = document.getElementById('sessionid').value;
-                        fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid) })
-                        }).catch(e => WARN('echo error:', e));
-                        return;
-                    }
 
-                    // 3. Intercepción inmediata de rechazo a agregar al carrito
-                    if (_pendingAction === 'CONFIRM_ADD_CART' && _isNegativeWord(question)) {
-                        _pendingAction = null;
-                        _pendingCartProduct = null;
-                        const noMsg = "Perfecto, no lo agregaré. ¿Te gustaría saber en qué pasillo encontrarlo o necesitas orientación con otro producto?";
-                        LOG(`[Cart] Rechazo instantáneo procesado: "${question}"`);
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        queueAvatarBubble(noMsg);
-                        stopAlwaysOnListening();
-                        const sessionid = document.getElementById('sessionid').value;
-                        fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: noMsg, type: 'echo', sessionid: String(sessionid) })
-                        }).catch(e => WARN('echo error:', e));
-                        return;
+                        // A. El usuario pide UBICACIÓN ("dónde está", "dónde encontrarlo", etc.)
+                        if (_isLocationIntent(question)) {
+                            LOG(`[Scan Intent] Usuario solicitó ubicación de: ${prod.nombre}`);
+                            setUserText(question, false);
+                            addChatBubble('user', question);
+
+                            const pisoStr = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
+                            const pasilloStr = prod.pasillo ? `pasillo ${prod.pasillo}` : 'pasillo principal';
+                            const sectorStr = prod.sector ? `sector ${prod.sector}` : 'tienda';
+                            const locMsg = `El producto ${prod.nombre} se encuentra en el ${pisoStr}, ${pasilloStr}, ${sectorStr}. Te mostraré la ubicación en el mapa. ¿Deseas agregarlo a tu bolsa de compras?`;
+
+                            queueAvatarBubble(locMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: locMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+
+                            // Abrir mapa interactivo
+                            openMapForProduct(prod.sku || prod.codigo_barra);
+                            return;
+                        }
+
+                        // B. El usuario pide INFORMACIÓN ADICIONAL ("características", "marca", "detalles")
+                        if (_isInfoIntent(question)) {
+                            LOG(`[Scan Intent] Usuario solicitó información adicional de: ${prod.nombre}`);
+                            setUserText(question, false);
+                            addChatBubble('user', question);
+
+                            const precioReg = Number(prod.precio).toLocaleString('es-CL');
+                            let infoMsg = `${prod.nombre} de marca ${prod.marca || 'Paris'}. `;
+                            if (prod.oferta === 'SI' && prod.precio_oferta) {
+                                const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
+                                const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
+                                infoMsg += `En oferta a ${precioOf} pesos${dcto} (antes ${precioReg} pesos). `;
+                            } else {
+                                infoMsg += `Su precio regular es de ${precioReg} pesos. `;
+                            }
+                            if (prod.categoria) {
+                                infoMsg += `Categoría ${prod.categoria}. `;
+                            }
+                            infoMsg += `¿Deseas agregarlo a tu bolsa de compras?`;
+
+                            queueAvatarBubble(infoMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: infoMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        }
+
+                        // C. El usuario responde AFIRMATIVAMENTE ("sí", "agrégalo", "al carrito", "cómpralo")
+                        if (_isAffirmativeWord(question)) {
+                            LOG(`[Scan Intent] Confirmación afirmativa de agregar al carrito: ${prod.nombre}`);
+                            _pendingAction = null;
+                            _pendingCartProduct = null;
+                            addToCart(prod);
+
+                            const count = getCartItemsCount();
+                            const total = getCartTotal();
+                            const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${count} ${count === 1 ? 'producto' : 'productos'} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas ver algo más?`;
+
+                            setUserText(question, false);
+                            addChatBubble('user', question);
+                            queueAvatarBubble(ackMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        }
+
+                        // D. El usuario responde NEGATIVAMENTE ("no", "no gracias")
+                        if (_isNegativeWord(question)) {
+                            LOG(`[Scan Intent] Rechazo de compra: ${prod.nombre}`);
+                            _pendingAction = null;
+                            _pendingCartProduct = null;
+                            const noMsg = "Entendido, no lo agregaré. ¿Te gustaría buscar algún otro producto o necesitas ayuda?";
+
+                            setUserText(question, false);
+                            addChatBubble('user', question);
+                            queueAvatarBubble(noMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: noMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        }
                     }
 
                     if (_isSleepWord(question)) {
@@ -4489,6 +4572,7 @@
 
         // ─── Auto-conectar al cargar ───────────────────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
+            initGetnetSDK();
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const isFirefox = /Firefox\//.test(navigator.userAgent);
 
@@ -4573,6 +4657,28 @@
                 'no gracias chao', 'no me interesa', 'dejarlo', 'no nada mas'
             ];
             return negativePhrases.some(w => clean === w || clean.startsWith(w + ' '));
+        }
+
+        
+        function _isLocationIntent(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const locationKeywords = [
+                'donde esta', 'donde queda', 'donde lo encuentro', 'donde encontrarlo',
+                'en que pasillo', 'que pasillo', 'pasillo', 'ubicacion', 'donde se encuentra',
+                'como llego', 'como llegar', 'en que piso', 'que piso', 'quiero saber donde esta',
+                'quiero saber donde encontrarlo', 'ver ubicacion', 'mostrar en el mapa', 'mapa'
+            ];
+            return locationKeywords.some(w => clean.includes(w));
+        }
+
+        function _isInfoIntent(text) {
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const infoKeywords = [
+                'informacion', 'informacion adicional', 'saber informacion', 'mas informacion',
+                'detalles', 'caracteristicas', 'que caracteristicas tiene', 'de que marca es',
+                'marca', 'precio', 'cuanto cuesta', 'saber mas', 'cuentame mas'
+            ];
+            return infoKeywords.some(w => clean.includes(w));
         }
 
         function _isPayIntent(text) {
@@ -4679,26 +4785,248 @@
             saveCart();
         }
 
+        
+        // ══════════════════════════════════════════════════════════════════════
+        // GESTOR POS GETNET (INTEGRACIÓN JAVASCRIPT REAL - WEB SERIAL API)
+        // ══════════════════════════════════════════════════════════════════════
+        const posState = {
+            connected: false,
+            port: null,
+            baudRate: 115200,
+            isCharging: false,
+            isCancelling: false,
+            activeTransaction: null,
+            lastPaidTime: 0,
+            lastCancelTime: 0
+        };
+
+        let _isAutoConnectingPos = false;
+
+        function initGetnetSDK() {
+            if (typeof Getnet === 'undefined') {
+                console.warn("[Getnet POS] SDK JS getnet.js no cargado.");
+                return;
+            }
+
+            Getnet.SetCallback((msg) => {
+                handleGetnetCallback(msg);
+            });
+
+            Getnet.SetLogCallback((log) => {
+                LOG('[Getnet Log] ' + (typeof log === 'object' ? JSON.stringify(log) : log));
+            });
+
+            Getnet.SetTimeErrorCallback((err) => {
+                handleGetnetTimeout(err);
+            });
+
+            // Autoconectar silenciosamente si el puerto ya fue previamente autorizado en este navegador
+            checkAutoConnectPos();
+
+            // Detectar conexión / desconexión física de hardware USB POS
+            if (typeof navigator !== 'undefined' && navigator.serial) {
+                navigator.serial.addEventListener('connect', async (e) => {
+                    LOG('[Getnet POS] Conexión física USB detectada:', e.target);
+                    await checkAutoConnectPos();
+                });
+                navigator.serial.addEventListener('disconnect', (e) => {
+                    LOG('[Getnet POS] Desconexión física USB detectada:', e.target);
+                    setPosConnected(false);
+                });
+            }
+        }
+
+        async function checkAutoConnectPos() {
+            if (_isAutoConnectingPos) return;
+            if (typeof navigator === 'undefined' || !navigator.serial || typeof Getnet === 'undefined') return;
+            _isAutoConnectingPos = true;
+            try {
+                const port = await Getnet.autoConnect(posState.baudRate);
+                if (port && Getnet.isConnected()) {
+                    posState.port = port;
+                    setPosConnected(true, "COM USB");
+                    LOG('[Getnet POS] Auto-conectado exitosamente al POS Getnet.');
+                    setTimeout(() => {
+                        try { Getnet.Poll(); } catch (_) {}
+                    }, 350);
+                } else {
+                    setPosConnected(false);
+                }
+            } catch (e) {
+                console.warn("[Getnet POS] autoConnect error:", e);
+                setPosConnected(false);
+            } finally {
+                _isAutoConnectingPos = false;
+            }
+        }
+
+        function setPosConnected(connected, portDesc = "COM USB") {
+            posState.connected = connected;
+            const pill = document.getElementById('pos-header-status-pill');
+            const pillText = document.getElementById('pos-header-status-text');
+            const bullet = document.getElementById('pos-status-bullet');
+
+            if (connected) {
+                if (pill) pill.className = 'header-pos-pill online';
+                if (pillText) pillText.textContent = `POS Getnet: En Línea (${portDesc})`;
+                if (bullet) bullet.textContent = '●';
+            } else {
+                if (pill) pill.className = 'header-pos-pill';
+                if (pillText) pillText.textContent = 'POS Getnet: Desconectado (Clic)';
+                if (bullet) bullet.textContent = '○';
+            }
+        }
+
+        async function connectGetnetSerial() {
+            if (typeof Getnet === 'undefined') {
+                alert("Librería de Getnet no disponible en este momento.");
+                return false;
+            }
+            try {
+                LOG('[Getnet POS] Abriendo selector de puerto COM nativo...');
+                const port = await Getnet.connect(null, posState.baudRate);
+                if (port) {
+                    posState.port = port;
+                    setPosConnected(true, "COM Directo");
+                    LOG('[Getnet POS] ¡Puerto COM conectado exitosamente!');
+                    setTimeout(() => {
+                        try { Getnet.Poll(); } catch (_) {}
+                    }, 300);
+                    return true;
+                }
+            } catch (err) {
+                ERR('Error al conectar puerto COM:', err);
+                alert(`Error al conectar con el terminal POS: ${err.message || err}. Asegúrate de seleccionar el puerto donde está conectado el POS Getnet.`);
+                return false;
+            }
+            return false;
+        }
+
+        // ─── Callback del Hardware POS Getnet ─────────────────────────────────────
+        async function handleGetnetCallback(msg) {
+            if (!msg) return;
+            let data = msg;
+            if (msg.JsonSerialized && typeof msg.JsonSerialized === 'string') {
+                try { const inner = JSON.parse(msg.JsonSerialized); data = { ...msg, ...inner }; } catch (e) {}
+            }
+            const cmd = data.Command ?? data.FunctionCode ?? '-';
+            const rc = data.ResponseCode ?? '-';
+            LOG(`[Getnet CB] Cmd:${cmd} RC:${rc}`, data);
+
+            const posTitleEl = document.getElementById('pos-interactive-title');
+            const posDescEl = document.getElementById('pos-interactive-desc');
+
+            // 1. ACK de transporte del POS (Received: true)
+            if (data.Received === true) {
+                if (posTitleEl) posTitleEl.textContent = "Procesando en el terminal POS...";
+                if (posDescEl) posDescEl.textContent = "Acerque tarjeta, inserte chip o digite su PIN en el teclado del POS...";
+                return;
+            }
+
+            // 2. Respuesta a Poll (Cmd 106)
+            if (data.Command === 106 || data.FunctionCode === 106) {
+                setPosConnected(true);
+                return;
+            }
+
+            // 3. Respuesta explícita a CancelSale (Cmd 116)
+            if (data.Command === 116 || data.FunctionCode === 116) {
+                LOG('[Getnet POS] Venta cancelada confirmada por el terminal.');
+                posState.isCancelling = false;
+                posState.isCharging = false;
+                resetPaymentUI();
+                return;
+            }
+
+            // 4. Mensajes intermedios del POS (sin código definitivo aún)
+            if (data.ResponseCode === undefined || data.ResponseCode === null || data.ResponseCode === '') {
+                const statusMsg = data.ResponseMessage || data.Message || data.ResponseDescription;
+                if (statusMsg) {
+                    if (posTitleEl) posTitleEl.textContent = statusMsg;
+                    if (posDescEl) posDescEl.textContent = "Siga las instrucciones en la pantalla del terminal Getnet...";
+                }
+                return;
+            }
+
+            // 5. Validación con ResponseCode numérico
+            const respCode = Number(data.ResponseCode);
+
+            if (posState.isCancelling) {
+                posState.isCancelling = false;
+                posState.isCharging = false;
+                resetPaymentUI();
+                return;
+            }
+
+            // Distinguir ACK inicial del comando vs Aprobación Bancaria Final
+            const hasCardOrAuth = !!(data.AuthorizationCode || data.Last4Digits || data.CardBrand || data.CardType || data.SharesNumber !== undefined || data.AccountingDate || data.Pan || data.CardNumber);
+            if (respCode === 0 && !hasCardOrAuth) {
+                // Es solo el ACK de inicio de cobro: el POS está listo esperando tarjeta
+                if (posTitleEl) posTitleEl.textContent = "Acerque o inserte tarjeta";
+                if (posDescEl) posDescEl.textContent = data.ResponseMessage || "Por favor acerque tarjeta contactless o inserte chip en el POS Getnet.";
+                return;
+            }
+
+            const isApproved = (respCode === 0 && hasCardOrAuth);
+
+            if (isApproved) {
+                // ¡PAGO REAL APROBADO POR EL BANCO EN EL TERMINAL FÍSICO!
+                LOG('[Getnet POS] ¡VENTA APROBADA EXITOSAMENTE!', data);
+                posState.isCharging = false;
+                handlePaymentApproved(data);
+            } else {
+                // Transacción rechazada o cancelada por el cliente en el POS
+                LOG('[Getnet POS] Transacción rechazada o cancelada en el POS:', data);
+                posState.isCharging = false;
+                const errDetail = data.ResponseMessage || data.Message || `Código de rechazo: ${respCode}`;
+                alert(`Pago no completado en el terminal: ${errDetail}`);
+                resetPaymentUI();
+            }
+        }
+
+        function handleGetnetTimeout(err) {
+            WARN('[Getnet POS] Timeout o error de tiempo:', err);
+            if (posState.isCharging) {
+                alert("Tiempo de espera agotado en el terminal POS. Por favor intente nuevamente.");
+                resetPaymentUI();
+            }
+        }
+
+        // ─── Funciones de la UI del Checkout ──────────────────────────────────────
         function openParisCheckout() {
             const overlay = document.getElementById('paris-checkout-overlay');
             if (!overlay) return;
+
+            // Si no estamos en medio de un cobro activo, aseguramos estado limpio sin vouchers viejos
+            if (!posState.isCharging) {
+                const voucherView = document.getElementById('checkout-voucher-view');
+                if (voucherView) voucherView.style.display = 'none';
+                const posBox = document.getElementById('pos-interactive-box');
+                if (posBox) posBox.style.display = 'none';
+                const actionContainer = document.getElementById('checkout-action-container');
+                if (actionContainer) actionContainer.style.display = 'block';
+            }
+
             renderCheckoutCart();
             overlay.classList.add('open');
-            LOG('[Checkout] Pantalla completa de Checkout abierta.');
+            LOG('[Checkout] Bolsa de compras abierta.');
 
-            // Consultar estado de POS en segundo plano
-            fetch('/api/pos/status')
-                .then(r => r.json())
-                .then(data => {
-                    LOG('[POS Status]:', data);
-                })
-                .catch(e => WARN('Error consultando POS status:', e));
+            // Intentar auto-conexión del POS si no estuviese conectado
+            if (!Getnet.isConnected()) {
+                checkAutoConnectPos();
+            }
         }
 
         function closeParisCheckout() {
             const overlay = document.getElementById('paris-checkout-overlay');
             if (overlay) overlay.classList.remove('open');
-            LOG('[Checkout] Pantalla completa de Checkout cerrada.');
+            LOG('[Checkout] Bolsa de compras cerrada.');
+        }
+
+        function clearCartInteractive() {
+            _parisCart = [];
+            saveCart();
+            resetPaymentUI();
         }
 
         function renderCheckoutCart() {
@@ -4709,6 +5037,7 @@
             const discountEl = document.getElementById('chk-discount');
             const ivaEl = document.getElementById('chk-iva');
             const totalEl = document.getElementById('chk-total');
+            const pointsEl = document.getElementById('chk-cenco-points');
             const submitBtn = document.getElementById('btn-submit-payment');
 
             const count = getCartItemsCount();
@@ -4716,11 +5045,13 @@
             const originalTotal = getCartOriginalTotal();
             const discount = Math.max(0, originalTotal - total);
             const iva = Math.round(total * 0.19);
+            const cencoPoints = Math.floor(total / 100);
 
             if (countEl) countEl.textContent = String(count);
             if (subtotalEl) subtotalEl.textContent = `$${originalTotal.toLocaleString('es-CL')}`;
             if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
             if (ivaEl) ivaEl.textContent = `$${iva.toLocaleString('es-CL')}`;
+            if (pointsEl) pointsEl.textContent = cencoPoints.toLocaleString('es-CL');
 
             if (rowDiscountEl && discountEl) {
                 if (discount > 0) {
@@ -4732,7 +5063,7 @@
             }
 
             if (submitBtn) {
-                submitBtn.disabled = (_parisCart.length === 0 || _isPaymentProcessing);
+                submitBtn.disabled = (_parisCart.length === 0 || _isPaymentProcessing || posState.isCharging);
                 submitBtn.textContent = `Pagar $${total.toLocaleString('es-CL')} con POS Getnet`;
             }
 
@@ -4779,9 +5110,19 @@
 
         async function handleStartCheckoutPayment() {
             const total = getCartTotal();
-            if (total <= 0 || _isPaymentProcessing) return;
+            if (total <= 0 || _isPaymentProcessing || posState.isCharging) return;
+
+            // Verificar conexión con hardware Getnet
+            if (typeof Getnet === 'undefined' || !Getnet.isConnected()) {
+                const didConnect = await connectGetnetSerial();
+                if (!didConnect) {
+                    return; // El usuario canceló la selección de puerto
+                }
+            }
 
             _isPaymentProcessing = true;
+            posState.isCharging = true;
+
             const actionContainer = document.getElementById('checkout-action-container');
             const posBox = document.getElementById('pos-interactive-box');
             const posAmountEl = document.getElementById('pos-interactive-amount');
@@ -4794,62 +5135,74 @@
             if (posBox) posBox.style.display = 'flex';
             if (posAmountEl) posAmountEl.textContent = `$${total.toLocaleString('es-CL')}`;
             if (posTitleEl) posTitleEl.textContent = 'Iniciando terminal POS...';
-            if (posDescEl) posDescEl.textContent = 'Conectando con terminal Getnet...';
+            if (posDescEl) posDescEl.textContent = 'Enviando orden de cobro al terminal físico Getnet...';
 
             try {
-                // Notificar al avatar que el cobro está en curso
-                LOG(`[Checkout] Enviando orden de cobro a POS Getnet por $${total}`);
-                if (posTitleEl) posTitleEl.textContent = 'Acerque o inserte tarjeta';
-                if (posDescEl) posDescEl.textContent = 'Por favor, siga las instrucciones en el terminal físico Getnet.';
-
-                const res = await fetch('/api/pos/sale', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ amount: total, timeout: 180 })
-                });
-                const data = await res.json();
-                LOG('[Checkout] Respuesta POS Getnet:', data);
-
-                if (data.code === 0 && data.data && data.data.ResponseCode === 0) {
-                    // ¡TRANSACCIÓN APROBADA!
-                    handlePaymentApproved(data.data);
-                } else {
-                    // Error o Cancelación
-                    const errMsg = (data.data && data.data.ResponseMessage) || data.msg || 'Transacción rechazada en terminal POS.';
-                    alert(`Pago no completado: ${errMsg}`);
-                    resetPaymentUI();
-                }
+                const ticketNumber = String(Math.floor(Math.random() * 899999 + 100000));
+                LOG(`[Checkout] Enviando orden Getnet.Sale(${total}, ${ticketNumber}) al terminal...`);
+                // Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, timeout)
+                Getnet.Sale(total, ticketNumber, false, 0, false, 1, 180);
             } catch (err) {
-                ERR('Error al procesar cobro POS:', err);
-                alert('Error de comunicación con el terminal POS.');
+                ERR('Error enviando cobro a Getnet.Sale:', err);
+                alert(`Error al comunicarse con el terminal POS: ${err.message || err}`);
                 resetPaymentUI();
-            } finally {
-                _isPaymentProcessing = false;
             }
         }
 
-        async function handleCancelCheckoutPayment() {
+        function handleCancelCheckoutPayment() {
+            LOG('[Checkout] Cancelando cobro en el POS...');
+            posState.lastCancelTime = Date.now();
+            posState.isCharging = false;
+            posState.isCancelling = true;
+
             try {
-                await fetch('/api/pos/cancel', { method: 'POST' });
+                if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
+                    Getnet.CancelSale();
+                }
             } catch (e) {
-                WARN('Error cancelando pago:', e);
+                WARN('Error enviando CancelSale:', e);
             }
+
             resetPaymentUI();
         }
 
+        // ─── Reseteo Integral de la UI Post-Cobro (Elimina el bug de persistencia $189.000) ───
         function resetPaymentUI() {
             _isPaymentProcessing = false;
+            posState.isCharging = false;
+            posState.isCancelling = false;
+
             const actionContainer = document.getElementById('checkout-action-container');
             const posBox = document.getElementById('pos-interactive-box');
+            const voucherView = document.getElementById('checkout-voucher-view');
+
+            // 1. Ocultar cajas interactivas y voucher
             if (posBox) posBox.style.display = 'none';
+            if (voucherView) voucherView.style.display = 'none';
             if (actionContainer) actionContainer.style.display = 'block';
+
+            // 2. Limpiar datos del voucher en el DOM
+            const opEl = document.getElementById('v-op-number');
+            const authEl = document.getElementById('v-auth');
+            const cardEl = document.getElementById('v-card');
+            const itemsListEl = document.getElementById('v-items-list');
+            const totalEl = document.getElementById('v-total');
+            if (opEl) opEl.textContent = '';
+            if (authEl) authEl.textContent = '';
+            if (cardEl) cardEl.textContent = '';
+            if (itemsListEl) itemsListEl.innerHTML = '';
+            if (totalEl) totalEl.textContent = '$0';
+
             renderCheckoutCart();
         }
 
         function handlePaymentApproved(saleResult) {
             const posBox = document.getElementById('pos-interactive-box');
             const voucherView = document.getElementById('checkout-voucher-view');
+            const actionContainer = document.getElementById('checkout-action-container');
+
             if (posBox) posBox.style.display = 'none';
+            if (actionContainer) actionContainer.style.display = 'none';
             if (voucherView) voucherView.style.display = 'flex';
 
             const total = saleResult.Amount || getCartTotal();
@@ -4863,13 +5216,13 @@
             const itemsListEl = document.getElementById('v-items-list');
             const totalEl = document.getElementById('v-total');
 
-            if (opEl) opEl.textContent = saleResult.OperationNumber || 'OP-' + Math.floor(Math.random() * 89999 + 10000);
+            if (opEl) opEl.textContent = saleResult.OperationNumber || ('OP-' + Math.floor(Math.random() * 89999 + 10000));
             if (dateEl) dateEl.textContent = dateStr;
-            if (authEl) authEl.textContent = saleResult.AuthorizationCode || 'GET-' + Math.floor(Math.random() * 89999 + 10000);
+            if (authEl) authEl.textContent = saleResult.AuthorizationCode || ('GET-' + Math.floor(Math.random() * 89999 + 10000));
             if (cardEl) cardEl.textContent = (saleResult.CardBrand || 'TARJETA') + ' ' + (saleResult.CardNumber || '**** **** **** 1111');
             if (totalEl) totalEl.textContent = `$${Number(total).toLocaleString('es-CL')}`;
 
-            if (itemsListEl) {
+            if (itemsListEl && _parisCart.length > 0) {
                 itemsListEl.innerHTML = _parisCart.map(i => `
                     <div class="v-row">
                         <span>${i.cantidad}x ${i.nombre.slice(0, 22)}</span>
@@ -4878,10 +5231,12 @@
                 `).join('');
             }
 
-            // Vaciar el carrito tras pago exitoso
+            // VACIAR COMPLETAMENTE EL CARRITO TRAS PAGO EXITOSO:
             _parisCart = [];
-            saveCart();
-            LOG('[Checkout] Venta completada y voucher generado exitosamente.');
+            localStorage.removeItem('paris_cart');
+            updateCartWidget();
+
+            LOG('[Checkout] Transacción completada con éxito. Carrito reseteado a $0.');
         }
 
         function handleFinishSuccessfulCheckout() {
@@ -4907,7 +5262,6 @@
                 sleepModel(false);
             }, 3500);
         }
-
-    </script>
+</script>
 </body>
 </html>

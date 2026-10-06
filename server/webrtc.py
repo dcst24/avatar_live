@@ -163,10 +163,15 @@ class PlayerStreamTrack(MediaStreamTrack):
 
         return frame
     
-    def purge(self):
-        """Purga todos los frames pendientes en cola para corte inmediato."""
+    def purge(self, keep_last=False):
+        """Purga frames pendientes en cola para corte inmediato."""
         with self._queue.mutex:
-            self._queue.queue.clear()
+            if keep_last and len(self._queue.queue) > 1:
+                last_item = self._queue.queue[-1]
+                self._queue.queue.clear()
+                self._queue.queue.append(last_item)
+            else:
+                self._queue.queue.clear()
 
     def stop(self):
         super().stop()
@@ -205,15 +210,28 @@ class HumanPlayer:
             self.__container.output._player = self
 
     def purge(self):
-        """Purga buffers de audio WebRTC de forma instantánea.
-        El video NO se purga para mantener flujo continuo y evitar pantalla negra."""
+        """Purga buffers de audio y video WebRTC de forma sincronizada.
+        En video se conserva solo el último frame para mantener continuidad visual
+        sin pantalla negra y eliminar el desfase (lag) de la primera interacción."""
         if self.__audio:
-            self.__audio.purge()
+            self.__audio.purge(keep_last=False)
+        if self.__video:
+            self.__video.purge(keep_last=True)
 
     def push_video(self, frame):
         from av import VideoFrame
         new_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        self.__video._queue.put((new_frame, None))
+        try:
+            self.__video._queue.put((new_frame, None), block=False)
+        except queue.Full:
+            try:
+                self.__video._queue.get_nowait()
+            except queue.Empty:
+                pass
+            try:
+                self.__video._queue.put_nowait((new_frame, None))
+            except queue.Full:
+                pass
 
     def push_audio(self, frame, eventpoint=None):
         from av import AudioFrame

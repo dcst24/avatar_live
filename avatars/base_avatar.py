@@ -218,6 +218,13 @@ class BaseAvatar:
         if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
+        # 4. Margen de drenaje acústico: Si el habla acaba de finalizar, mantener speaking=True
+        # durante 380ms para que los últimos chunks terminen de cruzar WebRTC y sonar en los parlantes
+        # sin que el frontend corte el audio ni abra el micrófono antes de tiempo.
+        if getattr(self, '_last_speech_time', 0.0) > 0:
+            if time.time() - self._last_speech_time < 0.38:
+                return True
+
         return False
     
     def __loadcustom(self):
