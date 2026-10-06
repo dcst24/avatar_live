@@ -2757,7 +2757,7 @@
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
-            }, 30000);
+            }, 20000);
         }
 
         function scheduleFollowUpAckTimeout() {
@@ -2790,11 +2790,13 @@
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('ready', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
-            }, 20000);
+            }, 15000);
         }
 
         // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
         let _cardDismissTimeout = null;
+        let _lastScannedBarcode = '';
+        let _lastScannedBarcodeTime = 0;
 
         function keepBarcodeFocus() {
             const inp = document.getElementById('barcode-input');
@@ -2807,18 +2809,35 @@
         }
 
         async function handleBarcodeScan(code) {
-            LOG(`Escáner de código de barras detectado: "${code}"`);
+            const now = Date.now();
+            const cleanCode = String(code).trim();
+            if (!cleanCode) return;
+
+            // Anti-duplicado: Evita que el lector emita 2 veces el mismo código en menos de 2.5s
+            if (cleanCode === _lastScannedBarcode && (now - _lastScannedBarcodeTime) < 2500) {
+                LOG(`[Barcode Scan] Ignorando escaneo repetido dentro de 2.5s: "${cleanCode}"`);
+                return;
+            }
+            _lastScannedBarcode = cleanCode;
+            _lastScannedBarcodeTime = now;
+
+            LOG(`Escáner de código de barras detectado: "${cleanCode}"`);
             try {
-                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(code)}`);
+                // Cerrar mapa si estaba abierto para dar foco a la tarjeta
+                closeStoreMap();
+
+                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(cleanCode)}`);
                 const result = await res.json();
 
                 if (result.code === 0 && result.data) {
                     const prod = result.data;
                     LOG('Producto encontrado:', prod.nombre);
                     showProductCard(prod);
+
+                    // Registrar producto y acción pendiente para el reconocimiento de voz
                     _pendingCartProduct = prod;
                     _pendingAction = 'CONFIRM_ADD_CART';
-                    LOG('[Cart] Producto escaneado registrado para confirmación de compra:', prod.nombre);
+                    LOG('[Cart] Producto registrado para decisión del cliente:', prod.nombre);
 
                     // Desbloquear audio del video explícitamente ante el escaneo
                     const videoEl = document.getElementById('video');
@@ -2828,26 +2847,13 @@
                         if (videoEl.paused && videoEl.srcObject) {
                             videoEl.play().catch(e => WARN('play() barcode unlock:', e.name));
                         }
-                        LOG('Audio desbloqueado por escaneo de producto');
                     }
 
-                    // Mensaje de contexto comercial para el LLM (ultra conciso)
-                    const precioReg = Number(prod.precio).toLocaleString('es-CL');
-                    let llmContextMsg = `Producto escaneado: ${prod.nombre}. Marca: ${prod.marca || ''}. `;
-                    if (prod.oferta === 'SI' && prod.precio_oferta) {
-                        const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
-                        const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
-                        llmContextMsg += `En oferta a ${precioOf} pesos${dcto} (antes ${precioReg} pesos). `;
-                    } else {
-                        llmContextMsg += `Precio: ${precioReg} pesos. `;
-                    }
-                    const pisoStr = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
-                    const pasilloStr = prod.pasillo || '';
-                    const sectorStr = prod.sector || '';
-                    llmContextMsg += `Ubicación: ${pisoStr}, ${sectorStr}, ${pasilloStr}.`;
+                    // Locución exacta y determinista requerida:
+                    // 1° Nombre del producto, 2° ¿Desea agregarlo al carrito o saber información adicional del producto?
+                    const scanPrompt = `Has escaneado ${prod.nombre}. ¿Deseas agregarlo al carrito o saber información adicional del producto?`;
 
                     const sessionid = document.getElementById('sessionid').value;
-
                     clearTimeout(_followUpTimeoutId);
                     clearTimeout(_followUpAckTimeoutId);
                     _waitingFollowUpAck = false;
@@ -2856,63 +2862,30 @@
                     wakeUpModel();
                     stopAlwaysOnListening();
 
+                    queueAvatarBubble(scanPrompt);
                     try {
                         if (_activeLLMAbortController) {
                             try { _activeLLMAbortController.abort(); } catch (e) {}
                         }
                         _activeLLMAbortController = new AbortController();
 
-                        const llmRes = await fetch('/human', {
+                        await fetch('/human', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
-                                text: llmContextMsg,
-                                type: 'chat',
+                                text: scanPrompt,
+                                type: 'echo',
                                 interrupt: true,
-                                stream: true,
                                 sessionid: String(sessionid)
                             }),
                             signal: _activeLLMAbortController.signal
                         });
-
-                        if (llmRes.body) {
-                            const reader = llmRes.body.getReader();
-                            const decoder = new TextDecoder('utf-8');
-                            let fullText = '';
-                            let avatarBubble = null;
-
-                            while (true) {
-                                const { done, value } = await reader.read();
-                                if (done) break;
-                                const chunk = decoder.decode(value, { stream: true });
-                                fullText += chunk;
-                                if (!avatarBubble && fullText.trim()) {
-                                    avatarBubble = addChatBubble('avatar', '');
-                                }
-                                if (avatarBubble) {
-                                    avatarBubble.textContent = normalizarTexto(fullText);
-                                    const container = document.getElementById('chat-container');
-                                    if (container) container.scrollTop = container.scrollHeight;
-                                }
-                            }
-                            if (avatarBubble) {
-                                avatarBubble.textContent = normalizarTexto(fullText);
-                            }
-                            LOG('handleBarcodeScan: respuesta LLM completa:', fullText);
-                        }
                     } catch (e) {
-                        if (e && e.name === 'AbortError') {
-                            LOG('handleBarcodeScan: streaming cancelado por STOP/interrupción');
-                            return;
-                        }
-                        ERR('handleBarcodeScan error:', e);
-                    } finally {
-                        _activeLLMAbortController = null;
+                        WARN('Error al emitir locución de escaneo:', e);
                     }
-
                 } else {
-                    WARN(`Producto no encontrado para el código: ${code}`);
-                    showProductNotFound(code);
+                    LOG('Producto no encontrado para código:', cleanCode);
+                    showProductNotFound(cleanCode);
 
                     const notFoundText = `Lo siento, no encontré ningún producto registrado con ese código de barras en el catálogo de Paris.`;
                     const sessionid = document.getElementById('sessionid').value;
@@ -2928,7 +2901,7 @@
                             interrupt: true,
                             sessionid: String(sessionid)
                         })
-                    });
+                    }).catch(e => WARN('echo error:', e));
                 }
             } catch (e) {
                 ERR('Error al procesar código de barras:', e);
@@ -3313,9 +3286,20 @@
             let _lastInterimText = '';
             let _questionDispatched = false;
 
-            const _dispatchQuestion = (rawText) => {
-                if (_questionDispatched) return;
-                _questionDispatched = true;
+            let _lastDispatchedSpeechText = '';
+        let _lastDispatchedSpeechTime = 0;
+
+        const _dispatchQuestion = (rawText) => {
+            if (_questionDispatched) return;
+            const now = Date.now();
+            const cleanRaw = rawText.trim().toLowerCase();
+            if (cleanRaw === _lastDispatchedSpeechText && (now - _lastDispatchedSpeechTime) < 2200) {
+                LOG(`[Speech Dispatch] Descartando locución duplicada dentro de 2.2s: "${rawText}"`);
+                return;
+            }
+            _lastDispatchedSpeechText = cleanRaw;
+            _lastDispatchedSpeechTime = now;
+            _questionDispatched = true;
                 clearTimeout(_pendingCommitTimeout);
                 _lastInterimText = '';
 
@@ -4721,9 +4705,21 @@
             if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
         }
 
+        let _lastAddToCartSku = '';
+        let _lastAddToCartTime = 0;
+
         function addToCart(product, quantity = 1) {
             if (!product) return;
+            const now = Date.now();
             const sku = product.sku || product.codigo_barra;
+
+            // Anti-duplicado: Evita que el mismo SKU se agregue dos veces dentro de 2.5s
+            if (sku === _lastAddToCartSku && (now - _lastAddToCartTime) < 2500) {
+                LOG(`[Cart] Bloqueando adición duplicada del mismo SKU dentro de 2.5s: ${sku}`);
+                return;
+            }
+            _lastAddToCartSku = sku;
+            _lastAddToCartTime = now;
             const existing = _parisCart.find(i => i.sku === sku);
             const isOffer = product.oferta === 'SI' && product.precio_oferta;
             const finalPrice = isOffer ? product.precio_oferta : product.precio;
@@ -5168,6 +5164,8 @@
 
         // ─── Reseteo Integral de la UI Post-Cobro (Elimina el bug de persistencia $189.000) ───
         function resetPaymentUI() {
+            clearTimeout(_autoCloseVoucherTimeout);
+            _autoCloseVoucherTimeout = null;
             _isPaymentProcessing = false;
             posState.isCharging = false;
             posState.isCancelling = false;
@@ -5196,7 +5194,15 @@
             renderCheckoutCart();
         }
 
+        let _autoCloseVoucherTimeout = null;
+
         function handlePaymentApproved(saleResult) {
+            clearTimeout(_autoCloseVoucherTimeout);
+            // Timer de 15 segundos para volver automáticamente al avatar si el usuario no presiona Finalizar
+            _autoCloseVoucherTimeout = setTimeout(() => {
+                LOG('[Checkout Voucher] 15s transcurridos sin presionar Finalizar → Volviendo automáticamente al avatar.');
+                handleFinishSuccessfulCheckout();
+            }, 15000);
             const posBox = document.getElementById('pos-interactive-box');
             const voucherView = document.getElementById('checkout-voucher-view');
             const actionContainer = document.getElementById('checkout-action-container');
@@ -5240,6 +5246,8 @@
         }
 
         function handleFinishSuccessfulCheckout() {
+            clearTimeout(_autoCloseVoucherTimeout);
+            _autoCloseVoucherTimeout = null;
             closeParisCheckout();
             resetPaymentUI();
 
