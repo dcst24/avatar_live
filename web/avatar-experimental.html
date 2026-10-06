@@ -2738,6 +2738,8 @@
             clearTimeout(_followUpAckTimeoutId);
             _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
+            const checkoutEl = document.getElementById('paris-checkout-overlay');
+            if (checkoutEl && checkoutEl.classList.contains('open')) return;
             _followUpTimeoutId = setTimeout(() => {
                 LOG("30 segundos de silencio → Cerrando mapa interactivo y preguntando si necesita algo más.");
                 closeStoreMap();
@@ -4975,16 +4977,71 @@
                 LOG('[Getnet POS] Transacción rechazada o cancelada en el POS:', data);
                 posState.isCharging = false;
                 const errDetail = data.ResponseMessage || data.Message || `Código de rechazo: ${respCode}`;
-                alert(`Pago no completado en el terminal: ${errDetail}`);
+                
+                // Locución: el avatar anuncia el rechazo mientras la web de pago sigue activa
+                const rejectMsg = "Pago rechazado. Por favor intenta nuevamente o utiliza otro medio de pago.";
+                queueAvatarBubble(rejectMsg);
+                wakeUpModel();
+                stopAlwaysOnListening();
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: rejectMsg,
+                        type: 'echo',
+                        interrupt: true,
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('echo error:', e));
+
                 resetPaymentUI();
+                showCheckoutNotice(`Pago rechazado en el terminal: ${errDetail}`);
             }
         }
 
         function handleGetnetTimeout(err) {
             WARN('[Getnet POS] Timeout o error de tiempo:', err);
             if (posState.isCharging) {
-                alert("Tiempo de espera agotado en el terminal POS. Por favor intente nuevamente.");
+                posState.isCharging = false;
+                const timeoutMsg = "Pago rechazado por tiempo de espera agotado en el terminal. Por favor intenta nuevamente.";
+                queueAvatarBubble(timeoutMsg);
+                wakeUpModel();
+                stopAlwaysOnListening();
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: timeoutMsg,
+                        type: 'echo',
+                        interrupt: true,
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('echo error:', e));
+
                 resetPaymentUI();
+                showCheckoutNotice("Tiempo de espera agotado en el terminal POS.");
+            }
+        }
+
+        function showCheckoutNotice(msg) {
+            let noticeEl = document.getElementById('checkout-status-notice');
+            if (!noticeEl) {
+                const actionContainer = document.getElementById('checkout-action-container');
+                if (actionContainer) {
+                    noticeEl = document.createElement('div');
+                    noticeEl.id = 'checkout-status-notice';
+                    noticeEl.style.cssText = 'margin:12px 0;padding:10px 14px;border-radius:10px;background:#fef2f2;border:1px solid #f87171;color:#b91c1c;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;';
+                    actionContainer.insertBefore(noticeEl, actionContainer.firstChild);
+                }
+            }
+            if (noticeEl) {
+                noticeEl.innerHTML = `<span>⚠️</span> <span>${msg}</span>`;
+                noticeEl.style.display = 'flex';
+                setTimeout(() => {
+                    if (noticeEl) noticeEl.style.display = 'none';
+                }, 6000);
             }
         }
 
@@ -4992,6 +5049,13 @@
         function openParisCheckout() {
             const overlay = document.getElementById('paris-checkout-overlay');
             if (!overlay) return;
+
+            const wasOpen = overlay.classList.contains('open');
+
+            // Pausar timers de seguimiento para no interrumpir el flujo de compra
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
 
             // Si no estamos en medio de un cobro activo, aseguramos estado limpio sin vouchers viejos
             if (!posState.isCharging) {
@@ -5007,6 +5071,27 @@
             overlay.classList.add('open');
             LOG('[Checkout] Bolsa de compras abierta.');
 
+            // Si se acaba de abrir, avisar mediante locución del avatar
+            if (!wasOpen) {
+                const transferMsg = _parisCart.length > 0
+                    ? "Estás siendo transferido a la web de pago."
+                    : "Tu bolsa de compras está vacía. Escanea un producto para comenzar.";
+                queueAvatarBubble(transferMsg);
+                wakeUpModel();
+                stopAlwaysOnListening();
+                const sessionid = document.getElementById('sessionid').value;
+                fetch('/human', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        text: transferMsg,
+                        type: 'echo',
+                        interrupt: true,
+                        sessionid: String(sessionid)
+                    })
+                }).catch(e => WARN('echo error:', e));
+            }
+
             // Intentar auto-conexión del POS si no estuviese conectado
             if (!Getnet.isConnected()) {
                 checkAutoConnectPos();
@@ -5017,6 +5102,9 @@
             const overlay = document.getElementById('paris-checkout-overlay');
             if (overlay) overlay.classList.remove('open');
             LOG('[Checkout] Bolsa de compras cerrada.');
+            if (_autoCloseVoucherTimeout) {
+                handleFinishSuccessfulCheckout();
+            }
         }
 
         function clearCartInteractive() {
@@ -5243,16 +5331,37 @@
             updateCartWidget();
 
             LOG('[Checkout] Transacción completada con éxito. Carrito reseteado a $0.');
+
+            // Locución con la página de comprobante aún activa en pantalla:
+            const successMsg = "¡Pago exitoso! Tu comprobante ha sido emitido.";
+            queueAvatarBubble(successMsg);
+            wakeUpModel();
+            stopAlwaysOnListening();
+            const sessionid = document.getElementById('sessionid').value;
+            fetch('/human', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: successMsg,
+                    type: 'echo',
+                    interrupt: true,
+                    sessionid: String(sessionid)
+                })
+            }).catch(e => WARN('echo error:', e));
         }
 
         function handleFinishSuccessfulCheckout() {
-            clearTimeout(_autoCloseVoucherTimeout);
-            _autoCloseVoucherTimeout = null;
+            if (_autoCloseVoucherTimeout) {
+                clearTimeout(_autoCloseVoucherTimeout);
+                _autoCloseVoucherTimeout = null;
+            }
             closeParisCheckout();
             resetPaymentUI();
 
-            const thankMsg = "¡Muchas gracias por tu compra en Paris! Tu boleta electrónica ha sido emitida con éxito. Que tengas un excelente día.";
+            // Agradecimiento por comprar tras cerrarse la ventana de pago:
+            const thankMsg = "¡Muchas gracias por tu compra en Paris! Que tengas un excelente día.";
             queueAvatarBubble(thankMsg);
+            wakeUpModel();
             stopAlwaysOnListening();
 
             const sessionid = document.getElementById('sessionid').value;
@@ -5262,13 +5371,14 @@
                 body: JSON.stringify({
                     text: thankMsg,
                     type: 'echo',
+                    interrupt: true,
                     sessionid: String(sessionid)
                 })
             }).catch(e => WARN('echo error:', e));
 
             setTimeout(() => {
                 sleepModel(false);
-            }, 3500);
+            }, 5500);
         }
 </script>
 </body>
