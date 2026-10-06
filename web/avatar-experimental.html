@@ -221,57 +221,20 @@
             color: var(--text-muted);
         }
 
-        /* ── Botón STOP Avatar (corte manual inmediato) ───────────── */
+        /* ── Botón STOP Avatar (oculto / desactivado) ───────────── */
         #btn-stop-talk {
-            position: absolute;
-            bottom: 24px;
-            left: 50%;
-            transform: translateX(-50%) scale(0.92);
-            z-index: 35;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 9px 20px;
-            border-radius: 999px;
-            border: 1px solid rgba(239, 68, 68, 0.45);
-            background: rgba(24, 15, 20, 0.82);
-            backdrop-filter: blur(14px);
-            -webkit-backdrop-filter: blur(14px);
-            color: #ffffff;
-            font-family: inherit;
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-            cursor: pointer;
-            opacity: 0;
-            pointer-events: none;
-            visibility: hidden;
-            transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(239, 68, 68, 0.2);
-            user-select: none;
-            -webkit-user-select: none;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
-        #btn-stop-talk .stop-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #ef4444;
-            transition: transform 0.2s ease;
-        }
-
-        #btn-stop-talk .stop-label {
-            line-height: 1;
-        }
-
-        /* Cuando el avatar está hablando o pensando, el botón se activa con animación */
         body.state-speaking #btn-stop-talk,
         body.state-thinking #btn-stop-talk {
-            opacity: 1;
-            pointer-events: auto;
-            visibility: visible;
-            transform: translateX(-50%) scale(1);
-            animation: pulse-stop-glow 2s ease-in-out infinite;
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
         }
 
         #btn-stop-talk:hover {
@@ -2124,8 +2087,8 @@
                 </div>
             </div>
 
-            <!-- Botón STOP Avatar (flotante, visible cuando habla o piensa) -->
-            <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú">
+            <!-- Botón STOP Avatar (oculto / desactivado) -->
+            <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú" style="display: none !important;">
                 <span class="stop-icon">
                     <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
                         <rect x="5" y="5" width="14" height="14" rx="2" />
