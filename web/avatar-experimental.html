@@ -2583,6 +2583,8 @@
             clearTimeout(_inactivityTimeoutId);
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
+            if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
+            if (typeof clearCartInteractive === 'function') clearCartInteractive();
             clearServerHistory();
             if (isListening) {
                 setState('listening', 'Esperando activación…');
@@ -2610,6 +2612,8 @@
             _inactivityTimeoutId = setTimeout(() => {
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
                 closeStoreMap();
+                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
+                if (typeof clearCartInteractive === 'function') clearCartInteractive();
                 _conversationAwake = false;
                 _wakeDetected = false;
                 if (isListening) {
@@ -2734,6 +2738,8 @@
                 LOG('20s sin respuesta al follow-up → cerrando mapa, enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
                 closeStoreMap();
+                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
+                if (typeof clearCartInteractive === 'function') clearCartInteractive();
                 const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
                 stopAlwaysOnListening();
@@ -2823,7 +2829,7 @@
                     clearTimeout(_followUpAckTimeoutId);
                     _waitingFollowUpAck = false;
 
-                    clearServerHistory();
+                    // OJO: Conservar historial en el servidor para que el LLM recuerde el producto escaneado
                     wakeUpModel();
                     stopAlwaysOnListening();
 
@@ -2834,6 +2840,8 @@
                         }
                         _activeLLMAbortController = new AbortController();
 
+                        const scanHistoryUser = `El cliente escaneó el producto: ${prod.nombre} (Marca: ${prod.marca || 'Paris'}, Precio: ${prod.precio_oferta || prod.precio} pesos).`;
+
                         await fetch('/human', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -2841,6 +2849,9 @@
                                 text: scanPrompt,
                                 type: 'echo',
                                 interrupt: true,
+                                record_history: true,
+                                history_user: scanHistoryUser,
+                                cart: _parisCart,
                                 sessionid: String(sessionid)
                             }),
                             signal: _activeLLMAbortController.signal
@@ -3283,6 +3294,42 @@
                 if (question) {
                     clearTimeout(_wakeBufferTimeout);
 
+                    // 0. Intercepción de respuesta tras timeout de 60s en la web de pago
+                    if (_waitingCheckoutFollowUp) {
+                        _waitingCheckoutFollowUp = false;
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        const cleanAns = _cleanText(question);
+                        const continueKeywords = ['si', 'continuar', 'seguir', 'pagar', 'abrir', 'si por favor', 'dale', 'claro', 'volver'];
+                        const cancelKeywords = ['no', 'cancelar', 'cancelarla', 'prefiero cancelar', 'no gracias', 'dejar'];
+                        if (continueKeywords.some(k => cleanAns === k || cleanAns.startsWith(k + ' ') || cleanAns.includes(k))) {
+                            LOG('[Checkout Follow-up] Cliente decidió continuar con la compra.');
+                            const resumeMsg = "Perfecto, reabriendo tu bolsa de compras para completar el pago.";
+                            queueAvatarBubble(resumeMsg);
+                            openParisCheckout();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: resumeMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        } else if (cancelKeywords.some(k => cleanAns === k || cleanAns.startsWith(k + ' ') || cleanAns.includes(k))) {
+                            LOG('[Checkout Follow-up] Cliente decidió cancelar la compra.');
+                            clearCartInteractive();
+                            const cancelMsg = "He cancelado tu compra y vaciado la bolsa. ¿Necesitas ayuda con algún otro producto?";
+                            queueAvatarBubble(cancelMsg);
+                            stopAlwaysOnListening();
+                            const sessionid = document.getElementById('sessionid').value;
+                            fetch('/human', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ text: cancelMsg, type: 'echo', sessionid: String(sessionid) })
+                            }).catch(e => WARN('echo error:', e));
+                            return;
+                        }
+                    }
+
                     // 1. Intercepción directa de intención de pago / abrir caja
                     if (_isPayIntent(question)) {
                         LOG(`[Checkout] Intención de pago detectada: "${question}" → abriendo checkout`);
@@ -3304,7 +3351,51 @@
                         return;
                     }
 
-                    // 2. Manejo de intenciones tras escaneo de producto (_pendingCartProduct activo)
+                    // 2. Intercepción de consulta de bolsa / carrito ("¿qué llevo?", "¿cuánto es el total?")
+                    if (_isCartQueryIntent(question)) {
+                        LOG(`[Cart] Consulta de bolsa detectada: "${question}"`);
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        const count = getCartItemsCount();
+                        const total = getCartTotal();
+                        let cartReply = "";
+                        if (count === 0) {
+                            cartReply = "Tu bolsa de compras está vacía. Escanea un código de barras o dime qué buscas para agregar productos.";
+                        } else {
+                            const countStr = count === 1 ? 'un producto' : `${count} productos`;
+                            const itemsSummary = _parisCart.map(i => `${i.cantidad > 1 ? i.cantidad + ' ' : ''}${i.nombre}`).slice(0, 3).join(', ');
+                            cartReply = `Llevas ${countStr}: ${itemsSummary}, por un total de ${total.toLocaleString('es-CL')} pesos. ¿Deseas ir a pagar a la caja o ver algo más?`;
+                        }
+                        queueAvatarBubble(cartReply);
+                        stopAlwaysOnListening();
+                        const sessionid = document.getElementById('sessionid').value;
+                        fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: cartReply, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
+                        }).catch(e => WARN('echo error:', e));
+                        return;
+                    }
+
+                    // 3. Intercepción de vaciar bolsa ("vaciar carrito", "borrar bolsa")
+                    if (_isClearCartIntent(question)) {
+                        LOG(`[Cart] Solicitud de vaciar bolsa detectada: "${question}"`);
+                        setUserText(question, false);
+                        addChatBubble('user', question);
+                        clearCartInteractive();
+                        const clearReply = "Listo, he vaciado tu bolsa de compras. ¿Te puedo ayudar a buscar algún producto?";
+                        queueAvatarBubble(clearReply);
+                        stopAlwaysOnListening();
+                        const sessionid = document.getElementById('sessionid').value;
+                        fetch('/human', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ text: clearReply, type: 'echo', sessionid: String(sessionid) })
+                        }).catch(e => WARN('echo error:', e));
+                        return;
+                    }
+
+                    // 4. Manejo de intenciones tras escaneo de producto (_pendingCartProduct activo)
                     if (_pendingCartProduct && _pendingAction === 'CONFIRM_ADD_CART') {
                         const prod = _pendingCartProduct;
 
@@ -3325,7 +3416,7 @@
                             fetch('/human', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: locMsg, type: 'echo', sessionid: String(sessionid) })
+                                body: JSON.stringify({ text: locMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
                             }).catch(e => WARN('echo error:', e));
 
                             // Abrir mapa interactivo
@@ -3333,7 +3424,7 @@
                             return;
                         }
 
-                        // B. El usuario pide INFORMACIÓN ADICIONAL ("características", "marca", "detalles")
+                        // B. El usuario pide INFORMACIÓN ADICIONAL ("características", "marca", "detalles", "dame información")
                         if (_isInfoIntent(question)) {
                             LOG(`[Scan Intent] Usuario solicitó información adicional de: ${prod.nombre}`);
                             setUserText(question, false);
@@ -3359,7 +3450,14 @@
                             fetch('/human', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: infoMsg, type: 'echo', sessionid: String(sessionid) })
+                                body: JSON.stringify({
+                                    text: infoMsg,
+                                    type: 'echo',
+                                    record_history: true,
+                                    history_user: question,
+                                    cart: _parisCart,
+                                    sessionid: String(sessionid)
+                                })
                             }).catch(e => WARN('echo error:', e));
                             return;
                         }
@@ -3373,7 +3471,8 @@
 
                             const count = getCartItemsCount();
                             const total = getCartTotal();
-                            const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${count} ${count === 1 ? 'producto' : 'productos'} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas ver algo más?`;
+                            const countStr = count === 1 ? 'un producto' : `${count} productos`;
+                            const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${countStr} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas ver algo más?`;
 
                             setUserText(question, false);
                             addChatBubble('user', question);
@@ -3383,7 +3482,7 @@
                             fetch('/human', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid) })
+                                body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
                             }).catch(e => WARN('echo error:', e));
                             return;
                         }
@@ -3739,6 +3838,8 @@
 
             if (isSleepWord) {
                 closeStoreMap();
+                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
+                if (typeof clearCartInteractive === 'function') clearCartInteractive();
                 const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
                 let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
@@ -3787,7 +3888,8 @@
                         type: 'chat',
                         interrupt: true,
                         stream: true,
-                        sessionid: String(sessionid)
+                        sessionid: String(sessionid),
+                        cart: _parisCart
                     }),
                     signal: _activeLLMAbortController.signal
                 });
@@ -4588,56 +4690,96 @@
         let _selectedPaymentMethod = 'getnet';
         let _isPaymentProcessing = false;
 
+        function _cleanText(text) {
+            if (!text) return '';
+            return String(text)
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, " ")
+                .replace(/\s+/g, " ")
+                .trim();
+        }
+
         function _isAffirmativeWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            // Si el cliente pide información, detalles o ubicación, NO es confirmación de agregar al carrito
+            if (_isInfoIntent(text) || _isLocationIntent(text)) {
+                return false;
+            }
+            const clean = _cleanText(text);
             const affirmativePhrases = [
-                'si', 'sí', 'claro', 'por favor', 'dale', 'bueno', 'agrega', 'agregalo', 'agrégalo', 
-                'agregalo por favor', 'añadelo', 'añádelo', 'si por favor', 'si claro', 'obvio',
-                'pongalo', 'mételo', 'metelo', 'dale por favor', 'porfa', 'ok', 'bueno dale',
-                'agregar', 'anadir', 'añadir', 'compra', 'compralo', 'cómpralo'
+                'si', 'claro', 'por favor', 'dale', 'bueno', 'agrega', 'agregalo', 
+                'agregalo por favor', 'anadelo', 'si por favor', 'si claro', 'obvio',
+                'pongalo', 'metelo', 'dale por favor', 'porfa', 'ok', 'bueno dale',
+                'agregar', 'anadir', 'compra', 'compralo', 'al carrito', 'a la bolsa',
+                'si agregalo', 'si al carrito', 'si a la bolsa', 'llevar', 'llevo'
             ];
             return affirmativePhrases.some(w => clean === w || clean.startsWith(w + ' ') || clean.endsWith(' ' + w));
         }
 
         function _isNegativeWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = _cleanText(text);
             const negativePhrases = [
                 'no', 'no gracias', 'no por ahora', 'no lo agregues', 'cancelar', 'no por el momento',
                 'no gracias chao', 'no me interesa', 'dejarlo', 'no nada mas'
             ];
-            return negativePhrases.some(w => clean === w || clean.startsWith(w + ' '));
+            return negativePhrases.some(w => clean === w || clean.startsWith(w + ' ') || clean.endsWith(' ' + w));
         }
 
-        
         function _isLocationIntent(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = _cleanText(text);
             const locationKeywords = [
                 'donde esta', 'donde queda', 'donde lo encuentro', 'donde encontrarlo',
                 'en que pasillo', 'que pasillo', 'pasillo', 'ubicacion', 'donde se encuentra',
-                'como llego', 'como llegar', 'en que piso', 'que piso', 'quiero saber donde esta',
-                'quiero saber donde encontrarlo', 'ver ubicacion', 'mostrar en el mapa', 'mapa'
+                'como llego', 'como llegar', 'en que piso', 'que piso', 'donde esta ubicado',
+                'quiero saber donde esta', 'quiero saber donde encontrarlo', 'ver ubicacion',
+                'mostrar en el mapa', 'mapa'
             ];
             return locationKeywords.some(w => clean.includes(w));
         }
 
         function _isInfoIntent(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = _cleanText(text);
             const infoKeywords = [
-                'informacion', 'informacion adicional', 'saber informacion', 'mas informacion',
-                'detalles', 'caracteristicas', 'que caracteristicas tiene', 'de que marca es',
-                'marca', 'precio', 'cuanto cuesta', 'saber mas', 'cuentame mas'
+                'informacion', 'info', 'detalles', 'detalle', 'caracteristicas', 'caracteristica',
+                'especificaciones', 'especificacion', 'de que marca es', 'marca', 'precio',
+                'cuanto cuesta', 'cuanto vale', 'saber mas', 'cuentame mas', 'dime mas',
+                'que tiene', 'de que trata', 'explicame'
             ];
             return infoKeywords.some(w => clean.includes(w));
         }
 
         function _isPayIntent(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = _cleanText(text);
             const payKeywords = [
                 'pagar', 'ir a pagar', 'quiero pagar', 'vamos a pagar', 'ir a la caja', 'ir a caja', 
-                'cobrar', 'terminar compra', 'finalizar compra', 'ver bolsa', 'ver carrito', 'ir a pagar ahora',
-                'abrir caja', 'proceder al pago', 'hacer el pago'
+                'cobrar', 'terminar compra', 'finalizar compra', 'ver bolsa', 'ver carrito', 'ver carro',
+                'ir a pagar ahora', 'abrir caja', 'proceder al pago', 'hacer el pago'
             ];
             return payKeywords.some(w => clean === w || clean.includes(w));
+        }
+
+        function _isCartQueryIntent(text) {
+            const clean = _cleanText(text);
+            const cartQueryPhrases = [
+                'que tengo en la bolsa', 'que tengo en el carrito', 'que tengo en el carro',
+                'que hay en la bolsa', 'que hay en mi bolsa', 'que hay en el carrito', 'que hay en el carro',
+                'que llevo', 'cuanto llevo', 'cuanto es el total', 'cuanto debo', 'que productos agregue',
+                'que productos llevo', 'mostrar bolsa', 'ver bolsa', 'ver carrito', 'ver carro',
+                'cuanto tengo', 'resumen de mi compra', 'cuanto es'
+            ];
+            return cartQueryPhrases.some(p => clean.includes(p));
+        }
+
+        function _isClearCartIntent(text) {
+            const clean = _cleanText(text);
+            const clearCartPhrases = [
+                'vaciar bolsa', 'vaciar la bolsa', 'vaciar carrito', 'vaciar el carrito',
+                'vaciar carro', 'vaciar el carro', 'borrar bolsa', 'borrar la bolsa',
+                'borrar carrito', 'borrar el carrito', 'limpiar bolsa', 'limpiar carrito',
+                'eliminar productos', 'cancelar compra'
+            ];
+            return clearCartPhrases.some(p => clean.includes(p));
         }
 
         function getCartTotal() {
@@ -5008,6 +5150,53 @@
             }
         }
 
+        // ─── Control de Timer de Inactividad de Pago (60 Segundos) ───────────────
+        let _checkoutPaymentTimer = null;
+        let _waitingCheckoutFollowUp = false;
+
+        function startCheckoutPaymentTimer() {
+            clearCheckoutPaymentTimer();
+            _checkoutPaymentTimer = setTimeout(() => {
+                handleCheckoutPaymentTimeout();
+            }, 60000);
+        }
+
+        function clearCheckoutPaymentTimer() {
+            if (_checkoutPaymentTimer) {
+                clearTimeout(_checkoutPaymentTimer);
+                _checkoutPaymentTimer = null;
+            }
+        }
+
+        function handleCheckoutPaymentTimeout() {
+            const overlay = document.getElementById('paris-checkout-overlay');
+            if (!overlay || !overlay.classList.contains('open')) return;
+            // Si el cliente está activamente pagando en el terminal físico Getnet, no interrumpir
+            if (posState.isCharging) return;
+
+            LOG('[Checkout] 60 segundos transcurridos sin pagar. Cerrando drawer y consultando al cliente.');
+            closeParisCheckout();
+            _waitingCheckoutFollowUp = true;
+
+            const timeoutMsg = "Se agotó el tiempo para completar el pago. ¿Deseas continuar con tu compra o prefieres cancelarla?";
+            queueAvatarBubble(timeoutMsg);
+            wakeUpModel();
+            stopAlwaysOnListening();
+
+            const sessionid = document.getElementById('sessionid').value;
+            fetch('/human', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    text: timeoutMsg,
+                    type: 'echo',
+                    interrupt: true,
+                    sessionid: String(sessionid),
+                    cart: _parisCart
+                })
+            }).catch(e => WARN('echo error timeout checkout:', e));
+        }
+
         // ─── Funciones de la UI del Checkout ──────────────────────────────────────
         function openParisCheckout() {
             const overlay = document.getElementById('paris-checkout-overlay');
@@ -5019,6 +5208,9 @@
             clearTimeout(_followUpTimeoutId);
             clearTimeout(_followUpAckTimeoutId);
             _waitingFollowUpAck = false;
+
+            // Iniciar o reiniciar el timer de 60 segundos de inactividad en la pantalla de pago
+            startCheckoutPaymentTimer();
 
             // Si no estamos en medio de un cobro activo, aseguramos estado limpio sin vouchers viejos
             if (!posState.isCharging) {
@@ -5050,7 +5242,8 @@
                         text: transferMsg,
                         type: 'echo',
                         interrupt: true,
-                        sessionid: String(sessionid)
+                        sessionid: String(sessionid),
+                        cart: _parisCart
                     })
                 }).catch(e => WARN('echo error:', e));
             }
@@ -5062,6 +5255,7 @@
         }
 
         function closeParisCheckout() {
+            clearCheckoutPaymentTimer();
             const overlay = document.getElementById('paris-checkout-overlay');
             if (overlay) overlay.classList.remove('open');
             LOG('[Checkout] Bolsa de compras cerrada.');
@@ -5169,6 +5363,7 @@
 
             _isPaymentProcessing = true;
             posState.isCharging = true;
+            clearCheckoutPaymentTimer();
 
             const actionContainer = document.getElementById('checkout-action-container');
             const posBox = document.getElementById('pos-interactive-box');
@@ -5217,6 +5412,7 @@
         function resetPaymentUI() {
             clearTimeout(_autoCloseVoucherTimeout);
             _autoCloseVoucherTimeout = null;
+            clearCheckoutPaymentTimer();
             _isPaymentProcessing = false;
             posState.isCharging = false;
             posState.isCancelling = false;
@@ -5249,6 +5445,7 @@
 
         function handlePaymentApproved(saleResult) {
             clearTimeout(_autoCloseVoucherTimeout);
+            clearCheckoutPaymentTimer();
             // Timer de 15 segundos para volver automáticamente al avatar si el usuario no presiona Finalizar
             _autoCloseVoucherTimeout = setTimeout(() => {
                 LOG('[Checkout Voucher] 15s transcurridos sin presionar Finalizar → Volviendo automáticamente al avatar.');

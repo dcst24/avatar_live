@@ -91,9 +91,16 @@ async def human(request):
             datainfo['tts'] = params.get('tts')
         # Pasar el sessionid al LLM para mantener historial de conversación
         datainfo['sessionid'] = sessionid
+        if 'cart' in params:
+            datainfo['cart'] = params.get('cart', [])
 
         if params['type'] == 'echo':
             avatar_session.put_msg_txt(params['text'], datainfo)
+            if params.get('record_history'):
+                append_hist = request.app.get("append_to_history")
+                if append_hist and sessionid:
+                    user_text = params.get('history_user', "Producto escaneado en el totem.")
+                    append_hist(sessionid, user_text, params['text'])
             return json_ok()
         elif params['type'] == 'chat':
             llm_response_stream = request.app.get("llm_response_stream")
