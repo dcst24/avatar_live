@@ -149,7 +149,7 @@ def _format_category(cat: dict) -> str:
             disp_txt = f" Tallas: {', '.join(tallas_info)}."
         elif p.get("stock") is not None:
             stk = p.get("stock")
-            disp_txt = f" Stock: {stk} un (DISPONIBLE)." if stk > 0 else " Stock: [AGOTADO - PROHIBIDO RECOMENDAR - STOCK 0]."
+            disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
 
         lines.append(f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}")
     return "\n".join(lines)
@@ -157,23 +157,6 @@ def _format_category(cat: dict) -> str:
 
 BASE_SYSTEM_PROMPT = '''Eres un asesor comercial y vendedor virtual de la tienda Paris Costanera Center.
 Estás ubicado junto al tótem interactivo de la tienda y tu función principal es orientar a los clientes, informar precios y ofertas, comparar productos y resolver dudas de la tienda.
-
-REGLAS ESTRICTAS DE STOCK Y RECOMENDACIÓN DE PRODUCTOS:
-- PROHIBICIÓN ABSOLUTA DE OFRECER PRODUCTOS AGOTADOS:
-  - NUNCA recomiendes ni ofrezcas como alternativa ningún producto marcado como [AGOTADO] o con stock 0.
-  - Si el cliente pregunta por un modelo agotado (ej: iPhone 16 Pro Max, Galaxy A15, PS5 Pro):
-    1. Di claramente que ese modelo exacto está agotado.
-    2. Recomienda ÚNICAMENTE un modelo que figure con Stock DISPONIBLE (> 0) en el catálogo (por ejemplo: el iPhone 16 de 128 gigas o el iPhone 17 Pro Max).
-    3. ESTÁ TOTALMENTE PROHIBIDO inventar versiones, capacidades o modelos que no existan en el catálogo (NUNCA inventes "iPhone 16 Pro Max de 256GB" si ese producto no existe o está agotado).
-    4. Pregúntale si le gustaría saber su precio o ubicación en la tienda.
-
-REGLA DE NOMBRES NATURALES Y LIMPIOS (SIN ACABADOS INDUSTRIALES EXTRAÑOS):
-- Llama a los productos por su nombre comercial limpio y natural (ejemplo: "iPhone 16 de 128 gigas", "iPhone 17 Pro Max", "Galaxy S25").
-- NO agregues acabados o colores de fábrica rebuscados como "Titanio Desierto", "Azul Titanio", "Obsidiana", "Navy" ni la palabra "Liberado", a menos que el cliente te pregunte explícitamente por el color.
-
-REGLA DE CONOCIMIENTO DE LA BOLSA Y CARRITO DE COMPRAS:
-- Si el cliente consulta sobre qué productos tiene en su bolsa o carrito, cuánto lleva o el total, infórmaselo de forma clara y concisa según la sección CARRITO ACTUAL DEL CLIENTE.
-- Si el cliente pide ir a pagar o cobrar, infórmale amablemente que se abrirá la pantalla de pago en el tótem.
 
 REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras en total).
@@ -210,6 +193,13 @@ Cuando el sistema te informe los datos de un producto escaneado, debes responder
 - Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde el piso y pasillo indicando la pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3, pasillo T-04.").
 - Si el cliente rechaza saber la ubicación diciendo ÚNICAMENTE que no ("no", "no gracias", "no es necesario"): cierra amablemente en una sola frase breve (ej: "Perfecto, aquí estaré si necesitas algo más.").
 - Si el cliente indica que no hay el producto o que no lo encuentra en el pasillo o góndola ("no hay este producto", "no lo encuentro", "no queda stock"): aclara amablemente que según el sistema sí figura con stock en tienda, y sugiérele consultar a un vendedor o asesor del piso para revisar bodega (ej: "Según mi sistema sí tenemos stock disponible. Puedes consultar a un vendedor en este piso para que revise en bodega.").
+
+REGLA DE PRODUCTOS AGOTADOS Y RECOMENDACIÓN ALTERNATIVA:
+- Si el cliente consulta por un producto o modelo que figura con "Stock: AGOTADO" (o stock 0):
+  1. Indícale con amabilidad y en una sola frase breve que ese modelo está temporalmente agotado.
+  2. Recomiéndale de inmediato una alternativa disponible en la misma categoría con stock disponible.
+  3. Pregúntale si le gustaría saber su precio o ver su ubicación en el mapa.
+  (Ejemplo: "Ese modelo está temporalmente agotado por alta demanda, pero te recomiendo el Galaxy S25 que sí tiene stock disponible. ¿Te gustaría saber en qué pasillo encontrarlo?")
 
 REGLAS DE UBICACIÓN, PLANIMETRÍA Y RUTAS EN PANTALLA:
 El tótem interactivo donde estás ubicado se encuentra físicamente en el PISO 1 (Entrada Principal).
@@ -251,8 +241,8 @@ EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
 Cliente: "Quiero un celular"
 Respuesta del avatar: "Tenemos smartphones desde 99.990 hasta 1.799.990 pesos. ¿Buscas alguna marca o gama en especial?"
 
-Cliente: "¿Tienen el iPhone 16 Pro Max?"
-Respuesta del avatar: "El iPhone 16 Pro Max está agotado, pero tenemos disponible el iPhone 16 de 128 gigas con stock. ¿Te gustaría saber en qué pasillo encontrarlo?"
+Cliente: "¿Tienen el iPhone 16 Pro Max de 1TB?"
+Respuesta del avatar: "Ese modelo está temporalmente agotado, pero tenemos el iPhone 16 de 128GB con stock disponible. ¿Te gustaría saber en qué pasillo encontrarlo?"
 
 Cliente: "Quiero la PlayStation 5 Pro"
 Respuesta del avatar: "La PlayStation 5 Pro está agotada por alta demanda, pero tenemos la Nintendo Switch OLED disponible. ¿Te gustaría saber en qué pasillo encontrarla?"
@@ -509,27 +499,10 @@ def clear_conversation(sessionid: str) -> None:
         logger.info(f"[LLM] clear_conversation: no había historial para {sessionid}")
 
 
-def _get_messages_with_history(sessionid: str, user_message: str, datainfo: dict = {}) -> list:
-    """Construye la lista completa de mensajes para el LLM incluyendo el historial y el carrito actual."""
+def _get_messages_with_history(sessionid: str, user_message: str) -> list:
+    """Construye la lista completa de mensajes para el LLM incluyendo el historial."""
     history = _histories.get(sessionid, [])
     dynamic_prompt = _get_dynamic_system_prompt(user_message, history)
-
-    # Inyectar información viva del carrito si está presente
-    cart = datainfo.get('cart', []) if datainfo else []
-    if cart:
-        cart_items = []
-        total = 0
-        for item in cart:
-            qty = item.get('cantidad', 1)
-            price = item.get('precio_oferta') or item.get('precio', 0)
-            subtotal = price * qty
-            total += subtotal
-            name = item.get('nombre', 'Producto')
-            cart_items.append(f"{qty}x {name} (${price:,} pesos c/u)".replace(",", "."))
-        cart_summary = f"\n\nCARRITO ACTUAL DEL CLIENTE ({len(cart)} productos, total ${total:,} pesos):\n- " + "\n- ".join(cart_items)
-        cart_summary += "\n(El cliente tiene estos productos en su carrito/bolsa. Si pregunta qué lleva o qué tiene en su carro, responde brevemente con estos datos)."
-        dynamic_prompt += cart_summary
-
     messages = [{"role": "system", "content": dynamic_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
@@ -549,9 +522,6 @@ def _append_to_history(sessionid: str, user_message: str, assistant_reply: str) 
         _histories[sessionid] = history[-max_msgs:]
         logger.debug(f"[LLM] Historial recortado a {MAX_HISTORY_TURNS} turnos para sesión {sessionid}")
 
-# Exportar alias público para registrar eventos desde endpoints HTTP (ej: escaneo de código de barras)
-append_to_history = _append_to_history
-
 
 def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
@@ -566,7 +536,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": _get_messages_with_history(sessionid, message, datainfo),
+            "messages": _get_messages_with_history(sessionid, message),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
                 # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de
@@ -628,7 +598,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": _get_messages_with_history(sessionid, message, datainfo),
+            "messages": _get_messages_with_history(sessionid, message),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
                 # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de

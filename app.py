@@ -36,7 +36,7 @@ from aiortc import RTCPeerConnection, RTCSessionDescription,RTCIceServer,RTCConf
 from aiortc.rtcrtpsender import RTCRtpSender
 from server.webrtc import HumanPlayer
 from avatars.base_avatar import BaseAvatar
-from llm import llm_response, llm_response_stream, clear_conversation, abort_generation, append_to_history
+from llm import llm_response, llm_response_stream, clear_conversation, abort_generation
 import registry
 from server.routes import setup_routes
 from server.rtc_manager import RTCManager
@@ -156,7 +156,6 @@ def main():
     appasync["llm_response_stream"] = llm_response_stream
     appasync["clear_conversation"] = clear_conversation
     appasync["abort_generation"] = abort_generation
-    appasync["append_to_history"] = append_to_history
 
     appasync.on_shutdown.append(on_shutdown)
     appasync.router.add_post("/offer", offer)

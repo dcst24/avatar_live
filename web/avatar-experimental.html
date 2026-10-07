@@ -2606,10 +2606,21 @@
             resetInactivityTimer();
         }
 
+        // Fuente única de verdad: la bolsa/checkout está abierta → micrófono bloqueado
+        function isCheckoutOpen() {
+            const overlay = document.getElementById('paris-checkout-overlay');
+            return !!(overlay && overlay.classList.contains('open'));
+        }
+
         function resetInactivityTimer() {
             clearTimeout(_inactivityTimeoutId);
             if (!_conversationAwake) return;
             _inactivityTimeoutId = setTimeout(() => {
+                // Con la bolsa abierta el cliente está pagando: no expirar la sesión ni vaciar el carrito
+                if (isCheckoutOpen()) {
+                    resetInactivityTimer();
+                    return;
+                }
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
                 closeStoreMap();
                 if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
@@ -3718,6 +3729,11 @@
         function startAlwaysOnListening() {
             if (!isConnected) {
                 LOG('startAlwaysOnListening: avatar no conectado, ignorando');
+                return;
+            }
+            if (isCheckoutOpen()) {
+                LOG('startAlwaysOnListening: bolsa/checkout abierta → micrófono bloqueado');
+                _alwaysOnActive = false;
                 return;
             }
             if (isSpeaking) {
@@ -5226,6 +5242,9 @@
             overlay.classList.add('open');
             LOG('[Checkout] Bolsa de compras abierta.');
 
+            // Bloquear micrófono siempre que se abra la bolsa (click, voz o reapertura)
+            stopAlwaysOnListening();
+
             // Si se acaba de abrir, avisar mediante locución del avatar
             if (!wasOpen) {
                 const transferMsg = _parisCart.length > 0
@@ -5254,13 +5273,24 @@
             }
         }
 
-        function closeParisCheckout() {
+        function closeParisCheckout(resumeMic = true) {
             clearCheckoutPaymentTimer();
             const overlay = document.getElementById('paris-checkout-overlay');
             if (overlay) overlay.classList.remove('open');
             LOG('[Checkout] Bolsa de compras cerrada.');
             if (_autoCloseVoucherTimeout) {
                 handleFinishSuccessfulCheckout();
+                return;
+            }
+            // Cierre manual: reabrir el micrófono por si el cliente quiere preguntar algo más
+            if (resumeMic && _conversationAwake) {
+                setTimeout(() => {
+                    if (!isCheckoutOpen() && !_waitingCheckoutFollowUp && !isSpeaking && !isListening && isConnected) {
+                        LOG('[Checkout] Reabriendo micrófono tras cerrar la bolsa');
+                        _alwaysOnActive = false;
+                        startAlwaysOnListening();
+                    }
+                }, 300);
             }
         }
 
@@ -5515,7 +5545,7 @@
                 clearTimeout(_autoCloseVoucherTimeout);
                 _autoCloseVoucherTimeout = null;
             }
-            closeParisCheckout();
+            closeParisCheckout(false);
             resetPaymentUI();
 
             // Agradecimiento por comprar tras cerrarse la ventana de pago:
