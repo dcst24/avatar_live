@@ -60,6 +60,13 @@ function start() {
     let _remoteStream = null;
     pc.addEventListener('track', (evt) => {
         const videoEl = document.getElementById('video');
+        try {
+            if (evt.receiver && 'jitterBufferTarget' in evt.receiver) {
+                evt.receiver.jitterBufferTarget = 100; // ms, igual para audio y video
+            }
+        } catch (e) {
+            console.warn('[WebRTC] jitterBufferTarget no soportado:', e);
+        }
         if (evt.streams && evt.streams[0]) {
             if (!_remoteStream) {
                 _remoteStream = evt.streams[0];
