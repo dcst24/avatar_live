@@ -2236,7 +2236,7 @@
                         <span class="brand-store">Bolsa de Compras · Costanera Center</span>
                     </div>
                     <div style="display:flex;align-items:center;gap:12px;">
-                        <span id="pos-header-status-pill" class="header-pos-pill" onclick="connectGetnetSerial()" title="Estado de conexión con terminal Getnet (haz clic para conectar)">
+                        <span id="pos-header-status-pill" class="header-pos-pill" onclick="handlePosPillClick()" title="Estado de conexión con terminal Getnet (haz clic para conectar)">
                             <span id="pos-status-bullet">●</span> <span id="pos-header-status-text">POS Getnet (Desconectado)</span>
                         </span>
                         <button class="checkout-close-btn" onclick="closeParisCheckout()" title="Volver al Asesor">
@@ -4982,26 +4982,49 @@
         }
 
         async function checkAutoConnectPos() {
-            if (_isAutoConnectingPos) return;
-            if (typeof navigator === 'undefined' || !navigator.serial || typeof Getnet === 'undefined') return;
+            if (_isAutoConnectingPos) return false;
+            if (typeof navigator === 'undefined' || !navigator.serial || typeof Getnet === 'undefined') return false;
             _isAutoConnectingPos = true;
             try {
                 const port = await Getnet.autoConnect(posState.baudRate);
                 if (port && Getnet.isConnected()) {
                     posState.port = port;
                     setPosConnected(true, "COM USB");
-                    LOG('[Getnet POS] Auto-conectado exitosamente al POS Getnet.');
+                    LOG('[Getnet POS] Auto-conectado exitosamente al POS Getnet mediante barrido.');
                     setTimeout(() => {
                         try { Getnet.Poll(); } catch (_) {}
-                    }, 350);
+                    }, 300);
+                    return true;
                 } else {
                     setPosConnected(false);
+                    return false;
                 }
             } catch (e) {
                 console.warn("[Getnet POS] autoConnect error:", e);
                 setPosConnected(false);
+                return false;
             } finally {
                 _isAutoConnectingPos = false;
+            }
+        }
+
+        async function handlePosPillClick() {
+            if (typeof Getnet === 'undefined') {
+                alert("Librería de Getnet no disponible en este momento.");
+                return;
+            }
+            if (Getnet.isConnected()) {
+                LOG('[Getnet POS] Terminal ya conectado. Verificando estado con Poll...');
+                try { Getnet.Poll(); } catch (_) {}
+                return;
+            }
+            LOG('[Getnet POS] Clic en estado: iniciando barrido automático...');
+            const connected = await checkAutoConnectPos();
+            if (connected) {
+                LOG('[Getnet POS] ¡Conectado exitosamente por barrido!');
+            } else {
+                LOG('[Getnet POS] Barrido no encontró terminal activo; abriendo selector manual...');
+                await connectGetnetSerial();
             }
         }
 
@@ -5397,9 +5420,14 @@
 
             // Verificar conexión con hardware Getnet
             if (typeof Getnet === 'undefined' || !Getnet.isConnected()) {
-                const didConnect = await connectGetnetSerial();
-                if (!didConnect) {
-                    return; // El usuario canceló la selección de puerto
+                LOG('[Checkout] POS desconectado. Intentando barrido automático de puertos primero...');
+                const autoOk = await checkAutoConnectPos();
+                if (!autoOk || !Getnet.isConnected()) {
+                    LOG('[Checkout] Barrido no encontró POS activo. Abriendo selector nativo...');
+                    const didConnect = await connectGetnetSerial();
+                    if (!didConnect) {
+                        return; // El usuario canceló la selección de puerto
+                    }
                 }
             }
 

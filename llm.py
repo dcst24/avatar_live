@@ -8,6 +8,7 @@ import re
 import time
 import json
 import threading
+import unicodedata
 import requests
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -177,6 +178,9 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - Responde SIEMPRE de forma MUY BREVE (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras en total).
 - El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
+- PROHIBIDO EL RELLENO Y LA CORDIALIDAD EXCESIVA: Nunca uses frases introductorias como "¡Por supuesto!", "¡Hola! En tienda Paris tenemos...", "¡Excelente elección!", "¡Con mucho gusto!", "¡Qué buena pregunta!". Comienza de inmediato con el dato o la respuesta directa.
+- REGLA DE UN SOLO PRODUCTO: Cuando recomiendes o asesores, menciona ÚNICAMENTE 1 producto. Jamás menciones múltiples modelos ni hagas listas.
+- MÁXIMO 15 A 20 PALABRAS POR INTERACCIÓN. Respuestas de más de 25 palabras están estrictamente prohibidas.
 
 REGLA OBLIGATORIA PARA CONSULTAS GENERALES DE CATEGORÍA (PREGUNTAS AMPLIAS):
 - Si el cliente hace una consulta GENERAL o AMPLIA sobre una categoría sin especificar modelo, marca, gama ni preferencia (ej: "estoy buscando celulares", "quiero un celular", "qué celulares tienen", "busco televisores", "tienen notebooks", "ando buscando zapatillas", "tienen perfumes"):
@@ -348,6 +352,21 @@ CATEGORY_BROAD_TERMS = {
     "consola", "consolas", "videojuego", "videojuegos"
 }
 
+SPECIFIC_FILTER_KEYWORDS = {
+    "gama", "media", "alta", "baja", "barato", "baratos", "barata", "baratas",
+    "economico", "economicos", "economica", "economicas", "oferta", "ofertas",
+    "descuento", "descuentos", "rebaja", "rebajas", "pulgadas", "gaming", "running",
+    "talla", "tallas", "4k", "oled", "uled", "qled", "camara", "bateria", "detalles",
+    "tecnico", "tecnicos", "especificacion", "especificaciones", "caracteristica", "caracteristicas",
+    "pro", "ultra", "plus", "max", "piso", "pasillo", "donde", "ubicacion", "precio",
+    "cuanto", "cuesta", "vale", "comprar", "pagar", "llevar", "comparar", "diferencia",
+    "mejor", "stock", "queda", "quedan", "agotado", "disponible"
+}
+
+def _strip_accents(text: str) -> str:
+    """Elimina tildes y diacríticos para comparaciones robustas."""
+    return "".join(c for c in unicodedata.normalize("NFD", text.lower()) if unicodedata.category(c) != "Mn")
+
 
 def find_matching_product(text: str):
     """
@@ -427,17 +446,127 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = [], sessionid: str
     if datainfo is None:
         datainfo = {}
     user_search = user_msg.lower()
+    norm_user = _strip_accents(user_msg)
+    norm_words = set(re.findall(r'[a-zA-Z0-9]+', norm_user))
 
     # Extraer historial de mensajes
     history_user_msgs = [h.get("content", "").lower() for h in history if h.get("role") == "user"]
     history_user_text = " ".join(history_user_msgs[-3:])
 
-    # 1. Búsqueda de producto activo (Active Product Anchor)
-    # A) Coincidencia directa en la pregunta actual del usuario
+    # 1. Búsqueda de categorías relevantes en el mensaje actual
+    current_matched_cats = set()
+    for cid, kws in CATEGORY_KEYWORDS.items():
+        if any(_strip_accents(kw) in norm_user for kw in kws):
+            current_matched_cats.add(cid)
+    for cb, cid in _BARCODE_TO_CAT.items():
+        if cb in user_search:
+            current_matched_cats.add(cid)
+    for sku, cid in _SKU_TO_CAT.items():
+        if sku in user_search:
+            current_matched_cats.add(cid)
+    for brand, cids in _BRAND_TO_CATS.items():
+        if re.search(r'\b' + re.escape(brand) + r'\b', user_search):
+            current_matched_cats.update(cids)
+    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', user_search)
+    for w in words:
+        if w in _KEYWORD_TO_CATS:
+            current_matched_cats.update(_KEYWORD_TO_CATS[w])
+
+    # Continuidad de categoría desde el historial si no hubo match en mensaje actual
+    matched_cats = set(current_matched_cats)
+    if not matched_cats and history_user_msgs:
+        for prev_msg in reversed(history_user_msgs):
+            prev_norm = _strip_accents(prev_msg)
+            for cid, kws in CATEGORY_KEYWORDS.items():
+                if any(_strip_accents(kw) in prev_norm for kw in kws):
+                    matched_cats.add(cid)
+            if matched_cats:
+                break
+
+    if not matched_cats and history_user_text:
+        hist_norm = _strip_accents(history_user_text)
+        for cid, kws in CATEGORY_KEYWORDS.items():
+            if any(_strip_accents(kw) in hist_norm for kw in kws):
+                matched_cats.add(cid)
+
+    search_text = f"{user_search} {history_user_text}".strip()
+    norm_search = _strip_accents(search_text)
+
+    # Casos especiales de género / categoría amplia
+    if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
+        matched_cats.add("perfumes_mujer")
+        matched_cats.add("perfumes_hombre")
+    if "ropa" in search_text and not matched_cats.intersection({"ropa_mujer", "ropa_hombre"}):
+        matched_cats.add("ropa_mujer")
+        matched_cats.add("ropa_hombre")
+    if ("zapatilla" in search_text or "zapato" in search_text or "calzado" in search_text) and not matched_cats.intersection({"zapatillas", "calzado_mujer"}):
+        matched_cats.add("zapatillas")
+        matched_cats.add("calzado_mujer")
+
+    # 2. Detección de CONSULTA GENERAL DE CATEGORÍA
+    # Si el cliente hace una consulta general/amplia (ej: "estoy buscando celulares", "tienen televisores", "busco zapatillas")
+    # sin especificar producto puntual, sin marca y sin filtros de gama/precio/técnicos:
+    has_specific_prod_current = find_matching_product(user_msg) is not None
+    has_brand = any(re.search(r'\b' + re.escape(b) + r'\b', user_search) for b in _BRAND_TO_CATS)
+    has_filter = bool(norm_words.intersection(SPECIFIC_FILTER_KEYWORDS))
+    is_broad_query = bool(current_matched_cats and not has_specific_prod_current and not has_brand and not has_filter)
+
+    cart_items = datainfo.get("cart", [])
+    cart_block = ""
+    if cart_items:
+        cart_lines = []
+        for ci in cart_items:
+            ci_nombre = ci.get("nombre", "Producto")
+            ci_cant = ci.get("cantidad", ci.get("qty", 1))
+            ci_precio = f"${ci.get('precio', 0):,}".replace(",", ".")
+            cart_lines.append(f"- {ci_nombre} (Cantidad: {ci_cant}, Precio: {ci_precio} pesos)")
+        cart_block = "\nBOLSA DE COMPRAS ACTUAL DEL CLIENTE:\n" + "\n".join(cart_lines) + "\n"
+
+    if is_broad_query:
+        # Resetear memoria de producto activo previo para no arrastrar items viejos
+        if sessionid and sessionid in _active_products:
+            _active_products.pop(sessionid, None)
+
+        cat_summaries = []
+        for cid in current_matched_cats:
+            cat_obj = _CATEGORIES_BY_ID.get(cid)
+            if not cat_obj:
+                continue
+            c_name = cat_obj.get("nombre", cid)
+            prods = cat_obj.get("productos", [])
+            if not prods:
+                continue
+            prices = [p.get("precio_oferta") or p.get("precio") for p in prods if p.get("precio")]
+            min_p = f"${min(prices):,}".replace(",", ".") if prices else "$99.990"
+            max_p = f"${max(prices):,}".replace(",", ".") if prices else "$1.799.990"
+            marcas = list(dict.fromkeys([p.get("marca") for p in prods if p.get("marca")]))
+            marcas_str = ", ".join(marcas[:6])
+            cat_summaries.append(
+                f"- Categoría {c_name}: variedad desde {min_p} hasta {max_p} pesos. Marcas disponibles: {marcas_str}."
+            )
+
+        general_cat_block = (
+            f"\n=======================================================\n"
+            f"CONSULTA GENERAL DE CATEGORÍA (PREGUNTA AMPLIA):\n"
+            f"El cliente preguntó: \"{user_msg}\". Es una consulta general de entrada sin modelo, marca ni presupuesto.\n\n"
+            f"INFORMACIÓN OFICIAL EN TIENDA PARIS:\n"
+            + "\n".join(cat_summaries) + "\n\n"
+            f"INSTRUCCIÓN ESTRICTA DE BREVEDAD:\n"
+            f"1. Responde en UNA SOLA oración corta (MÁXIMO 12 a 15 palabras en total).\n"
+            f"2. Indica brevemente el rango de precios en tienda y pregunta directamente qué marca, gama o presupuesto busca.\n"
+            f"3. ESTÁ TOTALMENTE PROHIBIDO mencionar modelos específicos, recitar características o dar listas en este turno.\n"
+            f"4. PROHIBIDO cualquier saludo o relleno como \"¡Por supuesto!\", \"¡Hola! En tienda Paris...\", \"¡Claro que sí!\".\n"
+            f"Ejemplo de respuesta ideal: \"Tenemos smartphones desde 99.990 hasta 1.799.990 pesos. ¿Buscas alguna marca, gama o presupuesto?\"\n"
+            f"=======================================================\n"
+        )
+        extra_parts = [general_cat_block]
+        if cart_block:
+            extra_parts.append(cart_block)
+        return f"{BASE_SYSTEM_PROMPT}\n" + "\n".join(extra_parts)
+
+    # 3. Búsqueda de producto activo (Active Product Anchor) para consultas específicas o de continuidad
     active_prod = find_matching_product(user_msg)
 
-    # B) Si no hay producto directo en la consulta actual (ej: "detalles técnicos", "¿qué precio tiene?"),
-    # buscar en el historial reciente (recorriendo turnos de usuario y asistente hacia atrás)
     if not active_prod and history:
         for turn in reversed(history[-6:]):
             content = turn.get("content", "")
@@ -445,8 +574,6 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = [], sessionid: str
             if active_prod:
                 break
 
-    # C) Si aún no hay producto y el cliente tiene productos en su bolsa de compras / carrito
-    cart_items = datainfo.get("cart", [])
     if not active_prod and cart_items:
         for item in reversed(cart_items):
             item_cb = str(item.get("codigo_barra", "")).strip().lower()
@@ -456,79 +583,18 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = [], sessionid: str
                 active_prod = prod
                 break
 
-    # D) Si aún no hay producto, verificar la memoria de sesión del último producto activo
     if not active_prod and sessionid and sessionid in _active_products:
         active_prod = _active_products[sessionid]
 
-    # Guardar en la memoria de sesión si se detectó un producto activo
     if active_prod and sessionid:
         _active_products[sessionid] = active_prod
 
-    # 2. Búsqueda de categorías relevantes
-    current_matched_cats = set()
-
-    # Si hay un producto activo, su categoría es prioritaria y obligatoria
     if active_prod:
         sku = str(active_prod.get("sku", "")).strip().lower()
         if sku in _PROD_TO_CAT:
-            current_matched_cats.add(_PROD_TO_CAT[sku])
+            matched_cats.add(_PROD_TO_CAT[sku])
 
-    # Búsqueda por palabras clave de categoría en mensaje actual
-    for cid, kws in CATEGORY_KEYWORDS.items():
-        if any(kw in user_search for kw in kws):
-            current_matched_cats.add(cid)
-
-    # Búsqueda por código de barras o SKU en mensaje actual
-    for cb, cid in _BARCODE_TO_CAT.items():
-        if cb in user_search:
-            current_matched_cats.add(cid)
-    for sku, cid in _SKU_TO_CAT.items():
-        if sku in user_search:
-            current_matched_cats.add(cid)
-
-    # Búsqueda por marca registrada en mensaje actual
-    for brand, cids in _BRAND_TO_CATS.items():
-        if f" {brand} " in f" {user_search} ":
-            current_matched_cats.update(cids)
-
-    # Búsqueda por palabra distintiva en mensaje actual
-    words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', user_search)
-    for w in words:
-        if w in _KEYWORD_TO_CATS:
-            current_matched_cats.update(_KEYWORD_TO_CATS[w])
-
-    matched_cats = set(current_matched_cats)
-
-    # Continuidad de categoría desde el historial del usuario si no hay categoría ni producto activo
-    if not matched_cats and history_user_msgs:
-        for prev_msg in reversed(history_user_msgs):
-            for cid, kws in CATEGORY_KEYWORDS.items():
-                if any(kw in prev_msg for kw in kws):
-                    matched_cats.add(cid)
-            if matched_cats:
-                break
-
-    if not matched_cats and history_user_text:
-        for cid, kws in CATEGORY_KEYWORDS.items():
-            if any(kw in history_user_text for kw in kws):
-                matched_cats.add(cid)
-
-    search_text = f"{user_search} {history_user_text}".strip()
-
-    # Casos especiales de género / categoría amplia
-    if ("perfume" in search_text or "fragancia" in search_text) and not matched_cats.intersection({"perfumes_hombre", "perfumes_mujer"}):
-        matched_cats.add("perfumes_mujer")
-        matched_cats.add("perfumes_hombre")
-
-    if "ropa" in search_text and not matched_cats.intersection({"ropa_mujer", "ropa_hombre"}):
-        matched_cats.add("ropa_mujer")
-        matched_cats.add("ropa_hombre")
-
-    if ("zapatilla" in search_text or "zapato" in search_text or "calzado" in search_text) and not matched_cats.intersection({"zapatillas", "calzado_mujer"}):
-        matched_cats.add("zapatillas")
-        matched_cats.add("calzado_mujer")
-
-    # 3. Construir Bloques de Contexto Prioritario
+    # 4. Construir Bloques de Contexto Prioritario
     active_prod_block = ""
     if active_prod:
         p_nombre = active_prod.get('nombre', '')
@@ -563,28 +629,58 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = [], sessionid: str
             f"=======================================================\n"
         )
 
-    cart_block = ""
-    if cart_items:
-        cart_lines = []
-        for ci in cart_items:
-            ci_nombre = ci.get("nombre", "Producto")
-            ci_cant = ci.get("cantidad", ci.get("qty", 1))
-            ci_precio = f"${ci.get('precio', 0):,}".replace(",", ".")
-            cart_lines.append(f"- {ci_nombre} (Cantidad: {ci_cant}, Precio: {ci_precio} pesos)")
-        cart_block = "\nBOLSA DE COMPRAS ACTUAL DEL CLIENTE:\n" + "\n".join(cart_lines) + "\n"
-
     catalog_context = ""
     if matched_cats:
         cat_lines = []
         for cid in matched_cats:
-            if cid in _CATEGORIES_BY_ID:
-                cat_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
+            cat_obj = _CATEGORIES_BY_ID.get(cid)
+            if not cat_obj:
+                continue
+            prods = cat_obj.get("productos", [])
+
+            # Filtrar por marca si el cliente mencionó una marca
+            mentioned_brand = None
+            for b in _BRAND_TO_CATS:
+                if re.search(r'\b' + re.escape(b) + r'\b', norm_user):
+                    if b in [p.get("marca", "").lower() for p in prods]:
+                        mentioned_brand = b
+                        break
+
+            filtered_prods = prods
+            if mentioned_brand:
+                filtered_prods = [p for p in prods if p.get("marca", "").lower() == mentioned_brand]
+
+            # Filtrar por barato / económico
+            if any(w in norm_user for w in ["barato", "baratos", "economico", "economicos"]):
+                filtered_prods = sorted(filtered_prods, key=lambda p: p.get("precio_oferta") or p.get("precio", 999999999))[:3]
+            # Filtrar por gama media
+            elif "gama media" in norm_user:
+                mid_prods = [p for p in filtered_prods if "gama media" in " ".join(p.get("tags_recomendacion", [])).lower() or (250000 <= p.get("precio", 0) <= 600000)]
+                if mid_prods:
+                    filtered_prods = mid_prods[:3]
+            # Filtrar por oferta / descuento
+            elif any(w in norm_user for w in ["oferta", "ofertas", "descuento", "descuentos"]):
+                oferta_prods = [p for p in filtered_prods if p.get("en_oferta")]
+                if oferta_prods:
+                    filtered_prods = oferta_prods[:3]
+
+            # Si no hubo filtro específico, limitar a máximo 3 productos para no saturar
+            if len(filtered_prods) > 3:
+                filtered_prods = filtered_prods[:3]
+
+            loc = cat_obj.get("ubicacion_tienda", {})
+            piso = loc.get("piso", "?")
+            pasillo = loc.get("pasillo", "")
+            cat_header = f"\nCategoría: {cat_obj['nombre']} (Piso {piso}, {pasillo}):"
+            prod_lines = [_format_product(p, cat_obj) for p in filtered_prods]
+            cat_lines.append(cat_header + "\n" + "\n".join(prod_lines))
+
         catalog_context = "\n".join(cat_lines)
-    elif any(w in search_text for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
+    elif any(w in norm_search for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
         ofertas = _BDD.get("ofertas_destacadas", [])
         all_prods = {p["sku"]: p for c in _BDD.get("categorias", []) for p in c.get("productos", [])}
         lines = ["\nOfertas destacadas de la semana:"]
-        for o in ofertas:
+        for o in ofertas[:3]:
             prod = all_prods.get(o["sku"])
             if prod:
                 lines.append(f"- [{prod.get('categoria','')}] {prod['nombre']}: oferta a ${prod.get('precio_oferta',0):,} pesos ({o['descuento_pct']} por ciento dcto).".replace(",", "."))

@@ -659,71 +659,146 @@
     }
 
     async function probePortWithPoll(timeoutMs) {
-        if (timeoutMs === undefined) timeoutMs = 600;
+        if (timeoutMs === undefined) timeoutMs = 450;
         if (!isConnected()) return false;
         return new Promise((resolve) => {
-            var timer = null;
+            let timer = null;
+            let resolved = false;
             const originalCallback = Callback;
+
+            const cleanup = () => {
+                if (timer) { clearTimeout(timer); timer = null; }
+                Callback = originalCallback;
+            };
+
             const probeCallback = (msg) => {
-                if (msg && (msg.Command === 106 || msg.Received === true || msg.ResponseCode !== undefined)) {
-                    if (timer) clearTimeout(timer);
-                    Callback = originalCallback;
-                    if (typeof originalCallback === 'function') originalCallback(msg);
+                if (resolved) return;
+                // Verificar si el mensaje proviene efectivamente del POS Getnet
+                // Casos comprobados: Command 106, FunctionCode 106, Connected: true,
+                // o mensajes con formato Getnet oficial (Aprobado, Mensaje mal formado, etc.)
+                const isPosMsg = Boolean(
+                    msg && (
+                        msg.Command === 106 ||
+                        msg.FunctionCode === 106 ||
+                        msg.Connected === true ||
+                        (msg.ResponseMessage && (
+                            msg.ResponseMessage.includes("Aprobado") ||
+                            msg.ResponseMessage.includes("Mensaje mal formado")
+                        )) ||
+                        (msg.JsonSerialized && (
+                            msg.JsonSerialized.includes("106") ||
+                            msg.JsonSerialized.includes("Connected")
+                        ))
+                    )
+                );
+
+                if (isPosMsg) {
+                    resolved = true;
+                    cleanup();
+                    if (typeof originalCallback === 'function') {
+                        try { originalCallback(msg); } catch (_) {}
+                    }
                     resolve(true);
                 }
             };
+
             Callback = probeCallback;
-            timer = setTimeout(() => { Callback = originalCallback; resolve(false); }, timeoutMs);
-            try { Poll(); } catch (e) { if (timer) clearTimeout(timer); Callback = originalCallback; resolve(false); }
+            timer = setTimeout(() => {
+                if (!resolved) {
+                    resolved = true;
+                    cleanup();
+                    resolve(false);
+                }
+            }, timeoutMs);
+
+            try {
+                Poll();
+            } catch (e) {
+                if (!resolved) {
+                    resolved = true;
+                    cleanup();
+                    resolve(false);
+                }
+            }
         });
     }
 
     /**
-     * autoConnect: conecta al COM previamente autorizado con reintentos progresivos.
-     * Los delays [0, 400, 1000] ms permiten al OS de Windows liberar el puerto tras un refresh.
+     * autoConnect: realiza un barrido en el frontend sobre los puertos previamente autorizados (navigator.serial.getPorts).
+     * Prueba cada puerto enviando la sonda Poll (Command 106) y valida la respuesta del terminal Getnet.
+     * Prioriza puertos físicos USB sobre dispositivos virtuales/bluetooth.
      */
     async function autoConnect(baudRate) {
         if (baudRate === undefined) baudRate = 115200;
         if (isConnected()) return SerialCom.port;
-        if (typeof navigator === 'undefined' || !navigator.serial || !navigator.serial.getPorts) { return null; }
+        if (typeof navigator === 'undefined' || !navigator.serial || !navigator.serial.getPorts) {
+            return null;
+        }
         try {
             const ports = await navigator.serial.getPorts();
-            if (!ports || ports.length === 0) { return null; }
+            if (!ports || ports.length === 0) {
+                console.log("[Getnet POS] autoConnect: No hay puertos seriales autorizados en el navegador.");
+                return null;
+            }
+
             if (!SerialCom) SerialCom = new Serial();
-            const portsToTry = ports.slice().reverse(); // del mas reciente al mas antiguo
-            const retryDelays = [0, 400, 1000];
-            for (var pi = 0; pi < portsToTry.length; pi++) {
-                var port = portsToTry[pi];
-                for (var attempt = 0; attempt < retryDelays.length; attempt++) {
-                    if (retryDelays[attempt] > 0) {
-                        console.log("[Getnet POS] autoConnect: reintento " + attempt + " (" + retryDelays[attempt] + "ms)...");
-                        await new Promise(r => setTimeout(r, retryDelays[attempt]));
+
+            // Ordenar candidatos: primero dispositivos USB físicos (con usbVendorId), luego el resto
+            const candidatePorts = ports.slice().sort((a, b) => {
+                const aInfo = a.getInfo ? a.getInfo() : {};
+                const bInfo = b.getInfo ? b.getInfo() : {};
+                const aIsUsb = (aInfo.usbVendorId !== undefined) ? 1 : 0;
+                const bIsUsb = (bInfo.usbVendorId !== undefined) ? 1 : 0;
+                return bIsUsb - aIsUsb;
+            });
+
+            console.log("[Getnet POS] Iniciando barrido automático en " + candidatePorts.length + " puerto(s)...");
+
+            for (let i = 0; i < candidatePorts.length; i++) {
+                const port = candidatePorts[i];
+                const info = port.getInfo ? port.getInfo() : {};
+                const infoStr = info.usbVendorId ? `USB VID: 0x${info.usbVendorId.toString(16)} PID: 0x${(info.usbProductId || 0).toString(16)}` : 'Serial / BT';
+                console.log(`[Getnet POS] Barrido: Probando candidato ${i + 1}/${candidatePorts.length} (${infoStr})...`);
+
+                try {
+                    // Si el objeto SerialCom ya tenía un puerto abierto, cerrarlo antes
+                    if (SerialCom && SerialCom.port) {
+                        await SerialCom.disconnect();
+                        await new Promise(r => setTimeout(r, 60));
                     }
+
+                    // Abrir el puerto candidato
+                    await SerialCom.setPort(port, baudRate);
+
+                    if (!isConnected()) {
+                        console.warn(`[Getnet POS] Barrido: No se pudo abrir candidato ${i + 1}.`);
+                        continue;
+                    }
+
+                    // Enviar sonda Poll (Cmd 106) y esperar hasta 450ms confirmación del POS
+                    console.log(`[Getnet POS] Barrido: Enviando sonda Poll (106) al candidato ${i + 1}...`);
+                    const isGetnet = await probePortWithPoll(450);
+
+                    if (isGetnet) {
+                        console.log(`[Getnet POS] ¡BARRIDO EXITOSO! Terminal Getnet detectado y confirmado en candidato ${i + 1}.`);
+                        return port;
+                    } else {
+                        console.log(`[Getnet POS] Candidato ${i + 1} no respondió como terminal Getnet. Desconectando...`);
+                        await SerialCom.disconnect();
+                        await new Promise(r => setTimeout(r, 60));
+                    }
+                } catch (probeErr) {
+                    console.warn(`[Getnet POS] Error probando candidato ${i + 1}:`, probeErr.message || probeErr);
                     try {
-                        // Limpiar lector si el mismo puerto quedo en estado inconsistente
-                        if (SerialCom.port === port && !isConnected()) {
-                            SerialCom.isReading = false;
-                            if (SerialCom.reader) {
-                                try { await SerialCom.reader.cancel(); } catch (_) {}
-                                try { SerialCom.reader.releaseLock(); } catch (_) {}
-                                SerialCom.reader = null;
-                            }
-                        }
-                        await SerialCom.setPort(port, baudRate);
-                        if (isConnected()) {
-                            console.log("[Getnet POS] Auto-conectado (intento " + (attempt + 1) + ").");
-                            return port;
-                        }
-                    } catch (err) {
-                        console.warn("[Getnet POS] autoConnect intento " + (attempt + 1) + " fallo:", err.message || err);
-                        if (attempt < retryDelays.length - 1) {
-                            try { await SerialCom.disconnect(); } catch (_) {}
-                        }
-                    }
+                        if (SerialCom) await SerialCom.disconnect();
+                    } catch (_) {}
+                    await new Promise(r => setTimeout(r, 60));
                 }
             }
+
+            console.log("[Getnet POS] Barrido finalizado: Ningún puerto respondió como POS Getnet activo.");
         } catch (e) {
-            console.warn("[Getnet POS] autoConnect error:", e);
+            console.warn("[Getnet POS] autoConnect error en barrido:", e);
         }
         return null;
     }
