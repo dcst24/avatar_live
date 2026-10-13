@@ -3277,6 +3277,10 @@
         let _lastDispatchedSpeechTime = 0;
 
         const _dispatchQuestion = (rawText) => {
+            if (isCheckoutOpen()) {
+                LOG('[_dispatchQuestion] Bolsa/checkout abierta: no se envía info al LLM');
+                return;
+            }
             if (_questionDispatched) return;
             const now = Date.now();
             const cleanRaw = rawText.trim().toLowerCase();
@@ -3550,6 +3554,10 @@
                     LOG('[rec.onresult] Descartando audio captado mientras el avatar habla (prevención de eco/auto-corte)');
                     return;
                 }
+                // Si la bolsa/checkout está abierta, no procesar voz ni enviar al LLM
+                if (isCheckoutOpen()) {
+                    return;
+                }
 
                 _gotAnyResult = true;
                 let interim = '';
@@ -3731,11 +3739,6 @@
                 LOG('startAlwaysOnListening: avatar no conectado, ignorando');
                 return;
             }
-            if (isCheckoutOpen()) {
-                LOG('startAlwaysOnListening: bolsa/checkout abierta → micrófono bloqueado');
-                _alwaysOnActive = false;
-                return;
-            }
             if (isSpeaking) {
                 LOG('startAlwaysOnListening: avatar hablando, esperando a que termine');
                 return;
@@ -3844,6 +3847,10 @@
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
+            if (isCheckoutOpen()) {
+                LOG('[sendToLLM] Bolsa/checkout abierta: no se envía info al LLM');
+                return;
+            }
             stopAlwaysOnListening();
             LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');
@@ -5242,9 +5249,6 @@
             overlay.classList.add('open');
             LOG('[Checkout] Bolsa de compras abierta.');
 
-            // Bloquear micrófono siempre que se abra la bolsa (click, voz o reapertura)
-            stopAlwaysOnListening();
-
             // Si se acaba de abrir, avisar mediante locución del avatar
             if (!wasOpen) {
                 const transferMsg = _parisCart.length > 0
@@ -5252,7 +5256,6 @@
                     : "Tu bolsa de compras está vacía. Escanea un producto para comenzar.";
                 queueAvatarBubble(transferMsg);
                 wakeUpModel();
-                stopAlwaysOnListening();
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -5273,7 +5276,7 @@
             }
         }
 
-        function closeParisCheckout(resumeMic = true) {
+        function closeParisCheckout() {
             clearCheckoutPaymentTimer();
             const overlay = document.getElementById('paris-checkout-overlay');
             if (overlay) overlay.classList.remove('open');
@@ -5281,16 +5284,6 @@
             if (_autoCloseVoucherTimeout) {
                 handleFinishSuccessfulCheckout();
                 return;
-            }
-            // Cierre manual: reabrir el micrófono por si el cliente quiere preguntar algo más
-            if (resumeMic && _conversationAwake) {
-                setTimeout(() => {
-                    if (!isCheckoutOpen() && !_waitingCheckoutFollowUp && !isSpeaking && !isListening && isConnected) {
-                        LOG('[Checkout] Reabriendo micrófono tras cerrar la bolsa');
-                        _alwaysOnActive = false;
-                        startAlwaysOnListening();
-                    }
-                }, 300);
             }
         }
 
@@ -5545,7 +5538,7 @@
                 clearTimeout(_autoCloseVoucherTimeout);
                 _autoCloseVoucherTimeout = null;
             }
-            closeParisCheckout(false);
+            closeParisCheckout();
             resetPaymentUI();
 
             // Agradecimiento por comprar tras cerrarse la ventana de pago:
