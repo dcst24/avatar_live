@@ -3838,6 +3838,13 @@
             setState('thinking', 'Pensando…');
             queueAvatarBubble(greetingText);
 
+            // Asegurar que el elemento de video tenga el audio desmutado ante el saludo inicial
+            const videoEl = document.getElementById('video');
+            if (videoEl && videoEl.muted) {
+                videoEl.muted = false;
+                _audioUnlocked = true;
+            }
+
             const sessionid = document.getElementById('sessionid').value;
             try {
                 await fetch('/human', {
@@ -3846,6 +3853,7 @@
                     body: JSON.stringify({
                         text: greetingText,
                         type: 'echo',
+                        interrupt: true,
                         sessionid: String(sessionid)
                     })
                 });
@@ -3895,6 +3903,7 @@
                         body: JSON.stringify({
                             text: farewellText,
                             type: 'echo',
+                            interrupt: true,
                             sessionid: String(sessionid)
                         })
                     });
