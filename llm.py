@@ -34,7 +34,8 @@ def normalizar(text: str) -> str:
     text = re.sub(r'(\d+)\s*%', r'\1 por ciento', text)
 
     # 2. Convertir precios con signo $ a pesos (ej: $599.990 -> 599.990 pesos)
-    text = re.sub(r'\$(\d[\d\.]*)\s*(?:pesos)?', r'\1 pesos', text)
+    text = re.sub(r'\$(\d[\d\.]*)(?:\s*pesos)?', r'\1 pesos', text)
+    text = re.sub(r'(\b\d[\d\.]*\s*pesos)([a-zA-ZáéíóúÁÉÍÓÚñÑ])', r'\1 \2', text)
 
     # 3. Reemplazar flechas de cualquier tipo por un espacio
     text = re.sub(r'[→⇒➜➞➝➔]|->|=>|<-|<=|↔', ' ', text)
@@ -154,12 +155,10 @@ def _format_product(p: dict, cat: dict = None) -> str:
         stk = p.get("stock")
         disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
 
-    desc = p.get("descripcion", "").strip()
-    desc_txt = f" Características y detalles técnicos: {desc}." if desc else ""
     tags = p.get("tags_recomendacion", [])
     tags_txt = f" Tags: {', '.join(tags)}." if tags else ""
 
-    return f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}{desc_txt}{tags_txt}"
+    return f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}{tags_txt}"
 
 def _format_category(cat: dict) -> str:
     loc = cat.get("ubicacion_tienda", {})
@@ -179,12 +178,24 @@ REGLA FUNDAMENTAL DE BREVEDAD (RESPUESTAS ULTRA CORTAS Y DIRECTAS):
 - El cliente te escucha hablar a través de síntesis de voz en un tótem interactivo. Respuestas largas aburren y cansan. Ve directo al grano sin introducciones, saludos largos ni rodeos.
 - NUNCA uses asteriscos (*), negritas (**), guiones (- o —), flechas (→), viñetas (•) ni caracteres especiales. Si hay descuento, di "por ciento" con palabras.
 
-REGLA DE ASESORAMIENTO Y RECOMENDACIÓN (NO DAR UBICACIÓN DIRECTA, PREGUNTAR PRIMERO):
-- Cuando el cliente pida asesoramiento, consulte por productos, modelos, precios, ofertas, gamas o características (ej: "quiero un celular", "uno de gama media", "el más barato", "televisores en 50 pulgadas", "¿tienen zapatillas?"):
-  1. Recomienda o asesora de forma concisa (menciona 1 producto, precio u oferta relevante).
-  2. NUNCA menciones el piso, pasillo ni ubicación en esta respuesta.
-  3. Termina SIEMPRE la respuesta preguntando: "¿Te gustaría saber en qué pasillo encontrarlo?" (o "¿Quieres que te indique la ubicación en la tienda?").
-  4. NUNCA digas "la ubicación se muestra en pantalla" si el cliente solo pidió asesoramiento o precios.
+REGLA OBLIGATORIA PARA CONSULTAS GENERALES DE CATEGORÍA (PREGUNTAS AMPLIAS):
+- Si el cliente hace una consulta GENERAL o AMPLIA sobre una categoría sin especificar modelo, marca, gama ni preferencia (ej: "estoy buscando celulares", "quiero un celular", "qué celulares tienen", "busco televisores", "tienen notebooks", "ando buscando zapatillas", "tienen perfumes"):
+  1. ESTÁ TERMINANTEMENTE PROHIBIDO listar productos, dar listas, recitar características o clasificar por gamas (NUNCA digas "por ejemplo gama alta X, gama media Y").
+  2. Responde SIEMPRE en UNA SOLA oración corta indicando la variedad o el rango de precios, y termina preguntando para acotar la búsqueda:
+     - Celulares: "Tenemos smartphones desde 99.990 hasta 1.799.990 pesos. ¿Buscas alguna marca, gama o presupuesto en especial?"
+     - Televisores: "Tenemos televisores desde 43 hasta 65 pulgadas en oferta. ¿Buscas algún tamaño o presupuesto?"
+     - Computadores / Notebooks: "Tenemos notebooks desde 299.990 hasta 1.899.990 pesos. ¿Buscas para estudio, trabajo o gaming?"
+     - Zapatillas: "Tenemos zapatillas deportivas y urbanas de diversas marcas. ¿Buscas para running o uso diario?"
+     - Perfumes: "Tenemos fragancias para hombre y mujer en oferta. ¿Buscas para ti o para regalo?"
+  3. NUNCA menciones modelos específicos ni precios de productos individuales en este primer turno general. Espera la respuesta del cliente para recién recomendar 1 producto adecuado en el siguiente turno.
+
+REGLA DE RECOMENDACIÓN ESPECÍFICA (CUANDO EL CLIENTE ESPECIFICA GAMA, MARCA, PRECIO O PREFERENCIA):
+- Cuando el cliente especifique una preferencia (ej: "gama media", "el más barato", "económico", "para jugar", "en oferta", "en 50 pulgadas", "Samsung", "Nike", "con buena cámara"):
+  1. Recomienda ÚNICAMENTE 1 producto relevante de esa categoría que coincida con lo pedido (máximo 1 o 2 oraciones cortas, no más de 15 a 20 palabras).
+  2. Menciona su nombre, precio u oferta y una cualidad destacada.
+  3. NUNCA menciones el piso, pasillo ni ubicación en esta respuesta.
+  4. Termina SIEMPRE preguntando: "¿Te gustaría saber en qué pasillo encontrarlo?" (o "¿Quieres que te indique la ubicación en la tienda?").
+  5. NUNCA digas "la ubicación se muestra en pantalla" si el cliente solo pidió asesoramiento o precios.
 
 REGLA DE RESPUESTA A LA PREGUNTA DE UBICACIÓN O CONFIRMACIÓN DEL CLIENTE:
 - Si el cliente responde afirmativamente a tu pregunta de ubicación (ej: "sí", "por favor", "claro", "dónde", "dónde está", "dime"):
@@ -276,7 +287,7 @@ Cliente: "Quiero la PlayStation 5 Pro"
 Respuesta del avatar: "La PlayStation 5 Pro está agotada por alta demanda, pero tenemos la Nintendo Switch OLED disponible. ¿Te gustaría saber en qué pasillo encontrarla?"
 
 Cliente: "Quiero uno de gama media"
-Respuesta del avatar: "Te recomiendo el Galaxy A55 a 329.990 pesos con excelente cámara y batería. ¿Te gustaría saber en qué pasillo encontrarlo?"
+Respuesta del avatar: "Te sugiero el Honor 400 5G en oferta a 399.990 pesos con cámara de 200 megapíxeles. ¿Te gustaría saber en qué pasillo encontrarlo?"
 
 Cliente: "Sí, por favor"
 Respuesta del avatar: "La ubicación se muestra en pantalla, en el Piso 3. Debes subir por la escalera mecánica central hacia el pasillo T-01."
@@ -324,6 +335,20 @@ Respuesta del avatar: "Disculpa, solo respondo sobre productos y compras en tien
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 
+CATEGORY_BROAD_TERMS = {
+    "celular", "celulares", "smartphone", "smartphones", "telefono", "telefonos",
+    "televisor", "televisores", "tele", "teles", "tv", "tvs",
+    "parlante", "parlantes", "altavoz", "altavoces", "audifono", "audifonos", "audífonos",
+    "notebook", "notebooks", "laptop", "laptops", "computador", "computadores", "tablet", "tablets",
+    "zapatilla", "zapatillas", "zapato", "zapatos", "calzado",
+    "perfume", "perfumes", "fragancia", "fragancias",
+    "refrigerador", "refrigeradores", "lavadora", "lavadoras", "secadora", "secadoras",
+    "vestido", "vestidos", "camisa", "camisas", "poleron", "polerones", "pantalon", "pantalones",
+    "sandalia", "sandalias", "bota", "botas",
+    "consola", "consolas", "videojuego", "videojuegos"
+}
+
+
 def find_matching_product(text: str):
     """
     Busca de forma inteligente el producto específico más coincidente en el catálogo BDD
@@ -333,6 +358,10 @@ def find_matching_product(text: str):
         return None
     clean = text.lower().strip()
 
+    # Si la consulta consiste exclusivamente en un término amplio de categoría, NO es un producto específico
+    if clean in CATEGORY_BROAD_TERMS:
+        return None
+
     # 1. Barcode o SKU exacto
     for cb, prod in _ALL_PRODUCTS_BY_BARCODE.items():
         if cb and cb in clean:
@@ -341,10 +370,10 @@ def find_matching_product(text: str):
         if sku and sku in clean:
             return prod
 
-    # 2. Subcadena directa en nombre
+    # 2. Subcadena directa en nombre (evitando términos genéricos de categoría)
     for prod in _ALL_PRODUCTS:
         p_name = prod.get("nombre", "").lower()
-        if len(clean) >= 6 and (clean in p_name or p_name in clean):
+        if len(clean) >= 6 and clean not in CATEGORY_BROAD_TERMS and (clean in p_name or p_name in clean):
             return prod
 
     # 3. Puntuación por palabras clave distintivas
@@ -357,7 +386,7 @@ def find_matching_product(text: str):
         "buenas", "tardes", "dias", "saludos"
     }
     meaningful_words = {w for w in words_in_text if w not in stop_words}
-    if not meaningful_words:
+    if not meaningful_words or meaningful_words.issubset(CATEGORY_BROAD_TERMS):
         return None
 
     best_prod = None
