@@ -3387,7 +3387,14 @@
                         fetch('/human', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: cartReply, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
+                            body: JSON.stringify({
+                                text: cartReply,
+                                type: 'echo',
+                                record_history: true,
+                                history_user: question,
+                                sessionid: String(sessionid),
+                                cart: _parisCart
+                            })
                         }).catch(e => WARN('echo error:', e));
                         return;
                     }
@@ -3456,6 +3463,9 @@
                             }
                             if (prod.categoria) {
                                 infoMsg += `Categoría ${prod.categoria}. `;
+                            }
+                            if (prod.descripcion) {
+                                infoMsg += `${prod.descripcion}. `;
                             }
                             infoMsg += `¿Deseas agregarlo a tu bolsa de compras?`;
 

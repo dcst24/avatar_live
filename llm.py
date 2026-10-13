@@ -109,10 +109,15 @@ _BARCODE_TO_CAT: dict = {}
 _SKU_TO_CAT: dict = {}
 _BRAND_TO_CATS: dict = {}
 _KEYWORD_TO_CATS: dict = {}
+_ALL_PRODUCTS: list = []
+_ALL_PRODUCTS_BY_SKU: dict = {}
+_ALL_PRODUCTS_BY_BARCODE: dict = {}
+_PROD_TO_CAT: dict = {}
+_active_products: dict = {}  # sessionid -> prod dict (memoria del producto activo)
 
 CATEGORY_KEYWORDS = {
-    "audio_gaming": ["parlante", "parlantes", "audio", "altavoz", "jbl", "marshall", "audifono", "audifonos", "audífono", "audífonos", "sony", "buds", "consola", "consolas", "playstation", "ps5", "xbox", "gamer", "gaming", "smartwatch", "reloj"],
-    "smartphones": ["celular", "celulares", "telefono", "telefonos", "smartphone", "smartphones", "iphone", "apple", "galaxy", "samsung", "xiaomi", "redmi", "motorola", "pixel"],
+    "audio_gaming": ["parlante", "parlantes", "audio", "altavoz", "jbl", "marshall", "audifono", "audifonos", "audífono", "audífonos", "sony", "buds", "consola", "consolas", "playstation", "ps5", "xbox", "nintendo", "switch", "gamer", "gaming", "smartwatch", "reloj"],
+    "smartphones": ["celular", "celulares", "telefono", "telefonos", "smartphone", "smartphones", "iphone", "apple", "galaxy", "samsung", "xiaomi", "redmi", "motorola", "pixel", "google pixel", "pixel 9"],
     "television": ["tele", "teles", "televisor", "televisores", "tv", "tvs", "smart tv", "qled", "oled", "uled", "pantalla", "hisense", "roku"],
     "computacion": ["notebook", "notebooks", "laptop", "laptops", "computador", "computadores", "tablet", "tablets", "macbook", "ipad", "asus", "lenovo"],
     "zapatillas": ["zapatilla", "zapatillas", "running", "nike", "adidas", "puma", "new balance", "pegasus", "ultraboost", "calzado deportivo", "talla", "tallas"],
@@ -125,33 +130,44 @@ CATEGORY_KEYWORDS = {
     "decohogar": ["plumon", "sabana", "sabanas", "cobertor", "almohada", "cama", "deco", "decohogar", "toalla"]
 }
 
+def _format_product(p: dict, cat: dict = None) -> str:
+    loc = cat.get("ubicacion_tienda", {}) if cat else {}
+    piso = loc.get("piso", 1)
+    pasillo = loc.get("pasillo", "")
+    precio_str = f"${p['precio']:,}".replace(",", ".")
+    if p.get("en_oferta") and p.get("precio_oferta"):
+        oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
+        precio_detalle = f"antes {precio_str} pesos, oferta {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
+    else:
+        precio_detalle = f"precio {precio_str} pesos"
+
+    code = p.get("codigo_barra") or p.get("sku")
+    piso_num = p.get("piso", piso)
+    pasillo_txt = p.get("pasillo", pasillo)
+    cat_tipo = p.get("categoria", "")
+
+    disp_txt = ""
+    if p.get("stock_por_talla"):
+        tallas_info = [f"talla {t} ({stk} un)" if stk > 0 else f"talla {t} AGOTADA" for t, stk in p["stock_por_talla"].items()]
+        disp_txt = f" Tallas: {', '.join(tallas_info)}."
+    elif p.get("stock") is not None:
+        stk = p.get("stock")
+        disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
+
+    desc = p.get("descripcion", "").strip()
+    desc_txt = f" Características y detalles técnicos: {desc}." if desc else ""
+    tags = p.get("tags_recomendacion", [])
+    tags_txt = f" Tags: {', '.join(tags)}." if tags else ""
+
+    return f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}{desc_txt}{tags_txt}"
+
 def _format_category(cat: dict) -> str:
     loc = cat.get("ubicacion_tienda", {})
     piso = loc.get("piso", "?")
     pasillo = loc.get("pasillo", "")
     lines = [f"\nCategoría: {cat['nombre']} (Piso {piso}, {pasillo}):"]
     for p in cat.get("productos", []):
-        precio_str = f"${p['precio']:,}".replace(",", ".")
-        if p.get("en_oferta") and p.get("precio_oferta"):
-            oferta_str = f"${p['precio_oferta']:,}".replace(",", ".")
-            precio_detalle = f"antes {precio_str} pesos, oferta {oferta_str} pesos ({p.get('descuento_pct',0)} por ciento dcto)"
-        else:
-            precio_detalle = f"precio {precio_str} pesos"
-
-        code = p.get("codigo_barra") or p.get("sku")
-        piso_num = p.get("piso", piso)
-        pasillo_txt = p.get("pasillo", pasillo)
-        cat_tipo = p.get("categoria", "")
-
-        disp_txt = ""
-        if p.get("stock_por_talla"):
-            tallas_info = [f"talla {t} ({stk} un)" if stk > 0 else f"talla {t} AGOTADA" for t, stk in p["stock_por_talla"].items()]
-            disp_txt = f" Tallas: {', '.join(tallas_info)}."
-        elif p.get("stock") is not None:
-            stk = p.get("stock")
-            disp_txt = f" Stock: {stk} un." if stk > 0 else " Stock: AGOTADO."
-
-        lines.append(f"- [{cat_tipo}] {p['nombre']} (Marca {p['marca']}, Cod {code}): {precio_detalle}. Ubicación: Piso {piso_num}, {pasillo_txt}.{disp_txt}")
+        lines.append(_format_product(p, cat))
     return "\n".join(lines)
 
 
@@ -179,15 +195,21 @@ REGLA DE RESPUESTA A LA PREGUNTA DE UBICACIÓN O CONFIRMACIÓN DEL CLIENTE:
   - Da directamente la ubicación indicando que se muestra en pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3. Debes subir por la escalera mecánica central hacia el pasillo T-01.").
 
 REGLA DE CONTINUIDAD CONVERSACIONAL Y CATEGORÍA ACTIVA:
-- Si el cliente continúa una consulta previa (por ejemplo: "uno de gama media", "el más barato", "en oferta", "en 50 pulgadas", "¿tienen stock?"), MANTÉN SIEMPRE la categoría o producto del que venían hablando (ej: si venían hablando de televisores, "uno de gama media" se refiere exclusivamente a un televisor de gama media).
-- NUNCA digas "no especificaste la categoría" si ya venían hablando de una categoría en los turnos anteriores.
-- NUNCA menciones múltiples categorías ajenas a la vez.
-- Recomienda directamente 1 producto de esa categoría que cumpla con la solicitud en una sola oración breve y pregunta si desea saber la ubicación (ej: "Te recomiendo el Hisense 50 pulgadas 4K a 279.990 pesos. ¿Te gustaría saber en qué pasillo encontrarlo?").
+- Si el cliente continúa una consulta previa (por ejemplo: "uno de gama media", "el más barato", "en oferta", "en 50 pulgadas", "¿tienen stock?", "detalles técnicos", "¿qué características tiene?"), MANTÉN SIEMPRE el producto o categoría del que venían hablando.
+- Si venían hablando de un celular como Google Pixel 9, "detalles técnicos" se refiere exclusivamente al Google Pixel 9. NUNCA respondas sobre el Samsung Galaxy S25 ni sobre otro producto ajeno.
+- NUNCA digas "no especificaste la categoría" ni "no cuento con ese celular" si ya venían hablando de él o si figura en el catálogo de tienda Paris.
+
+REGLA DE DETALLES TÉCNICOS Y CARACTERÍSTICAS:
+- Cuando el cliente pregunte por "detalles técnicos", "especificaciones", "características", "de qué material es", "qué procesador tiene", "cómo es la cámara" o funciones de un producto:
+  1. Identifica el producto del que venían hablando (o el producto consultado / escaneado / en el carrito).
+  2. Responde de forma muy breve (máximo 1 o 2 oraciones cortas, no más de 15 a 25 palabras) destacando los detalles técnicos clave extraídos directamente de su descripción (procesador, cámara, pantalla, batería, inteligencia artificial o funciones destacadas).
+  3. Responde EXCLUSIVAMENTE sobre ese producto. NUNCA menciones Samsung Galaxy S25 si el producto en discusión es otro (ej: Google Pixel, iPhone, PlayStation, Nintendo, Hisense, etc.).
+  4. Pregunta al final si desea saber la ubicación o si desea agregarlo a la bolsa de compras.
 
 REGLAS DE COMPORTAMIENTO ANTE UN ESCANEO DE PRODUCTO (CÓDIGO DE BARRAS / SKU):
 Cuando el sistema te informe los datos de un producto escaneado, debes responder de manera ULTRA CONCISA:
 - Si el producto NO tiene oferta: di únicamente su nombre y su precio directo, y pregunta si desea agregarlo al carrito (ej: "El parlante JBL Charge 5 cuesta 179.990 pesos. ¿Deseas que lo agregue a tu carrito de compras?"). ESTÁ ESTRICTAMENTE PROHIBIDO decir la frase "precio regular".
-- Si el producto SÍ tiene oferta: destaca de inmediato el precio de oferta y el descuento, y pregunta si desea agregarlo al carrito (ej: "El Galaxy S25 está en oferta a 599.990 pesos con 44 por ciento de descuento. ¿Deseas que lo agregue a tu carrito de compras?").
+- Si el producto SÍ tiene oferta: destaca de inmediato el precio de oferta y el descuento, y pregunta si desea agregarlo al carrito (ej: "El televisor está en oferta a 279.990 pesos con 30 por ciento de descuento. ¿Deseas que lo agregue a tu carrito de compras?").
 - NUNCA digas frases aduladoras ni de relleno como "Buena elección", "Excelente elección", "Qué buen gusto" o "Gran compra".
 - NO menciones el piso ni la ubicación al escanear, a menos que el cliente responda afirmativamente.
 - Si el cliente responde afirmativamente (sí, claro, por favor, ok, dónde): responde el piso y pasillo indicando la pantalla (ej: "La ubicación se muestra en pantalla, en el Piso 3, pasillo T-04.").
@@ -199,7 +221,7 @@ REGLA DE PRODUCTOS AGOTADOS Y RECOMENDACIÓN ALTERNATIVA:
   1. Indícale con amabilidad y en una sola frase breve que ese modelo está temporalmente agotado.
   2. Recomiéndale de inmediato una alternativa disponible en la misma categoría con stock disponible.
   3. Pregúntale si le gustaría saber su precio o ver su ubicación en el mapa.
-  (Ejemplo: "Ese modelo está temporalmente agotado por alta demanda, pero te recomiendo el Galaxy S25 que sí tiene stock disponible. ¿Te gustaría saber en qué pasillo encontrarlo?")
+  (Ejemplo: "Ese modelo está temporalmente agotado por alta demanda, pero te recomiendo una alternativa disponible en la misma sección. ¿Te gustaría saber en qué pasillo encontrarla?")
 
 REGLAS DE UBICACIÓN, PLANIMETRÍA Y RUTAS EN PANTALLA:
 El tótem interactivo donde estás ubicado se encuentra físicamente en el PISO 1 (Entrada Principal).
@@ -240,6 +262,12 @@ EJEMPLOS DE FLUJO CORRECTO (CORTOS Y PRECISOS):
 
 Cliente: "Quiero un celular"
 Respuesta del avatar: "Tenemos smartphones desde 99.990 hasta 1.799.990 pesos. ¿Buscas alguna marca o gama en especial?"
+
+Cliente: "Quiero el Google Pixel"
+Respuesta del avatar: "El Google Pixel 9 cuesta 879.990 pesos con cámara de 50 megapíxeles y chip Tensor G4. ¿Te gustaría saber en qué pasillo encontrarlo?"
+
+Cliente: "Quiero saber detalles técnicos de ese producto"
+Respuesta del avatar: "Tiene procesador Tensor G4, inteligencia artificial Gemini integrada, cámara de 50 megapíxeles con magic eraser y Android puro. ¿Deseas agregarlo a tu bolsa?"
 
 Cliente: "¿Tienen el iPhone 16 Pro Max de 1TB?"
 Respuesta del avatar: "Ese modelo está temporalmente agotado, pero tenemos el iPhone 16 de 128GB con stock disponible. ¿Te gustaría saber en qué pasillo encontrarlo?"
@@ -296,24 +324,132 @@ Respuesta del avatar: "Disculpa, solo respondo sobre productos y compras en tien
 SYSTEM_PROMPT = BASE_SYSTEM_PROMPT
 
 
-def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
+def find_matching_product(text: str):
+    """
+    Busca de forma inteligente el producto específico más coincidente en el catálogo BDD
+    a partir de un texto (código de barra, SKU, nombre exacto o palabras clave relevantes).
+    """
+    if not text:
+        return None
+    clean = text.lower().strip()
+
+    # 1. Barcode o SKU exacto
+    for cb, prod in _ALL_PRODUCTS_BY_BARCODE.items():
+        if cb and cb in clean:
+            return prod
+    for sku, prod in _ALL_PRODUCTS_BY_SKU.items():
+        if sku and sku in clean:
+            return prod
+
+    # 2. Subcadena directa en nombre
+    for prod in _ALL_PRODUCTS:
+        p_name = prod.get("nombre", "").lower()
+        if len(clean) >= 6 and (clean in p_name or p_name in clean):
+            return prod
+
+    # 3. Puntuación por palabras clave distintivas
+    words_in_text = set(re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', clean))
+    stop_words = {
+        "para", "negro", "blanco", "azul", "rojo", "gris", "verde", "de", "con", "en", "el", "la",
+        "los", "las", "un", "una", "quiero", "tienen", "venden", "busco", "saber", "detalles",
+        "tecnicos", "info", "informacion", "precio", "cuanto", "cuesta", "donde", "esta", "hay",
+        "este", "ese", "aquel", "producto", "celular", "cosa", "articulo", "favor", "hola",
+        "buenas", "tardes", "dias", "saludos"
+    }
+    meaningful_words = {w for w in words_in_text if w not in stop_words}
+    if not meaningful_words:
+        return None
+
+    best_prod = None
+    best_score = 0
+
+    for prod in _ALL_PRODUCTS:
+        p_name = prod.get("nombre", "").lower()
+        p_words = set(re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', p_name))
+        marca = prod.get("marca", "").lower()
+
+        matched = meaningful_words.intersection(p_words)
+        score = len(matched) * 2
+
+        if marca and marca in meaningful_words:
+            score += 3
+
+        distinctive = [
+            "pixel", "galaxy", "iphone", "switch", "playstation", "ps5", "xbox", "charge",
+            "flip", "macbook", "ipad", "airfryer", "ultraboost", "pegasus", "bravia", "oled"
+        ]
+        for d in distinctive:
+            if d in meaningful_words and d in p_name:
+                score += 4
+
+        if score >= 4 and score > best_score:
+            best_score = score
+            best_prod = prod
+
+    return best_prod
+
+
+def _get_dynamic_system_prompt(user_msg: str, history: list = [], sessionid: str = "", datainfo: dict = None) -> str:
     """
     Selecciona e inyecta de forma ultraligera ÚNICAMENTE las categorías y productos
-    relevantes para la consulta del usuario, acelerando drásticamente el tiempo de respuesta.
+    relevantes para la consulta del usuario, asegurando la continuidad del producto activo,
+    historial y bolsa de compras.
     """
+    if datainfo is None:
+        datainfo = {}
     user_search = user_msg.lower()
 
-    # Extraer historial exclusivamente de mensajes del USUARIO (evita contaminación por marcas del asistente)
+    # Extraer historial de mensajes
     history_user_msgs = [h.get("content", "").lower() for h in history if h.get("role") == "user"]
     history_user_text = " ".join(history_user_msgs[-3:])
 
-    # 1. Búsqueda directa en el mensaje actual del usuario
+    # 1. Búsqueda de producto activo (Active Product Anchor)
+    # A) Coincidencia directa en la pregunta actual del usuario
+    active_prod = find_matching_product(user_msg)
+
+    # B) Si no hay producto directo en la consulta actual (ej: "detalles técnicos", "¿qué precio tiene?"),
+    # buscar en el historial reciente (recorriendo turnos de usuario y asistente hacia atrás)
+    if not active_prod and history:
+        for turn in reversed(history[-6:]):
+            content = turn.get("content", "")
+            active_prod = find_matching_product(content)
+            if active_prod:
+                break
+
+    # C) Si aún no hay producto y el cliente tiene productos en su bolsa de compras / carrito
+    cart_items = datainfo.get("cart", [])
+    if not active_prod and cart_items:
+        for item in reversed(cart_items):
+            item_cb = str(item.get("codigo_barra", "")).strip().lower()
+            item_sku = str(item.get("sku", "")).strip().lower()
+            prod = _ALL_PRODUCTS_BY_BARCODE.get(item_cb) or _ALL_PRODUCTS_BY_SKU.get(item_sku)
+            if prod:
+                active_prod = prod
+                break
+
+    # D) Si aún no hay producto, verificar la memoria de sesión del último producto activo
+    if not active_prod and sessionid and sessionid in _active_products:
+        active_prod = _active_products[sessionid]
+
+    # Guardar en la memoria de sesión si se detectó un producto activo
+    if active_prod and sessionid:
+        _active_products[sessionid] = active_prod
+
+    # 2. Búsqueda de categorías relevantes
     current_matched_cats = set()
+
+    # Si hay un producto activo, su categoría es prioritaria y obligatoria
+    if active_prod:
+        sku = str(active_prod.get("sku", "")).strip().lower()
+        if sku in _PROD_TO_CAT:
+            current_matched_cats.add(_PROD_TO_CAT[sku])
+
+    # Búsqueda por palabras clave de categoría en mensaje actual
     for cid, kws in CATEGORY_KEYWORDS.items():
         if any(kw in user_search for kw in kws):
             current_matched_cats.add(cid)
 
-    # 2. Búsqueda por código de barras o SKU en mensaje actual
+    # Búsqueda por código de barras o SKU en mensaje actual
     for cb, cid in _BARCODE_TO_CAT.items():
         if cb in user_search:
             current_matched_cats.add(cid)
@@ -321,12 +457,12 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
         if sku in user_search:
             current_matched_cats.add(cid)
 
-    # 3. Búsqueda por marca registrada en mensaje actual
+    # Búsqueda por marca registrada en mensaje actual
     for brand, cids in _BRAND_TO_CATS.items():
         if f" {brand} " in f" {user_search} ":
             current_matched_cats.update(cids)
 
-    # 4. Búsqueda por palabra distintiva en mensaje actual
+    # Búsqueda por palabra distintiva en mensaje actual
     words = re.findall(r'[a-zA-ZáéíóúÁÉÍÓÚñÑ0-9]+', user_search)
     for w in words:
         if w in _KEYWORD_TO_CATS:
@@ -334,8 +470,7 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
 
     matched_cats = set(current_matched_cats)
 
-    # Si el mensaje actual NO especificó categoría (ej: "uno de gama media", "el más barato", "en 50 pulgadas"),
-    # recuperar la categoría activa del historial de turnos del usuario (continuidad conversacional)
+    # Continuidad de categoría desde el historial del usuario si no hay categoría ni producto activo
     if not matched_cats and history_user_msgs:
         for prev_msg in reversed(history_user_msgs):
             for cid, kws in CATEGORY_KEYWORDS.items():
@@ -344,7 +479,6 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
             if matched_cats:
                 break
 
-    # Si aún no hay categoría, buscar en el acumulado de turnos del usuario
     if not matched_cats and history_user_text:
         for cid, kws in CATEGORY_KEYWORDS.items():
             if any(kw in history_user_text for kw in kws):
@@ -365,13 +499,58 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
         matched_cats.add("zapatillas")
         matched_cats.add("calzado_mujer")
 
-    extra_context = ""
+    # 3. Construir Bloques de Contexto Prioritario
+    active_prod_block = ""
+    if active_prod:
+        p_nombre = active_prod.get('nombre', '')
+        p_marca = active_prod.get('marca', 'Paris')
+        p_code = active_prod.get('codigo_barra') or active_prod.get('sku')
+        p_precio = f"${active_prod.get('precio', 0):,}".replace(",", ".")
+        if active_prod.get("en_oferta") and active_prod.get("precio_oferta"):
+            p_oferta = f"${active_prod.get('precio_oferta', 0):,}".replace(",", ".")
+            precio_info = f"Oferta {p_oferta} pesos (antes {p_precio} pesos, {active_prod.get('descuento_pct', 0)} por ciento dcto)"
+        else:
+            precio_info = f"Precio {p_precio} pesos"
+
+        desc = active_prod.get("descripcion", "").strip() or "No especificado"
+        tags = ", ".join(active_prod.get("tags_recomendacion", []))
+        stk = active_prod.get("stock", "Disponible")
+        piso = active_prod.get("piso", 1)
+        pasillo = active_prod.get("pasillo", "")
+
+        active_prod_block = (
+            f"\n=======================================================\n"
+            f"PRODUCTO ACTUAL EN CONSULTA O SELECCIONADO POR EL CLIENTE:\n"
+            f"Nombre: {p_nombre}\n"
+            f"Marca: {p_marca} | Código: {p_code}\n"
+            f"Precio: {precio_info}\n"
+            f"Ubicación en tienda: Piso {piso}, pasillo {pasillo}\n"
+            f"Stock: {stk} unidades\n"
+            f"CARACTERÍSTICAS Y DETALLES TÉCNICOS OFICIALES (USA ESTOS DATOS):\n"
+            f"{desc}\n"
+            f"Tags: {tags}\n"
+            f"INSTRUCCIÓN OBLIGATORIA: Si el cliente pregunta por 'detalles técnicos', 'características', 'precio', 'este celular' o 'ese producto', "
+            f"responde EXCLUSIVAMENTE sobre '{p_nombre}'. ESTÁ ESTRICTAMENTE PROHIBIDO hablar del Samsung Galaxy S25 o cualquier otro producto distinto de '{p_nombre}'.\n"
+            f"=======================================================\n"
+        )
+
+    cart_block = ""
+    if cart_items:
+        cart_lines = []
+        for ci in cart_items:
+            ci_nombre = ci.get("nombre", "Producto")
+            ci_cant = ci.get("cantidad", ci.get("qty", 1))
+            ci_precio = f"${ci.get('precio', 0):,}".replace(",", ".")
+            cart_lines.append(f"- {ci_nombre} (Cantidad: {ci_cant}, Precio: {ci_precio} pesos)")
+        cart_block = "\nBOLSA DE COMPRAS ACTUAL DEL CLIENTE:\n" + "\n".join(cart_lines) + "\n"
+
+    catalog_context = ""
     if matched_cats:
         cat_lines = []
         for cid in matched_cats:
             if cid in _CATEGORIES_BY_ID:
                 cat_lines.append(_format_category(_CATEGORIES_BY_ID[cid]))
-        extra_context = "\n".join(cat_lines)
+        catalog_context = "\n".join(cat_lines)
     elif any(w in search_text for w in ["oferta", "ofertas", "descuento", "descuentos", "barato", "baratos", "economico", "promocion", "cyber"]):
         ofertas = _BDD.get("ofertas_destacadas", [])
         all_prods = {p["sku"]: p for c in _BDD.get("categorias", []) for p in c.get("productos", [])}
@@ -380,15 +559,24 @@ def _get_dynamic_system_prompt(user_msg: str, history: list = []) -> str:
             prod = all_prods.get(o["sku"])
             if prod:
                 lines.append(f"- [{prod.get('categoria','')}] {prod['nombre']}: oferta a ${prod.get('precio_oferta',0):,} pesos ({o['descuento_pct']} por ciento dcto).".replace(",", "."))
-        extra_context = "\n".join(lines)
+        catalog_context = "\n".join(lines)
 
-    if extra_context:
-        return f"{BASE_SYSTEM_PROMPT}\nCATÁLOGO RELEVANTE PARA ESTA CONSULTA:\n{extra_context}"
+    extra_parts = []
+    if active_prod_block:
+        extra_parts.append(active_prod_block)
+    if cart_block:
+        extra_parts.append(cart_block)
+    if catalog_context:
+        extra_parts.append(f"CATÁLOGO RELEVANTE PARA ESTA CONSULTA:\n{catalog_context}")
+
+    if extra_parts:
+        return f"{BASE_SYSTEM_PROMPT}\n" + "\n".join(extra_parts)
     return BASE_SYSTEM_PROMPT
 
 
 def reload_catalog() -> None:
     global _BDD, _CATEGORIES_BY_ID, _BARCODE_TO_CAT, _SKU_TO_CAT, _BRAND_TO_CATS, _KEYWORD_TO_CATS
+    global _ALL_PRODUCTS, _ALL_PRODUCTS_BY_SKU, _ALL_PRODUCTS_BY_BARCODE, _PROD_TO_CAT
     try:
         with open(_BDD_PATH, encoding="utf-8") as _f:
             _BDD = json.load(_f)
@@ -397,16 +585,24 @@ def reload_catalog() -> None:
         _SKU_TO_CAT = {}
         _BRAND_TO_CATS = {}
         _KEYWORD_TO_CATS = {}
+        _ALL_PRODUCTS = []
+        _ALL_PRODUCTS_BY_SKU = {}
+        _ALL_PRODUCTS_BY_BARCODE = {}
+        _PROD_TO_CAT = {}
 
         for cat in _BDD.get("categorias", []):
             cid = cat["id"]
             for prod in cat.get("productos", []):
+                _ALL_PRODUCTS.append(prod)
                 cb = str(prod.get("codigo_barra", "")).strip().lower()
                 if cb:
                     _BARCODE_TO_CAT[cb] = cid
+                    _ALL_PRODUCTS_BY_BARCODE[cb] = prod
                 sku = str(prod.get("sku", "")).strip().lower()
                 if sku:
                     _SKU_TO_CAT[sku] = cid
+                    _ALL_PRODUCTS_BY_SKU[sku] = prod
+                    _PROD_TO_CAT[sku] = cid
                 marca = str(prod.get("marca", "")).strip().lower()
                 if marca:
                     _BRAND_TO_CATS.setdefault(marca, set()).add(cid)
@@ -415,7 +611,7 @@ def reload_catalog() -> None:
                     if len(w) >= 4 and w not in {"para", "negro", "blanco", "azul", "rojo", "gris", "verde", "inch", "pulgadas"}:
                         _KEYWORD_TO_CATS.setdefault(w, set()).add(cid)
 
-        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_BARCODE_TO_CAT)} barcodes, {len(_BRAND_TO_CATS)} marcas)")
+        logger.info(f"[LLM] Catálogo BDD cargado desde {_BDD_PATH} ({len(_CATEGORIES_BY_ID)} categorías, {len(_ALL_PRODUCTS)} productos, {len(_BARCODE_TO_CAT)} barcodes, {len(_BRAND_TO_CATS)} marcas)")
     except Exception as _e:
         _BDD = {}
         _CATEGORIES_BY_ID = {}
@@ -423,6 +619,10 @@ def reload_catalog() -> None:
         _SKU_TO_CAT = {}
         _BRAND_TO_CATS = {}
         _KEYWORD_TO_CATS = {}
+        _ALL_PRODUCTS = []
+        _ALL_PRODUCTS_BY_SKU = {}
+        _ALL_PRODUCTS_BY_BARCODE = {}
+        _PROD_TO_CAT = {}
         logger.error(f"[LLM] No se pudo cargar el catálogo BDD: {_e}")
 
 reload_catalog()
@@ -491,18 +691,22 @@ threading.Thread(target=_warmup_ollama, daemon=True).start()
 
 
 def clear_conversation(sessionid: str) -> None:
-    """Elimina el historial de conversación de la sesión indicada."""
+    """Elimina el historial de conversación y producto activo de la sesión indicada."""
     if sessionid in _histories:
         del _histories[sessionid]
         logger.info(f"[LLM] Historial borrado para sesión: {sessionid}")
     else:
         logger.info(f"[LLM] clear_conversation: no había historial para {sessionid}")
+    if sessionid in _active_products:
+        del _active_products[sessionid]
 
 
-def _get_messages_with_history(sessionid: str, user_message: str) -> list:
+def _get_messages_with_history(sessionid: str, user_message: str, datainfo: dict = None) -> list:
     """Construye la lista completa de mensajes para el LLM incluyendo el historial."""
+    if datainfo is None:
+        datainfo = {}
     history = _histories.get(sessionid, [])
-    dynamic_prompt = _get_dynamic_system_prompt(user_message, history)
+    dynamic_prompt = _get_dynamic_system_prompt(user_message, history, sessionid=sessionid, datainfo=datainfo)
     messages = [{"role": "system", "content": dynamic_prompt}]
     messages.extend(history)
     messages.append({"role": "user", "content": user_message})
@@ -522,6 +726,8 @@ def _append_to_history(sessionid: str, user_message: str, assistant_reply: str) 
         _histories[sessionid] = history[-max_msgs:]
         logger.debug(f"[LLM] Historial recortado a {MAX_HISTORY_TURNS} turnos para sesión {sessionid}")
 
+append_to_history = _append_to_history
+
 
 def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
@@ -536,7 +742,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": _get_messages_with_history(sessionid, message),
+            "messages": _get_messages_with_history(sessionid, message, datainfo),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
                 # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de
@@ -598,7 +804,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
 
         payload = {
             "model": OLLAMA_MODEL,
-            "messages": _get_messages_with_history(sessionid, message),
+            "messages": _get_messages_with_history(sessionid, message, datainfo),
             "options": {
                 "num_ctx": OLLAMA_NUM_CTX,
                 # Sin límite num_predict: el modelo qwen3-vl usa tokens internos de
