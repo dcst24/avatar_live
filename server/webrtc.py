@@ -55,13 +55,13 @@ class PlayerStreamTrack(MediaStreamTrack):
         super().__init__()
         self.kind = kind
         self._player = player
-        # Video: cola para buffer de 150 frames (6s @ 25fps)
-        # Audio: cola proporcional de 300 frames (6s @ 50 chunks/s de 20ms = relación exacta 2:1)
-        # Previene que ráfagas de inferencia desborden la cola de audio y descarten frames
+        # Video: cola para buffer de 175 frames (7s @ 25fps, +1s de buffer)
+        # Audio: cola proporcional de 350 frames (7s @ 50 chunks/s de 20ms = relación exacta 2:1)
+        # Previene que ráfagas de inferencia desborden la cola de audio y descarten frames finales
         if self.kind == 'video':
-            self._queue = queue.Queue(maxsize=150)
+            self._queue = queue.Queue(maxsize=175)
         else:
-            self._queue = queue.Queue(maxsize=300)
+            self._queue = queue.Queue(maxsize=350)
         self.timelist = []
         self.current_frame_count = 0
         if self.kind == 'video':
