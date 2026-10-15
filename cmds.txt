@@ -2,3 +2,16 @@ python app.py --transport webrtc --model wav2lip --avatar_id wav2lip256_avatar1
 python app.py --transport webrtc --model wav2lip --avatar_id easy_latina3
 
 python setup_ssl.py --port 8010 --transport webrtc --model wav2lip --avatar_id easy_latina3
+
+# ─── Comandos TensorRT para NVIDIA Jetson Orin NX ───────────────────────────
+# 1. Exportar PyTorch (.pth) a ONNX:
+# python export_wav2lip_onnx.py --checkpoint models/wav2lip256.pth --output models/wav2lip256.onnx
+
+# 2. Compilar Engine en la Jetson con trtexec (Recomendado):
+# /usr/src/tensorrt/bin/trtexec --onnx=models/wav2lip256.onnx --saveEngine=models/wav2lip256.engine --fp16 --minShapes=audio_sequences:1x1x80x16,face_sequences:1x6x256x256 --optShapes=audio_sequences:8x1x80x16,face_sequences:8x6x256x256 --maxShapes=audio_sequences:16x1x80x16,face_sequences:16x6x256x256
+
+# O compilar vía script Python:
+# python build_wav2lip_engine.py --onnx models/wav2lip256.onnx --engine models/wav2lip256.engine --fp16
+
+# 3. Ejecutar servidor (TensorRT se activa automáticamente si models/wav2lip256.engine existe):
+# python app.py --transport webrtc --model wav2lip --avatar_id easy_latina3

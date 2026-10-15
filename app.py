@@ -129,9 +129,11 @@ def main():
         warm_up(opt.batch_size,model)      
     elif opt.model == 'wav2lip':
         opt.modelres = 256  # wav2lip256.pth requiere imágenes de 256x256
-        model = load_model("./models/wav2lip256.pth")
+        pth_path = opt.modelfile if opt.modelfile else "./models/wav2lip256.pth"
+        model_path = opt.engine_file if (getattr(opt, 'use_trt', True) and opt.engine_file) else pth_path
+        model = load_model(model_path, modelres=opt.modelres, use_trt=getattr(opt, 'use_trt', True))
         global_avatars[opt.avatar_id] = load_avatar(opt.avatar_id)
-        warm_up(opt.batch_size,model,256)
+        warm_up(opt.batch_size, model, opt.modelres)
     elif opt.model == 'ultralight':
         model = load_model(opt)
         global_avatars[opt.avatar_id] = load_avatar(opt.avatar_id)

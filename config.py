@@ -42,6 +42,12 @@ def parse_args():
                         help="desactivar FP16 y forzar inferencia en FP32")
     parser.add_argument('--modelres', type=int, default=96)
     parser.add_argument('--modelfile', type=str, default='')
+    parser.add_argument('--use_trt', action='store_true', default=True,
+                        help="usar aceleración TensorRT si el archivo .engine existe")
+    parser.add_argument('--no_trt', dest='use_trt', action='store_false',
+                        help="desactivar TensorRT y forzar inferencia nativa PyTorch (.pth)")
+    parser.add_argument('--engine_file', type=str, default='',
+                        help="ruta específica al motor TensorRT (.engine)")
 
     # ─── 自定义动作和多形象 ────────────────────────────────────────────
     parser.add_argument('--customvideo_config', type=str, default='',

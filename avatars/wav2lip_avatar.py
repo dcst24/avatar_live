@@ -57,11 +57,22 @@ def _load(checkpoint_path):
                                 map_location=lambda storage, loc: storage)
     return checkpoint
 
-def load_model(path):
+def load_model(path, modelres=256, use_trt=True):
+    # 1. Comprobar si se solicitó o existe un motor TensorRT (.engine)
+    engine_candidate = path if path.endswith('.engine') else path.rsplit('.', 1)[0] + '.engine'
+    if use_trt and os.path.exists(engine_candidate):
+        try:
+            from avatars.wav2lip.trt_infer import TrtWav2Lip
+            logger.info(f"⚡ Aceleración TensorRT activada! Cargando motor desde: {engine_candidate}")
+            return TrtWav2Lip(engine_candidate, modelres=modelres)
+        except Exception as e:
+            logger.warning(f"Fallo al inicializar TensorRT ({e}); recurriendo a PyTorch nativo.")
+
+    # 2. Carga estándar con PyTorch (.pth)
     model = Wav2Lip()
     logger.info("Load checkpoint from: {}".format(path))
     checkpoint = _load(path)
-    s = checkpoint["state_dict"]
+    s = checkpoint["state_dict"] if "state_dict" in checkpoint else checkpoint
     new_s = {}
     for k, v in s.items():
         new_s[k.replace('module.', '')] = v
