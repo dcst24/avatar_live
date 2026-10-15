@@ -1608,15 +1608,22 @@
                     const connectors = [
                         'de', 'del', 'en', 'el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas',
                         'para', 'por', 'con', 'sin', 'sobre', 'y', 'e', 'o', 'u', 'que', 'a', 'al',
-                        'mi', 'su', 'este', 'esta', 'estos', 'estas', 'es', 'son', 'hay', 'tiene', 'tienen'
+                        'mi', 'su', 'este', 'esta', 'estos', 'estas', 'es', 'son', 'hay', 'tiene', 'tienen',
+                        'si', 'sí', 'claro', 'bueno', 'mira', 'oye', 'eh', 'ah', 'o sea', 'osea',
+                        'quiero', 'necesito', 'saber', 'me', 'gustaria', 'gustaría'
+                    ];
+                    const starters = [
+                        'si', 'sí', 'claro', 'bueno', 'mira', 'oye', 'eh', 'ah', 'o sea', 'osea',
+                        'quiero', 'necesito', 'saber', 'me', 'gustaria', 'gustaría', 'hola', 'buenas'
                     ];
                     const isConnector = connectors.includes(lastWord);
+                    const isStarterOnly = (words <= 2 && starters.includes(tokens[0]));
+
                     // Calibración natural de pausas de voz:
-                    // Frases cortas (1-2 palabras): 850ms
-                    // Frases medias (3-5 palabras): 1150ms
-                    // Frases largas (6+ palabras): 1400ms
-                    let delayMs = (words <= 2) ? 850 : ((words <= 5) ? 1150 : 1400);
-                    if (isConnector) delayMs += 700; // Dar más margen si el usuario terminó en conector
+                    // Si el usuario dijo palabras de inicio ("Sí...", "Bueno...", "Mira...") dar margen generoso para no cortarlo
+                    let delayMs = (words <= 2) ? 1400 : ((words <= 5) ? 1600 : 1800);
+                    if (isStarterOnly) delayMs = 2400;
+                    else if (isConnector) delayMs += 800;
 
                     _pendingCommitTimeout = setTimeout(() => {
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
@@ -1816,6 +1823,7 @@
         // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
         async function sendGreetingAsAvatar() {
             stopAlwaysOnListening();
+            wakeUpModel();
             const greetingText = _randomGreeting();
             LOG(`sendGreetingAsAvatar: "${greetingText}"`);
             setState('thinking', 'Pensando…');
@@ -1837,6 +1845,8 @@
                         text: greetingText,
                         type: 'echo',
                         interrupt: true,
+                        record_history: true,
+                        history_user: 'Hola',
                         sessionid: String(sessionid)
                     })
                 });
