@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Asistente Virtual</title>
+    <title>Mutual de Seguridad - Asistente Virtual</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -254,9 +254,12 @@
         }
 
         @keyframes pulse-stop-glow {
-            0%, 100% {
+
+            0%,
+            100% {
                 box-shadow: 0 4px 20px rgba(239, 68, 68, 0.25), 0 0 0 1px rgba(239, 68, 68, 0.2);
             }
+
             50% {
                 box-shadow: 0 4px 26px rgba(239, 68, 68, 0.55), 0 0 16px rgba(239, 68, 68, 0.4);
             }
@@ -519,16 +522,17 @@
             flex-shrink: 0;
         }
 
-        
 
-        
 
-        
 
-        
+
+
+
+
 
         /* ── Responsividad en dispositivos móviles y tabletas ── */
         @media (max-width: 768px) {
+
             /* Video cubre toda la pantalla en móviles, recortando lados si el video es horizontal */
             #video {
                 object-fit: cover;
@@ -544,6 +548,7 @@
                 gap: 6px;
                 border-radius: 12px;
             }
+
             #btn-connect svg {
                 width: 12px;
                 height: 12px;
@@ -561,9 +566,11 @@
                 bottom: 48px;
                 width: 90vw;
             }
+
             .transcript-text {
                 font-size: 15px;
             }
+
             .transcript-label {
                 font-size: 11px;
                 width: 36px;
@@ -573,15 +580,19 @@
             #dbg-panel {
                 padding-bottom: 20px;
             }
+
             #dbg-toolbar span {
                 font-size: 14px;
             }
-            #dbg-clear, #dbg-close {
+
+            #dbg-clear,
+            #dbg-close {
                 padding: 6px 14px;
                 font-size: 12px;
             }
-            #dbg-mic-row, 
-            #dbg-mic-select, 
+
+            #dbg-mic-row,
+            #dbg-mic-select,
             #dbg-list {
                 font-size: 12px;
             }
@@ -602,9 +613,11 @@
             pointer-events: auto;
             scrollbar-width: none;
         }
+
         #chat-container::-webkit-scrollbar {
             display: none;
         }
+
         .chat-bubble {
             padding: 10px 14px;
             border-radius: 16px;
@@ -619,15 +632,18 @@
             border: 1px solid rgba(255, 255, 255, 0.08);
             color: #f4f4f5;
         }
+
         .chat-bubble.user {
             align-self: flex-end;
             background: rgba(99, 102, 241, 0.25);
             border-color: rgba(99, 102, 241, 0.4);
             color: #e0e7ff;
         }
+
         .chat-bubble.avatar {
             align-self: flex-start;
         }
+
         .chat-bubble.system {
             align-self: center;
             background: rgba(24, 24, 27, 0.35);
@@ -641,1388 +657,42 @@
             box-shadow: none;
             max-width: 90%;
         }
+
         @keyframes bubble-appear {
-            from { opacity: 0; transform: translateY(10px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
+            from {
+                opacity: 0;
+                transform: translateY(10px) scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
         }
+
         .chat-bubble.fade-out {
             animation: bubble-fadeout 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
         @keyframes bubble-fadeout {
-            from { opacity: 1; transform: translateY(0) scale(1); }
-            to { opacity: 0; transform: translateY(-10px) scale(0.95); max-height: 0; padding-top: 0; padding-bottom: 0; margin-top: 0; margin-bottom: 0; border-top-width: 0; border-bottom-width: 0; opacity: 0; }
-        }
-
-        /* ── Carrusel de ofertas (parte superior, superpuesto) ── */
-        #offers-carousel {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 160px;
-            z-index: 40;
-            overflow: hidden;
-            pointer-events: none;
-        }
-
-        /* Fade superior e inferior para integrarse al video */
-        #offers-carousel::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 28px;
-            background: linear-gradient(to bottom, rgba(0,0,0,0.72), transparent);
-            z-index: 2;
-            pointer-events: none;
-        }
-        #offers-carousel::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 52px;
-            background: linear-gradient(to top, rgba(0,0,0,0.85), transparent);
-            z-index: 2;
-            pointer-events: none;
-        }
-
-        /* Fade lateral izquierdo y derecho */
-        #carousel-fade-left,
-        #carousel-fade-right {
-            position: absolute;
-            top: 0;
-            bottom: 0;
-            width: 60px;
-            z-index: 3;
-            pointer-events: none;
-        }
-        #carousel-fade-left {
-            left: 0;
-            background: linear-gradient(to right, rgba(0,0,0,0.7), transparent);
-        }
-        #carousel-fade-right {
-            right: 0;
-            background: linear-gradient(to left, rgba(0,0,0,0.7), transparent);
-        }
-
-        .carousel-track {
-            display: flex;
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-
-        .carousel-slide {
-            position: absolute;
-            inset: 0;
-            width: 100%;
-            height: 100%;
-            opacity: 0;
-            transition: opacity 0.9s ease;
-            display: flex;
-            align-items: stretch;
-        }
-
-        .carousel-slide.active {
-            opacity: 1;
-        }
-
-        .carousel-slide img {
-            width: 100%;
-            height: 100%;
-            object-fit: fill;
-            display: block;
-            flex-shrink: 0;
-        }
-
-        /* Slide con dos imágenes angostas, 50% cada una */
-        .carousel-slide.dual img {
-            width: 50%;
-            height: 100%;
-            object-fit: fill;
-            display: block;
-            flex-shrink: 0;
-        }
-
-        /* Dots indicadores */
-        #carousel-dots {
-            position: absolute;
-            bottom: 8px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 5;
-            display: flex;
-            gap: 6px;
-            pointer-events: none;
-        }
-
-        .carousel-dot {
-            width: 5px;
-            height: 5px;
-            border-radius: 50%;
-            background: rgba(255,255,255,0.35);
-            transition: background 0.4s, transform 0.4s;
-        }
-
-        .carousel-dot.active {
-            background: rgba(255,255,255,0.95);
-            transform: scale(1.4);
-        }
-
-        /* ─── Tarjeta de Producto (Escáner de Código de Barras) ────────── */
-        #product-card-container {
-            position: absolute;
-            right: 30px;
-            bottom: 120px;
-            z-index: 40;
-            width: min(380px, 90vw);
-            pointer-events: auto;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .product-card {
-            background: rgba(18, 18, 22, 0.88);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid rgba(99, 102, 241, 0.35);
-            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.05);
-            border-radius: 20px;
-            padding: 18px 20px;
-            color: #f4f4f5;
-            animation: card-appear 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-        }
-
-        .product-card-badge {
-            align-self: flex-start;
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(67, 56, 202, 0.4));
-            border: 1px solid rgba(129, 140, 248, 0.4);
-            color: #c7d2fe;
-            font-size: 10px;
-            font-weight: 700;
-            letter-spacing: 0.08em;
-            text-transform: uppercase;
-            padding: 4px 10px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-
-        .product-card-title {
-            font-size: 18px;
-            font-weight: 700;
-            line-height: 1.25;
-            color: #ffffff;
-        }
-
-        .product-card-category {
-            font-size: 12px;
-            color: #a1a1aa;
-            margin-top: -4px;
-        }
-
-        .product-card-prices {
-            display: flex;
-            align-items: baseline;
-            gap: 12px;
-            margin-top: 4px;
-        }
-
-        .product-card-price-main {
-            font-size: 24px;
-            font-weight: 800;
-            color: #34d399;
-            text-shadow: 0 2px 10px rgba(52, 211, 153, 0.3);
-        }
-
-        .product-card-price-regular {
-            font-size: 15px;
-            color: #a1a1aa;
-            text-decoration: line-through;
-        }
-
-        .product-card-offer-tag {
-            background: #ef4444;
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 800;
-            padding: 2px 8px;
-            border-radius: 6px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            animation: offer-pulse 1.5s ease-in-out infinite;
-        }
-
-        @keyframes offer-pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.06); }
-        }
-
-        .product-card-aisle {
-            background: rgba(39, 39, 42, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 10px 14px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #e4e4e7;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .product-card-tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px;
-            margin-top: 2px;
-        }
-
-        .product-tag-pill {
-            font-size: 10px;
-            font-weight: 600;
-            padding: 3px 8px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            color: #d4d4d8;
-        }
-
-        @keyframes card-appear {
-            from { opacity: 0; transform: translateY(20px) scale(0.95); }
-            to { opacity: 1; transform: translateY(0) scale(1); }
-        }
-
-        .product-card.fade-out {
-            animation: card-fadeout 0.5s ease forwards;
-        }
-
-        @keyframes card-fadeout {
-            from { opacity: 1; transform: scale(1); }
-            to { opacity: 0; transform: scale(0.95); }
-        }
-
-        /* ══════════════════════════════════════════════════════════════════════════
-           MÓDULO DE PLANIMETRÍA / MAPA INTERACTIVO (PARIS COSTANERA CENTER)
-           ══════════════════════════════════════════════════════════════════════════ */
-        
-        /* ══════════════════════════════════════════════════════════════════════════
-           MÓDULO DE PLANIMETRÍA / MAPA INTERACTIVO (PARIS COSTANERA CENTER)
-           ══════════════════════════════════════════════════════════════════════════ */
-        
-        /* Botón Flotante para Abrir Mapa (Responsive bottom-left, solo icono) */
-        #btn-open-map {
-            position: fixed;
-            bottom: 24px;
-            left: 24px;
-            z-index: 60;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 48px;
-            height: 48px;
-            padding: 0;
-            border-radius: 50%;
-            background: rgba(18, 18, 24, 0.88);
-            border: 1px solid rgba(99, 102, 241, 0.5);
-            color: #f4f4f5;
-            cursor: pointer;
-            backdrop-filter: blur(16px);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(99, 102, 241, 0.3);
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-        }
-
-        #btn-open-map:hover {
-            transform: translateY(-2px) scale(1.08);
-            background: rgba(30, 27, 75, 0.95);
-            border-color: rgba(99, 102, 241, 0.85);
-            box-shadow: 0 14px 36px rgba(0, 0, 0, 0.6), 0 0 30px rgba(99, 102, 241, 0.55);
-        }
-
-        #btn-open-map svg {
-            width: 22px;
-            height: 22px;
-            color: #818cf8;
-            flex-shrink: 0;
-        }
-
-        @media (max-width: 768px) {
-            #btn-open-map {
-                bottom: 18px;
-                left: 18px;
-                width: 42px;
-                height: 42px;
+            from {
+                opacity: 1;
+                transform: translateY(0) scale(1);
             }
-            #btn-open-map svg {
-                width: 20px;
-                height: 20px;
+
+            to {
+                opacity: 0;
+                transform: translateY(-10px) scale(0.95);
+                max-height: 0;
+                padding-top: 0;
+                padding-bottom: 0;
+                margin-top: 0;
+                margin-bottom: 0;
+                border-top-width: 0;
+                border-bottom-width: 0;
+                opacity: 0;
             }
         }
-
-        /* Badge clickeable en Tarjeta de Producto */
-        .product-card-aisle.clickable {
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .product-card-aisle.clickable:hover {
-            background: rgba(99, 102, 241, 0.25);
-            border-color: rgba(99, 102, 241, 0.5);
-            transform: translateY(-1px);
-        }
-        .view-map-pill {
-            margin-left: auto;
-            font-size: 10px;
-            font-weight: 700;
-            padding: 2px 8px;
-            border-radius: 6px;
-            background: rgba(99, 102, 241, 0.3);
-            border: 1px solid rgba(99, 102, 241, 0.5);
-            color: #c7d2fe;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        /* Modal Contenedor del Mapa */
-        #store-map-modal {
-            position: fixed;
-            inset: 0;
-            z-index: 95;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.85);
-            backdrop-filter: blur(20px);
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-            padding: 20px;
-        }
-
-        #store-map-modal.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .map-card {
-            width: 100%;
-            max-width: 1020px;
-            max-height: 92vh;
-            background: #0d0e14;
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 24px;
-            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 45px rgba(99, 102, 241, 0.2);
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            transform: scale(0.96) translateY(12px);
-            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-
-        #store-map-modal.active .map-card {
-            transform: scale(1) translateY(0);
-        }
-
-        /* Header del Modal */
-        .map-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 16px 24px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-            background: rgba(20, 20, 28, 0.6);
-            gap: 16px;
-        }
-
-        .map-header-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            min-width: 220px;
-        }
-
-        .map-logo-badge {
-            width: 38px;
-            height: 38px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #4f46e5, #7c3aed);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
-            flex-shrink: 0;
-        }
-
-        .map-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #f4f4f5;
-            letter-spacing: -0.2px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .map-subtitle {
-            font-size: 12px;
-            color: #a1a1aa;
-            margin-top: 1px;
-        }
-
-        /* Floor Tabs (Solo Pisos Clickeables) */
-        .map-floor-tabs {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255, 255, 255, 0.04);
-            padding: 4px;
-            border-radius: 14px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-        }
-
-        .map-floor-tab {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 8px 16px;
-            border-radius: 10px;
-            background: transparent;
-            border: 1px solid transparent;
-            color: #a1a1aa;
-            font-size: 13px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-
-        .map-floor-tab:hover {
-            color: #f4f4f5;
-            background: rgba(255, 255, 255, 0.06);
-        }
-
-        .map-floor-tab.active {
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            color: #ffffff;
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);
-        }
-
-        .floor-dest-dot {
-            width: 7px;
-            height: 7px;
-            border-radius: 50%;
-            background: #f43f5e;
-            box-shadow: 0 0 6px #f43f5e;
-            display: inline-block;
-            margin-left: 2px;
-        }
-
-        .map-close-btn {
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.07);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #e4e4e7;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            flex-shrink: 0;
-        }
-
-        .map-close-btn:hover {
-            background: rgba(239, 68, 68, 0.25);
-            border-color: rgba(239, 68, 68, 0.5);
-            color: #fca5a5;
-            transform: rotate(90deg);
-        }
-
-        /* Stepper Multi-Piso (Barra de Guía Automática) */
-        .map-stepper {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            padding: 8px 24px;
-            background: rgba(15, 23, 42, 0.7);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .map-step-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            color: #a1a1aa;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-
-        .map-step-pill.active {
-            background: rgba(99, 102, 241, 0.25);
-            border-color: rgba(99, 102, 241, 0.65);
-            color: #e0e7ff;
-            box-shadow: 0 0 16px rgba(99, 102, 241, 0.3);
-        }
-
-        .map-step-pill.done {
-            border-color: rgba(16, 185, 129, 0.4);
-            color: #6ee7b7;
-        }
-
-        .map-step-num {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: rgba(255, 255, 255, 0.1);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            font-weight: 700;
-        }
-
-        .map-step-pill.active .map-step-num {
-            background: #6366f1;
-            color: #fff;
-        }
-
-        .map-step-arrow {
-            color: #52525b;
-            font-size: 14px;
-        }
-
-        /* SVG Map Container */
-        .map-svg-wrap {
-            flex: 1;
-            min-height: 400px;
-            max-height: 60vh;
-            padding: 12px 18px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: radial-gradient(circle at center, #13141f 0%, #09090d 100%);
-            position: relative;
-            overflow: hidden;
-        }
-
-        #store-map-svg {
-            width: 100%;
-            height: 100%;
-            max-height: 56vh;
-            filter: drop-shadow(0 10px 30px rgba(0, 0, 0, 0.6));
-        }
-
-        /* Estilos de Elementos SVG */
-        .svg-grid-line { stroke: rgba(255, 255, 255, 0.025); stroke-width: 1; }
-        .svg-store-border { fill: none; stroke: rgba(255, 255, 255, 0.12); stroke-width: 2.5; rx: 18; }
-        .svg-corridor { fill: rgba(255, 255, 255, 0.012); stroke: rgba(255, 255, 255, 0.04); stroke-width: 1; stroke-dasharray: 4 4; }
-
-        .svg-dept-zone {
-            transition: all 0.3s ease;
-        }
-        .svg-dept-zone.highlighted {
-            filter: drop-shadow(0 0 16px rgba(99, 102, 241, 0.8)) brightness(1.3);
-            animation: zone-glow 2s infinite alternate;
-        }
-
-        @keyframes zone-glow {
-            from { filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.6)) brightness(1.2); }
-            to { filter: drop-shadow(0 0 24px rgba(99, 102, 241, 0.95)) brightness(1.4); }
-        }
-
-        /* Ruta Animada de Neón */
-        .svg-route-glow {
-            fill: none;
-            stroke: #6366f1;
-            stroke-width: 12;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            opacity: 0.35;
-            filter: blur(4px);
-        }
-
-        .svg-route-line {
-            fill: none;
-            stroke: #a855f7;
-            stroke-width: 5;
-            stroke-linecap: round;
-            stroke-linejoin: round;
-            stroke-dasharray: 12 8;
-            animation: route-flow 1.2s linear infinite;
-        }
-
-        @keyframes route-flow {
-            to { stroke-dashoffset: -40; }
-        }
-
-        /* Pines y Marcadores SVG */
-        .totem-pulse-circle {
-            animation: totem-pulse-anim 2s infinite ease-out;
-            transform-origin: center;
-        }
-        @keyframes totem-pulse-anim {
-            0% { r: 12; opacity: 0.8; }
-            100% { r: 36; opacity: 0; }
-        }
-
-        .dest-bounce-group {
-            animation: dest-bounce 1.5s infinite ease-in-out;
-        }
-        @keyframes dest-bounce {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-8px); }
-        }
-
-        /* Footer de Instrucciones de Ruta */
-        .map-footer {
-            padding: 14px 24px 16px;
-            background: rgba(18, 18, 24, 0.6);
-            border-top: 1px solid rgba(255, 255, 255, 0.08);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-        }
-
-        .map-route-info {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .map-route-icon {
-            width: 38px;
-            height: 38px;
-            border-radius: 10px;
-            background: rgba(99, 102, 241, 0.2);
-            border: 1px solid rgba(99, 102, 241, 0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 20px;
-            flex-shrink: 0;
-        }
-
-        .map-route-text-main {
-            font-size: 14px;
-            font-weight: 700;
-            color: #f4f4f5;
-        }
-
-        .map-route-text-sub {
-            font-size: 12px;
-            color: #a1a1aa;
-            margin-top: 2px;
-        }
-
-        .map-action-btn {
-            padding: 10px 22px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #4f46e5, #6366f1);
-            border: none;
-            color: #fff;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 16px rgba(79, 70, 229, 0.4);
-            transition: all 0.2s ease;
-            white-space: nowrap;
-        }
-        .map-action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(79, 70, 229, 0.6);
-        }
-
-        /* ── Responsividad de Planimetría en Pantallas Verticales / Móviles ── */
-        @media (max-width: 768px) {
-            #store-map-modal {
-                padding: 10px;
-            }
-            .map-card {
-                max-height: 96vh;
-                border-radius: 18px;
-            }
-            .map-header {
-                padding: 10px 14px;
-                gap: 8px;
-            }
-            .map-header-left {
-                min-width: 0;
-                gap: 8px;
-            }
-            .map-logo-badge {
-                width: 32px;
-                height: 32px;
-                font-size: 16px;
-                border-radius: 8px;
-            }
-            .map-title {
-                font-size: 13px;
-            }
-            .map-subtitle {
-                display: none;
-            }
-            .map-floor-tabs {
-                gap: 4px;
-                padding: 2px;
-            }
-            .map-floor-tab {
-                padding: 5px 9px;
-                font-size: 12px;
-                gap: 4px;
-            }
-            .map-close-btn {
-                width: 30px;
-                height: 30px;
-                font-size: 14px;
-            }
-            .map-stepper {
-                padding: 8px 10px;
-                font-size: 11px;
-                gap: 4px;
-            }
-            .map-step-pill {
-                padding: 4px 8px;
-                font-size: 11px;
-            }
-            .map-svg-wrap {
-                min-height: 280px;
-                padding: 6px;
-            }
-            .map-footer {
-                padding: 10px 14px;
-                gap: 8px;
-            }
-            .map-route-icon {
-                width: 32px;
-                height: 32px;
-                font-size: 16px;
-            }
-            .map-route-text-main {
-                font-size: 12px;
-            }
-            .map-route-text-sub {
-                font-size: 11px;
-            }
-            .map-action-btn {
-                padding: 8px 14px;
-                font-size: 12px;
-            }
-        }
-
-        /* ══════════════════════════════════════════════════════════════════════
-           WIDGET FLOTANTE DE BOLSA DE COMPRA (PARIS COSTANERA)
-           ══════════════════════════════════════════════════════════════════════ */
-        .cart-floating-widget {
-            position: absolute;
-            bottom: 24px;
-            right: 24px;
-            z-index: 40;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 10px 18px;
-            border-radius: 9999px;
-            background: linear-gradient(135deg, rgba(0, 47, 108, 0.95), rgba(0, 169, 224, 0.92));
-            border: 1.5px solid rgba(255, 255, 255, 0.35);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            color: #ffffff;
-            font-family: inherit;
-            cursor: pointer;
-            box-shadow: 0 8px 25px rgba(0, 47, 108, 0.45), 0 0 20px rgba(0, 169, 224, 0.35);
-            transition: all 0.22s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .cart-floating-widget:hover {
-            background: linear-gradient(135deg, rgba(0, 47, 108, 1), rgba(0, 169, 224, 1));
-            border-color: #ffffff;
-            transform: translateY(-3px) scale(1.04);
-            box-shadow: 0 12px 30px rgba(0, 47, 108, 0.55), 0 0 25px rgba(0, 169, 224, 0.5);
-        }
-        .cart-floating-widget:active {
-            transform: translateY(0) scale(0.98);
-        }
-        .cart-floating-widget:hover {
-            background: rgba(30, 41, 59, 0.92);
-            border-color: rgba(56, 189, 248, 0.7);
-            transform: translateY(-2px) scale(1.03);
-            box-shadow: 0 6px 25px rgba(0, 0, 0, 0.55), 0 0 22px rgba(6, 182, 212, 0.38);
-        }
-        .cart-floating-widget:active {
-            transform: translateY(0) scale(0.98);
-        }
-        .cart-widget-icon {
-            font-size: 16px;
-            display: flex;
-            align-items: center;
-        }
-        .cart-widget-label {
-            font-size: 13px;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-        }
-        .cart-badge {
-            background: linear-gradient(135deg, #0284c7, #06b6d4);
-            color: #ffffff;
-            font-size: 11px;
-            font-weight: 700;
-            padding: 2px 7px;
-            border-radius: 9999px;
-            min-width: 18px;
-            text-align: center;
-        }
-        .cart-total {
-            font-size: 13px;
-            font-weight: 700;
-            color: #38bdf8;
-            margin-left: 2px;
-        }
-
-        /* Botón Agregar a la Bolsa dentro de la Tarjeta de Producto */
-        .product-card-actions {
-            display: flex;
-            gap: 8px;
-            margin-top: 10px;
-        }
-        .btn-card-add-cart {
-            flex: 1;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            padding: 8px 12px;
-            background: linear-gradient(135deg, #0284c7, #0369a1);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-radius: 8px;
-            color: #ffffff;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .btn-card-add-cart:hover {
-            background: linear-gradient(135deg, #0369a1, #0284c7);
-            border-color: rgba(56, 189, 248, 0.8);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.35);
-        }
-
-        /* ══════════════════════════════════════════════════════════════════════
-           CHECKOUT EMBEBIDO A PANTALLA COMPLETA (PARIS FULLSCREEN OVERLAY)
-           ══════════════════════════════════════════════════════════════════════ */
-        .checkout-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: 1000;
-            background: radial-gradient(circle at top right, rgba(14, 116, 144, 0.18), transparent 45%),
-                        radial-gradient(circle at bottom left, rgba(30, 27, 75, 0.4), transparent 50%),
-                        rgba(10, 15, 30, 0.94);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            display: none;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.28s ease;
-            overflow-y: auto;
-            color: #f1f5f9;
-            font-family: inherit;
-        }
-        .checkout-overlay.open {
-            display: flex;
-            opacity: 1;
-            pointer-events: auto;
-        }
-        .checkout-container {
-            width: 100%;
-            max-width: 1100px;
-            margin: auto;
-            padding: 24px;
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-        .checkout-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: 16px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-        }
-        .checkout-brand {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .brand-logo {
-            font-size: 24px;
-            font-weight: 900;
-            letter-spacing: 0.1em;
-            background: linear-gradient(135deg, #ffffff, #38bdf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        .brand-divider {
-            color: rgba(255, 255, 255, 0.25);
-            font-size: 18px;
-        }
-        .brand-store {
-            font-size: 14px;
-            font-weight: 500;
-            color: #94a3b8;
-        }
-        .checkout-close-btn {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            color: #e2e8f0;
-            padding: 8px 16px;
-            border-radius: 9999px;
-            font-size: 13px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-        }
-        .checkout-close-btn:hover {
-            background: rgba(255, 255, 255, 0.18);
-            color: #ffffff;
-        }
-
-        .checkout-body {
-            display: grid;
-            grid-template-columns: 1.25fr 1fr;
-            gap: 24px;
-            flex: 1;
-        }
-        @media (max-width: 860px) {
-            .checkout-body {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        /* Columna Izquierda: Lista de productos */
-        .checkout-left {
-            background: rgba(15, 23, 42, 0.65);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 16px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .checkout-section-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding-bottom: 12px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
-        .checkout-section-header h2 {
-            margin: 0;
-            font-size: 17px;
-            font-weight: 700;
-            color: #f8fafc;
-        }
-        .btn-clear-cart {
-            background: none;
-            border: none;
-            color: #ef4444;
-            font-size: 12px;
-            font-weight: 500;
-            cursor: pointer;
-            padding: 4px 8px;
-        }
-        .btn-clear-cart:hover {
-            text-decoration: underline;
-        }
-        .checkout-cart-list {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            max-height: 480px;
-            overflow-y: auto;
-            padding-right: 4px;
-        }
-        .checkout-item-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            background: rgba(30, 41, 59, 0.45);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 12px 14px;
-            gap: 12px;
-        }
-        .chk-item-info {
-            flex: 1;
-            min-width: 0;
-        }
-        .chk-item-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: #f1f5f9;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .chk-item-sub {
-            font-size: 12px;
-            color: #94a3b8;
-            margin-top: 2px;
-        }
-        .chk-item-controls {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .chk-qty-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            color: #f8fafc;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            font-weight: bold;
-            font-size: 14px;
-        }
-        .chk-qty-btn:hover {
-            background: rgba(255, 255, 255, 0.2);
-        }
-        .chk-item-qty {
-            font-size: 13px;
-            font-weight: 700;
-            min-width: 20px;
-            text-align: center;
-        }
-        .chk-item-price {
-            font-size: 14px;
-            font-weight: 700;
-            color: #38bdf8;
-            min-width: 75px;
-            text-align: right;
-        }
-        .chk-item-remove {
-            background: none;
-            border: none;
-            color: #94a3b8;
-            cursor: pointer;
-            font-size: 16px;
-            padding: 4px;
-            line-height: 1;
-        }
-        .chk-item-remove:hover {
-            color: #ef4444;
-        }
-        .chk-empty-cart {
-            text-align: center;
-            padding: 40px 10px;
-            color: #94a3b8;
-        }
-
-        /* Columna Derecha: Resumen de Compra y Pago */
-        .checkout-right {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .checkout-summary-card {
-            background: rgba(15, 23, 42, 0.85);
-            border: 1px solid rgba(56, 189, 248, 0.25);
-            border-radius: 16px;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-        }
-        .checkout-summary-card h3 {
-            margin: 0;
-            font-size: 16px;
-            font-weight: 700;
-            color: #f8fafc;
-            padding-bottom: 8px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-        }
-        .summary-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 13px;
-            color: #cbd5e1;
-        }
-        .summary-row.discount {
-            color: #34d399;
-        }
-        .summary-divider {
-            height: 1px;
-            background: rgba(255, 255, 255, 0.08);
-            margin: 4px 0;
-        }
-        .summary-total-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            font-size: 16px;
-            font-weight: 700;
-            color: #ffffff;
-            padding: 6px 0;
-        }
-        .summary-total-amount {
-            font-size: 24px;
-            font-weight: 900;
-            color: #38bdf8;
-            letter-spacing: -0.02em;
-        }
-
-        .payment-selection-section h4 {
-            margin: 12px 0 8px;
-            font-size: 13px;
-            font-weight: 600;
-            color: #94a3b8;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        .payment-methods-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
-        .payment-method-card {
-            background: rgba(30, 41, 59, 0.6);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 10px 12px;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: left;
-            color: #cbd5e1;
-        }
-        .payment-method-card:hover {
-            border-color: rgba(56, 189, 248, 0.4);
-            background: rgba(30, 41, 59, 0.85);
-        }
-        .payment-method-card.active {
-            border-color: #38bdf8;
-            background: rgba(14, 116, 144, 0.25);
-            box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
-            color: #ffffff;
-        }
-        .pm-icon {
-            font-size: 22px;
-        }
-        .pm-title {
-            font-size: 12px;
-            font-weight: 700;
-        }
-        .pm-sub {
-            font-size: 11px;
-            color: #94a3b8;
-        }
-
-        .btn-checkout-pay {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #0284c7, #0369a1);
-            border: 1px solid rgba(56, 189, 248, 0.5);
-            color: #ffffff;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 4px 20px rgba(2, 132, 199, 0.4);
-            margin-top: 8px;
-        }
-        .btn-checkout-pay:hover:not(:disabled) {
-            background: linear-gradient(135deg, #0369a1, #0284c7);
-            transform: translateY(-1px);
-            box-shadow: 0 6px 25px rgba(2, 132, 199, 0.55);
-        }
-        .btn-checkout-pay:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        /* Caja de Estado POS Interactivo */
-        .pos-interactive-box {
-            background: rgba(15, 23, 42, 0.9);
-            border: 1px solid rgba(56, 189, 248, 0.4);
-            border-radius: 14px;
-            padding: 24px;
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 12px;
-            animation: fadeIn 0.3s ease;
-        }
-        .pos-status-spinner {
-            width: 36px;
-            height: 36px;
-            border: 3px solid rgba(56, 189, 248, 0.2);
-            border-top-color: #38bdf8;
-            border-radius: 50%;
-            animation: spin 0.9s linear infinite;
-        }
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        .pos-status-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: #ffffff;
-        }
-        .pos-status-instruction {
-            font-size: 13px;
-            color: #94a3b8;
-            max-width: 280px;
-        }
-        .pos-interactive-amount {
-            font-size: 28px;
-            font-weight: 900;
-            color: #38bdf8;
-            margin: 6px 0;
-        }
-        .pos-cancel-btn {
-            background: rgba(239, 68, 68, 0.15);
-            border: 1px solid rgba(239, 68, 68, 0.35);
-            color: #fca5a5;
-            padding: 8px 16px;
-            border-radius: 8px;
-            font-size: 12px;
-            font-weight: 600;
-            cursor: pointer;
-            margin-top: 4px;
-        }
-        .pos-cancel-btn:hover {
-            background: rgba(239, 68, 68, 0.25);
-        }
-
-        /* Vista de Boleta Electrónica / Voucher */
-        .checkout-voucher-view {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            animation: fadeIn 0.3s ease;
-        }
-        .voucher-success-header {
-            text-align: center;
-        }
-        .voucher-success-header .success-icon {
-            width: 44px;
-            height: 44px;
-            background: #10b981;
-            color: #ffffff;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            margin: 0 auto 8px;
-            font-weight: 900;
-            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
-        }
-        .voucher-success-header h3 {
-            margin: 0;
-            font-size: 18px;
-            color: #ffffff;
-            border: none;
-            padding: 0;
-        }
-        .voucher-success-header p {
-            margin: 2px 0 0;
-            font-size: 12px;
-            color: #94a3b8;
-        }
-        .voucher-ticket-paper {
-            background: #ffffff;
-            color: #0f172a;
-            border-radius: 8px;
-            padding: 16px;
-            font-family: 'Courier New', Courier, monospace;
-            font-size: 12px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .voucher-ticket-paper .v-header {
-            font-size: 13px;
-            font-weight: 900;
-            text-align: center;
-            letter-spacing: 0.05em;
-        }
-        .voucher-ticket-paper .v-sub {
-            text-align: center;
-            font-size: 11px;
-            color: #475569;
-        }
-        .voucher-ticket-paper .v-line {
-            text-align: center;
-            color: #cbd5e1;
-            margin: 4px 0;
-            font-weight: bold;
-        }
-        .voucher-ticket-paper .v-row {
-            display: flex;
-            justify-content: space-between;
-            font-size: 11px;
-        }
-        .voucher-ticket-paper .v-row.total {
-            font-size: 13px;
-            font-weight: 900;
-            margin-top: 4px;
-        }
-        .voucher-ticket-paper .v-footer {
-            text-align: center;
-            font-size: 11px;
-            font-weight: bold;
-            margin-top: 8px;
-            color: #334155;
-        }
-        .btn-finish-checkout {
-            width: 100%;
-            padding: 14px;
-            border-radius: 12px;
-            background: linear-gradient(135deg, #10b981, #059669);
-            border: 1px solid rgba(52, 211, 153, 0.4);
-            color: #ffffff;
-            font-size: 15px;
-            font-weight: 700;
-            cursor: pointer;
-            box-shadow: 0 4px 20px rgba(16, 185, 129, 0.35);
-        }
-        .btn-finish-checkout:hover {
-            background: linear-gradient(135deg, #059669, #10b981);
-        }
-
     </style>
 </head>
 
@@ -2035,8 +705,7 @@
     <button id="start" style="display:none"></button>
     <button id="stop" style="display:none"></button>
 
-    <!-- Input Oculto para Lector de Código de Barras (Escáner USB/Bluetooth) -->
-    <input type="text" id="barcode-input" autocomplete="off" style="position: absolute; opacity: 0; pointer-events: none; width: 1px; height: 1px; top: -100px; left: -100px;" aria-hidden="true" />
+
 
     <div id="app">
 
@@ -2046,32 +715,6 @@
             <!-- Burbujas de chat sobrepuestas -->
             <div id="chat-container"></div>
             <div id="speaking-ring"></div>
-
-            <!-- Contenedor para Tarjetas de Producto por Escaneo -->
-            <div id="product-card-container"></div>
-
-            <!-- Carrusel de ofertas (parte superior) -->
-            <div id="offers-carousel">
-                <div id="carousel-fade-left"></div>
-                <div id="carousel-fade-right"></div>
-                <div class="carousel-track" id="carousel-track">
-                    <!-- Slide 1: imagen ancha, ocupa todo el ancho -->
-                    <div class="carousel-slide active">
-                        <img src="imgs/zapatillas_urbanas_deportivas.jpg" alt="Zapatillas hasta 50% dcto" />
-                    </div>
-                    <!-- Slide 2: par de imágenes angostas -->
-                    <div class="carousel-slide dual">
-                        <img src="imgs/perfumes.jpg" alt="Cuidado Capilar 30% dcto" />
-                        <img src="imgs/parlantes.jpg" alt="Parlantes Bluetooth 60% dcto" />
-                    </div>
-                    <!-- Slide 3: par de imágenes angostas -->
-                    <div class="carousel-slide dual">
-                        <img src="imgs/vestuario_hombre_deporte.webp" alt="Vestuario Hombre 30% dcto" />
-                        <img src="imgs/jugueteria_trajes_tipicos.webp" alt="Juguetería 40% dcto" />
-                    </div>
-                </div>
-                <div id="carousel-dots"></div>
-            </div>
 
             <!-- Status badge (arriba-centro) -->
             <div id="status-badge">
@@ -2088,7 +731,8 @@
             </div>
 
             <!-- Botón STOP Avatar (oculto / desactivado) -->
-            <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú" style="display: none !important;">
+            <button id="btn-stop-talk" onclick="stopAvatarTalking()" title="Detener al avatar y hablar tú"
+                style="display: none !important;">
                 <span class="stop-icon">
                     <svg viewBox="0 0 24 24" fill="currentColor" width="14" height="14">
                         <rect x="5" y="5" width="14" height="14" rx="2" />
@@ -2096,24 +740,6 @@
                 </span>
                 <span class="stop-label">Parar avatar</span>
             </button>
-
-            <!-- Botón Planimetría / Mapa de Tienda (bottom-left, solo icono) -->
-            <button id="btn-open-map" onclick="openStoreMap()" title="Ver mapa y planimetría de la tienda" aria-label="Abrir mapa">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon>
-                    <line x1="8" y1="2" x2="8" y2="18"></line>
-                    <line x1="16" y1="6" x2="16" y2="22"></line>
-                </svg>
-            </button>
-
-            <!-- Widget Flotante de Bolsa de Compras (Paris Costanera) -->
-            <button id="btn-cart-widget" class="cart-floating-widget" onclick="openParisCheckout()" title="Ver bolsa de compras">
-                <span class="cart-widget-icon">🛍️</span>
-                <span class="cart-widget-label">Bolsa</span>
-                <span id="cart-badge-count" class="cart-badge">0</span>
-                <span id="cart-badge-total" class="cart-total">$0</span>
-            </button>
-
 
             <!-- Botón conectar (discreto, bottom-left) -->
             <button id="btn-connect" onclick="connectRTC()">
@@ -2156,197 +782,7 @@
             </div>
 
         </div>
-
-        <!-- Modal de Planimetría y Mapa de Tienda -->
-        <div id="store-map-modal">
-            <div class="map-card">
-                <!-- Header con Tabs de Pisos integrados -->
-                <div class="map-header">
-                    <div class="map-header-left">
-                        <div class="map-logo-badge">🗺️</div>
-                        <div>
-                            <div class="map-title">
-                                <span>Planimetría de Tienda</span>
-                            </div>
-                            <div class="map-subtitle" id="map-header-subtitle">Paris Costanera Center · Tótem en Piso 1</div>
-                        </div>
-                    </div>
-
-                    <!-- Tabs de Pisos Clickeables -->
-                    <div class="map-floor-tabs" id="map-floor-tabs">
-                        <button class="map-floor-tab active" data-piso="1" onclick="setMapFloor(1)">
-                            <span>P1</span>
-                        </button>
-                        <button class="map-floor-tab" data-piso="2" onclick="setMapFloor(2)">
-                            <span>P2</span>
-                            <span id="floor-2-dest-badge" class="floor-dest-dot" style="display:none"></span>
-                        </button>
-                        <button class="map-floor-tab" data-piso="3" onclick="setMapFloor(3)">
-                            <span>P3</span>
-                            <span id="floor-3-dest-badge" class="floor-dest-dot" style="display:none"></span>
-                        </button>
-                    </div>
-
-                    <button class="map-close-btn" onclick="closeStoreMap()" title="Cerrar Mapa">✕</button>
-                </div>
-
-                <!-- Barra de Guía Multi-Piso (Visible en rutas multi-piso) -->
-                <div id="map-stepper" class="map-stepper" style="display:none">
-                    <div id="step-pill-1" class="map-step-pill active" onclick="setMapStep(1)">
-                        <span class="map-step-num">1</span>
-                        <span>Paso 1: Escalera Mecánica (Piso 1)</span>
-                    </div>
-                    <span class="map-step-arrow">→</span>
-                    <div id="step-pill-2" class="map-step-pill" onclick="setMapStep(2)">
-                        <span class="map-step-num">2</span>
-                        <span id="step-pill-2-text">Paso 2: Llegar al Destino</span>
-                    </div>
-                </div>
-
-                <!-- Contenedor SVG del Plano -->
-                <div class="map-svg-wrap" id="store-map-svg-wrap">
-                    <svg id="store-map-svg" viewBox="0 0 1000 650" xmlns="http://www.w3.org/2000/svg">
-                        <!-- Generado dinámicamente por JavaScript -->
-                    </svg>
-                </div>
-
-                <!-- Footer con Indicación y Guía -->
-                <div class="map-footer">
-                    <div class="map-route-info">
-                        <div class="map-route-icon" id="map-route-icon">📍</div>
-                        <div>
-                            <div class="map-route-text-main" id="map-route-text-main">Plano de Paris Costanera Center</div>
-                            <div class="map-route-text-sub" id="map-route-text-sub">El mapa guía tu ruta en pantalla automáticamente.</div>
-                        </div>
-                    </div>
-                    <button class="map-action-btn" onclick="closeStoreMap()">Cerrar Mapa</button>
-                </div>
-            </div>
-        </div>
     </div>
-
-    
-        <!-- Checkout Embebido a Pantalla Completa (Paris Costanera Center) -->
-        <div id="paris-checkout-overlay" class="checkout-overlay">
-            <div class="checkout-container">
-                <header class="checkout-header">
-                    <div class="checkout-brand">
-                        <span class="brand-logo-img">paris</span>
-                        <span class="brand-divider">|</span>
-                        <span class="brand-store">Bolsa de Compras · Costanera Center</span>
-                    </div>
-                    <div style="display:flex;align-items:center;gap:12px;">
-                        <span id="pos-header-status-pill" class="header-pos-pill" onclick="handlePosPillClick()" title="Estado de conexión con terminal Getnet (haz clic para conectar)">
-                            <span id="pos-status-bullet">●</span> <span id="pos-header-status-text">POS Getnet (Desconectado)</span>
-                        </span>
-                        <button class="checkout-close-btn" onclick="closeParisCheckout()" title="Volver al Asesor">
-                            ← Volver a la Tienda
-                        </button>
-                    </div>
-                </header>
-
-                <div class="checkout-body">
-                    <div class="checkout-left">
-                        <div class="checkout-section-header">
-                            <h2>🛍️ Bolsa de Compras (<span id="chk-item-count">0</span>)</h2>
-                            <button class="btn-clear-cart" onclick="clearCartInteractive()">Vaciar bolsa</button>
-                        </div>
-                        <div id="checkout-cart-list" class="checkout-cart-list">
-                            <!-- Items dinámicos -->
-                        </div>
-                    </div>
-
-                    <div class="checkout-right">
-                        <div class="checkout-summary-card">
-                            <h3>📋 Resumen de Compra</h3>
-                            <div class="summary-row">
-                                <span>Subtotal</span>
-                                <strong id="chk-subtotal">$0</strong>
-                            </div>
-                            <div class="summary-row discount" id="chk-row-discount" style="display:none;">
-                                <span>Descuentos Cyber</span>
-                                <strong id="chk-discount">-$0</strong>
-                            </div>
-                            <div class="summary-row">
-                                <span>IVA (19% incluido)</span>
-                                <span id="chk-iva">$0</span>
-                            </div>
-                            <div class="summary-divider"></div>
-                            <div class="cenco-points-badge">
-                                <span class="cenco-points-icon">⭐</span>
-                                <span>Acumulas <strong id="chk-cenco-points">0</strong> Puntos Cencosud con esta compra</span>
-                            </div>
-                            <div class="summary-total-row">
-                                <span>Total a Pagar</span>
-                                <span id="chk-total" class="summary-total-amount">$0</span>
-                            </div>
-
-                            <div class="payment-selection-section">
-                                <h4>💳 Medio de Pago</h4>
-                                <div class="payment-methods-grid">
-                                    <button id="btn-pay-getnet" class="payment-method-card active" onclick="selectCheckoutPaymentMethod('getnet')">
-                                        <div class="pm-icon">💳</div>
-                                        <div class="pm-info">
-                                            <div class="pm-title">Tarjeta Débito / Crédito</div>
-                                            <div class="pm-sub">Terminal POS Getnet</div>
-                                        </div>
-                                    </button>
-                                    <button id="btn-pay-cencosud" class="payment-method-card" onclick="selectCheckoutPaymentMethod('cencosud')">
-                                        <div class="pm-icon">🔴</div>
-                                        <div class="pm-info">
-                                            <div class="pm-title">Puntos Cencosud</div>
-                                            <div class="pm-sub">Canje en Kiosko</div>
-                                        </div>
-                                    </button>
-                                </div>
-                            </div>
-
-                            <div id="checkout-action-container">
-                                <button id="btn-submit-payment" class="btn-checkout-pay" onclick="handleStartCheckoutPayment()">
-                                    Pagar con Tarjeta POS Getnet
-                                </button>
-                            </div>
-
-                            <div id="pos-interactive-box" class="pos-interactive-box" style="display:none;">
-                                <div class="pos-status-spinner"></div>
-                                <div class="pos-status-title" id="pos-interactive-title">Esperando tarjeta...</div>
-                                <div class="pos-status-instruction" id="pos-interactive-desc">
-                                    Acerque o inserte su tarjeta en el terminal Getnet.
-                                </div>
-                                <div class="pos-interactive-amount" id="pos-interactive-amount">$0</div>
-                                <button class="pos-cancel-btn" onclick="handleCancelCheckoutPayment()">Cancelar Cobro</button>
-                            </div>
-
-                            <div id="checkout-voucher-view" class="checkout-voucher-view" style="display:none;">
-                                <div class="voucher-success-header">
-                                    <div class="success-icon">✓</div>
-                                    <h3>¡PAGO EXITOSO!</h3>
-                                    <p>Transacción aprobada por Getnet</p>
-                                </div>
-                                <div class="voucher-ticket-paper">
-                                    <div class="v-header">PARIS COSTANERA CENTER</div>
-                                    <div class="v-sub">R.U.T.: 76.123.456-7</div>
-                                    <div class="v-line">------------------------------------</div>
-                                    <div class="v-row"><span>BOLETA ELECTRÓNICA</span><strong id="v-op-number">OP-001234</strong></div>
-                                    <div class="v-row"><span>FECHA:</span><span id="v-date">05/10/2026</span></div>
-                                    <div class="v-row"><span>TERMINAL GETNET:</span><span id="v-auth">123456</span></div>
-                                    <div class="v-row"><span>TARJETA:</span><span id="v-card">4111********1111</span></div>
-                                    <div class="v-line">------------------------------------</div>
-                                    <div id="v-items-list"></div>
-                                    <div class="v-line">------------------------------------</div>
-                                    <div class="v-row total"><span>TOTAL PAGADO:</span><strong id="v-total">$0</strong></div>
-                                    <div class="v-footer">¡Gracias por tu compra en Paris!</div>
-                                </div>
-                                <button class="btn-finish-checkout" onclick="handleFinishSuccessfulCheckout()">
-                                    Finalizar y Salir
-                                </button>
-                            </div>
-
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     <!-- Debug log panel (tap 🪲 to open) -->
     <div id="dbg-panel">
@@ -2365,12 +801,12 @@
             </select>
             <button id="dbg-mic-refresh" onclick="dbgLoadDevices()">&#8635; Actualizar</button>
         </div>
-        
+
         <div id="dbg-list"></div>
     </div>
 
     <!-- WebRTC client -->
-    <script src="getnet.js"></script>
+
     <script src="client.js"></script>
 
     <script>
@@ -2508,10 +944,9 @@
         let _wakeBufferTimeout = null;
 
         const WAKE_ONLY_GREETINGS = [
-            '¡Hola! ¿En qué te puedo ayudar?',
-            '¡Buenas! ¿Buscas algo en especial?',
-            '¡Hola! ¿Necesitas ayuda para encontrar algo?',
-            'Aquí estoy, ¿en qué te ayudo?'
+            '¡Hola! Soy el asistente virtual de Mutual de Seguridad. ¿Tienes dudas sobre accidentes de trabajo o de trayecto?',
+            '¡Hola! Bienvenido a Mutual de Seguridad. ¿En qué te puedo orientar hoy?',
+            '¡Hola! Te puedo ayudar con información sobre accidentes laborales y de trayecto. ¿Cuál es tu consulta?'
         ];
 
         function _randomGreeting() {
@@ -2537,7 +972,7 @@
         }
 
         function _isSleepWord(text) {
-            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"").trim();
+            const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "").trim();
             // Frases exactas de despedida o cierre negativo
             const exactSleepPhrases = [
                 'no', 'no gracias', 'no muchas gracias', 'no por ahora', 'no nada mas',
@@ -2606,25 +1041,15 @@
             resetInactivityTimer();
         }
 
-        // Fuente única de verdad: la bolsa/checkout está abierta → micrófono bloqueado
         function isCheckoutOpen() {
-            const overlay = document.getElementById('paris-checkout-overlay');
-            return !!(overlay && overlay.classList.contains('open'));
+            return false;
         }
 
         function resetInactivityTimer() {
             clearTimeout(_inactivityTimeoutId);
             if (!_conversationAwake) return;
             _inactivityTimeoutId = setTimeout(() => {
-                // Con la bolsa abierta el cliente está pagando: no expirar la sesión ni vaciar el carrito
-                if (isCheckoutOpen()) {
-                    resetInactivityTimer();
-                    return;
-                }
                 LOG("Sesión inactiva por 2 minutos. Volviendo a modo de espera de wake-word.");
-                closeStoreMap();
-                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
-                if (typeof clearCartInteractive === 'function') clearCartInteractive();
                 _conversationAwake = false;
                 _wakeDetected = false;
                 if (isListening) {
@@ -2696,13 +1121,13 @@
         function queueAvatarBubble(text) {
             clearTimeout(_pendingAvatarBubbleTimeout);
             _pendingAvatarBubbleText = text;
-            
+
             if (isSpeaking) {
                 addChatBubble('avatar', _pendingAvatarBubbleText);
                 _pendingAvatarBubbleText = null;
                 return;
             }
-            
+
             _pendingAvatarBubbleTimeout = setTimeout(() => {
                 if (_pendingAvatarBubbleText) {
                     addChatBubble('avatar', _pendingAvatarBubbleText);
@@ -2716,17 +1141,12 @@
             clearTimeout(_followUpAckTimeoutId);
             _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
-            const checkoutEl = document.getElementById('paris-checkout-overlay');
-            if (checkoutEl && checkoutEl.classList.contains('open')) return;
             _followUpTimeoutId = setTimeout(() => {
-                LOG("30 segundos de silencio → Cerrando mapa interactivo y preguntando si necesita algo más.");
-                closeStoreMap();
-                const followUpText = "¿Necesitas algo más?";
+                LOG("20 segundos de silencio → preguntando si necesita algo más.");
+                const followUpText = "¿Necesitas algo más sobre Mutual de Seguridad?";
                 _waitingFollowUpAck = true;
-                
                 queueAvatarBubble(followUpText);
                 stopAlwaysOnListening();
-                
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -2746,12 +1166,9 @@
             LOG('scheduleFollowUpAckTimeout: esperando 20s respuesta al follow-up…');
             _followUpAckTimeoutId = setTimeout(() => {
                 if (!_waitingFollowUpAck) return;
-                LOG('20s sin respuesta al follow-up → cerrando mapa, enviando despedida final y durmiendo.');
+                LOG('20s sin respuesta al follow-up → enviando despedida final y durmiendo.');
                 _waitingFollowUpAck = false;
-                closeStoreMap();
-                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
-                if (typeof clearCartInteractive === 'function') clearCartInteractive();
-                const farewellText = "Muy bien, si necesitas algo más no dudes en llamarme. ¡Que tengas un excelente día!";
+                const farewellText = "Muy bien. Si necesitas orientación sobre Mutual de Seguridad, no dudes en llamarme. ¡Que tengas un excelente día!";
                 queueAvatarBubble(farewellText);
                 stopAlwaysOnListening();
                 clearServerHistory();
@@ -2773,216 +1190,6 @@
                     setState('ready', 'Esperando activación…');
                 }).catch(e => WARN('Error al enviar despedida final:', e));
             }, 15000);
-        }
-
-        // ─── Lector de Código de Barras (Escáner USB / Bluetooth) ──────────────────
-        let _cardDismissTimeout = null;
-        let _lastScannedBarcode = '';
-        let _lastScannedBarcodeTime = 0;
-
-        function keepBarcodeFocus() {
-            const inp = document.getElementById('barcode-input');
-            if (!inp) return;
-            const dbgPanel = document.getElementById('dbg-panel');
-            if (dbgPanel && dbgPanel.classList.contains('open')) return;
-            if (document.activeElement !== inp) {
-                inp.focus();
-            }
-        }
-
-        async function handleBarcodeScan(code) {
-            const now = Date.now();
-            const cleanCode = String(code).trim();
-            if (!cleanCode) return;
-
-            // Anti-duplicado: Evita que el lector emita 2 veces el mismo código en menos de 2.5s
-            if (cleanCode === _lastScannedBarcode && (now - _lastScannedBarcodeTime) < 2500) {
-                LOG(`[Barcode Scan] Ignorando escaneo repetido dentro de 2.5s: "${cleanCode}"`);
-                return;
-            }
-            _lastScannedBarcode = cleanCode;
-            _lastScannedBarcodeTime = now;
-
-            LOG(`Escáner de código de barras detectado: "${cleanCode}"`);
-            try {
-                // Cerrar mapa si estaba abierto para dar foco a la tarjeta
-                closeStoreMap();
-
-                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(cleanCode)}`);
-                const result = await res.json();
-
-                if (result.code === 0 && result.data) {
-                    const prod = result.data;
-                    LOG('Producto encontrado:', prod.nombre);
-                    showProductCard(prod);
-
-                    // Registrar producto y acción pendiente para el reconocimiento de voz
-                    _pendingCartProduct = prod;
-                    _pendingAction = 'CONFIRM_ADD_CART';
-                    LOG('[Cart] Producto registrado para decisión del cliente:', prod.nombre);
-
-                    // Desbloquear audio del video explícitamente ante el escaneo
-                    const videoEl = document.getElementById('video');
-                    if (videoEl && videoEl.muted) {
-                        videoEl.muted = false;
-                        _audioUnlocked = true;
-                        if (videoEl.paused && videoEl.srcObject) {
-                            videoEl.play().catch(e => WARN('play() barcode unlock:', e.name));
-                        }
-                    }
-
-                    // Locución exacta y determinista requerida:
-                    // 1° Nombre del producto, 2° ¿Desea agregarlo al carrito o saber información adicional del producto?
-                    const scanPrompt = `Has escaneado ${prod.nombre}. ¿Deseas agregarlo al carrito o saber información adicional del producto?`;
-
-                    const sessionid = document.getElementById('sessionid').value;
-                    clearTimeout(_followUpTimeoutId);
-                    clearTimeout(_followUpAckTimeoutId);
-                    _waitingFollowUpAck = false;
-
-                    // OJO: Conservar historial en el servidor para que el LLM recuerde el producto escaneado
-                    wakeUpModel();
-                    stopAlwaysOnListening();
-
-                    queueAvatarBubble(scanPrompt);
-                    try {
-                        if (_activeLLMAbortController) {
-                            try { _activeLLMAbortController.abort(); } catch (e) {}
-                        }
-                        _activeLLMAbortController = new AbortController();
-
-                        const scanHistoryUser = `El cliente escaneó el producto: ${prod.nombre} (Marca: ${prod.marca || 'Paris'}, Precio: ${prod.precio_oferta || prod.precio} pesos).`;
-
-                        await fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                text: scanPrompt,
-                                type: 'echo',
-                                interrupt: true,
-                                record_history: true,
-                                history_user: scanHistoryUser,
-                                cart: _parisCart,
-                                sessionid: String(sessionid)
-                            }),
-                            signal: _activeLLMAbortController.signal
-                        });
-                    } catch (e) {
-                        WARN('Error al emitir locución de escaneo:', e);
-                    }
-                } else {
-                    LOG('Producto no encontrado para código:', cleanCode);
-                    showProductNotFound(cleanCode);
-
-                    const notFoundText = `Lo siento, no encontré ningún producto registrado con ese código de barras en el catálogo de Paris.`;
-                    const sessionid = document.getElementById('sessionid').value;
-                    queueAvatarBubble(notFoundText);
-                    stopAlwaysOnListening();
-
-                    await fetch('/human', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            text: notFoundText,
-                            type: 'echo',
-                            interrupt: true,
-                            sessionid: String(sessionid)
-                        })
-                    }).catch(e => WARN('echo error:', e));
-                }
-            } catch (e) {
-                ERR('Error al procesar código de barras:', e);
-            } finally {
-                const inp = document.getElementById('barcode-input');
-                if (inp) inp.focus();
-            }
-        }
-
-        function showProductCard(prod) {
-            const container = document.getElementById('product-card-container');
-            if (!container) return;
-
-            clearTimeout(_cardDismissTimeout);
-            container.innerHTML = '';
-
-            const isOffer = prod.oferta === 'SI' && prod.precio_oferta;
-            const mainPrice = isOffer ? prod.precio_oferta : prod.precio;
-
-            const tagsHtml = (prod.etiquetas || []).map(t => {
-                return `<span class="product-tag-pill">${t}</span>`;
-            }).join('');
-
-            const pisoTxt = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
-            const pasilloTxt = prod.pasillo ? ` · ${prod.pasillo}` : '';
-
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.innerHTML = `
-                <div class="product-card-badge">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor">
-                        <path d="M2 4h2v16H2V4zm4 0h1v16H6V4zm3 0h2v16H9V4zm4 0h1v16h-1V4zm3 0h2v16h-2V4zm4 0h1v16h-1V4z"/>
-                    </svg>
-                    <span>CÓDIGO: ${prod.codigo_barra || prod.sku}</span>
-                </div>
-                <div class="product-card-title">${prod.nombre}</div>
-                <div class="product-card-category">${prod.marca ? prod.marca + ' · ' : ''}${prod.categoria_nombre || prod.categoria}</div>
-                <div class="product-card-prices">
-                    <span class="product-card-price-main">$${Number(mainPrice).toLocaleString('es-CL')}</span>
-                    ${isOffer ? `<span class="product-card-price-regular">$${Number(prod.precio).toLocaleString('es-CL')}</span>` : ''}
-                    ${isOffer ? `<span class="product-card-offer-tag">${prod.descuento_pct ? prod.descuento_pct + '% DCTO' : 'OFERTA'}</span>` : ''}
-                </div>
-                <div class="product-card-aisle clickable" onclick="openMapForProduct('${prod.sku || prod.codigo_barra}')" title="Ver ruta en el mapa">
-                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-                        <circle cx="12" cy="9" r="2.5"/>
-                    </svg>
-                    <span>${pisoTxt}${pasilloTxt}</span>
-                    <span class="view-map-pill">📍 Ver en Mapa</span>
-                </div>
-                ${tagsHtml ? `<div class="product-card-tags">${tagsHtml}</div>` : ''}
-                <div class="product-card-actions">
-                    <button class="btn-card-add-cart" onclick="event.stopPropagation(); handleDirectAddToCart('${prod.sku || prod.codigo_barra}')">
-                        🛍️ Agregar a la Bolsa
-                    </button>
-                </div>
-            `;
-
-            container.appendChild(card);
-
-            _cardDismissTimeout = setTimeout(() => {
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    if (card.parentNode) card.parentNode.removeChild(card);
-                }, 500);
-            }, 15000);
-        }
-
-        function showProductNotFound(code) {
-            const container = document.getElementById('product-card-container');
-            if (!container) return;
-
-            clearTimeout(_cardDismissTimeout);
-            container.innerHTML = '';
-
-            const card = document.createElement('div');
-            card.className = 'product-card';
-            card.style.borderColor = 'rgba(239, 68, 68, 0.4)';
-            card.innerHTML = `
-                <div class="product-card-badge" style="background: rgba(239, 68, 68, 0.2); border-color: rgba(239, 68, 68, 0.4); color: #fca5a5;">
-                    <span>NO ENCONTRADO</span>
-                </div>
-                <div class="product-card-title" style="font-size: 15px;">Código ${code} no registrado</div>
-                <div style="font-size: 12px; color: #a1a1aa;">Verifique que el código pertenezca al catálogo de la tienda.</div>
-            `;
-
-            container.appendChild(card);
-
-            _cardDismissTimeout = setTimeout(() => {
-                card.classList.add('fade-out');
-                setTimeout(() => {
-                    if (card.parentNode) card.parentNode.removeChild(card);
-                }, 8000);
-            }, 8000);
         }
 
         LOG('Modo ASR: SpeechRecognition');
@@ -3176,7 +1383,7 @@
                             if (wrap) wrap.classList.remove('avatar-speaking');
                             _clearSpeakingWatchdog();
                             LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
-                            
+
                             // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
                             setState('ready', 'Preparando micrófono…');
                             if (_conversationAwake) {
@@ -3274,23 +1481,23 @@
             let _questionDispatched = false;
 
             let _lastDispatchedSpeechText = '';
-        let _lastDispatchedSpeechTime = 0;
+            let _lastDispatchedSpeechTime = 0;
 
-        const _dispatchQuestion = (rawText) => {
-            if (isCheckoutOpen()) {
-                LOG('[_dispatchQuestion] Bolsa/checkout abierta: no se envía info al LLM');
-                return;
-            }
-            if (_questionDispatched) return;
-            const now = Date.now();
-            const cleanRaw = rawText.trim().toLowerCase();
-            if (cleanRaw === _lastDispatchedSpeechText && (now - _lastDispatchedSpeechTime) < 2200) {
-                LOG(`[Speech Dispatch] Descartando locución duplicada dentro de 2.2s: "${rawText}"`);
-                return;
-            }
-            _lastDispatchedSpeechText = cleanRaw;
-            _lastDispatchedSpeechTime = now;
-            _questionDispatched = true;
+            const _dispatchQuestion = (rawText) => {
+                if (isCheckoutOpen()) {
+                    LOG('[_dispatchQuestion] Bolsa/checkout abierta: no se envía info al LLM');
+                    return;
+                }
+                if (_questionDispatched) return;
+                const now = Date.now();
+                const cleanRaw = rawText.trim().toLowerCase();
+                if (cleanRaw === _lastDispatchedSpeechText && (now - _lastDispatchedSpeechTime) < 2200) {
+                    LOG(`[Speech Dispatch] Descartando locución duplicada dentro de 2.2s: "${rawText}"`);
+                    return;
+                }
+                _lastDispatchedSpeechText = cleanRaw;
+                _lastDispatchedSpeechTime = now;
+                _questionDispatched = true;
                 clearTimeout(_pendingCommitTimeout);
                 _lastInterimText = '';
 
@@ -3308,230 +1515,6 @@
 
                 if (question) {
                     clearTimeout(_wakeBufferTimeout);
-
-                    // 0. Intercepción de respuesta tras timeout de 60s en la web de pago
-                    if (_waitingCheckoutFollowUp) {
-                        _waitingCheckoutFollowUp = false;
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        const cleanAns = _cleanText(question);
-                        const continueKeywords = ['si', 'continuar', 'seguir', 'pagar', 'abrir', 'si por favor', 'dale', 'claro', 'volver'];
-                        const cancelKeywords = ['no', 'cancelar', 'cancelarla', 'prefiero cancelar', 'no gracias', 'dejar'];
-                        if (continueKeywords.some(k => cleanAns === k || cleanAns.startsWith(k + ' ') || cleanAns.includes(k))) {
-                            LOG('[Checkout Follow-up] Cliente decidió continuar con la compra.');
-                            const resumeMsg = "Perfecto, reabriendo tu bolsa de compras para completar el pago.";
-                            queueAvatarBubble(resumeMsg);
-                            openParisCheckout();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: resumeMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        } else if (cancelKeywords.some(k => cleanAns === k || cleanAns.startsWith(k + ' ') || cleanAns.includes(k))) {
-                            LOG('[Checkout Follow-up] Cliente decidió cancelar la compra.');
-                            clearCartInteractive();
-                            const cancelMsg = "He cancelado tu compra y vaciado la bolsa. ¿Necesitas ayuda con algún otro producto?";
-                            queueAvatarBubble(cancelMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: cancelMsg, type: 'echo', sessionid: String(sessionid) })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        }
-                    }
-
-                    // 1. Intercepción directa de intención de pago / abrir caja
-                    if (_isPayIntent(question)) {
-                        LOG(`[Checkout] Intención de pago detectada: "${question}" → abriendo checkout`);
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        if (_parisCart.length === 0) {
-                            const emptyMsg = "Tu bolsa de compras está vacía. Escanea un código de barras o dime qué buscas para agregar productos.";
-                            queueAvatarBubble(emptyMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: emptyMsg, type: 'echo', sessionid: String(sessionid) })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        }
-                        openParisCheckout();
-                        return;
-                    }
-
-                    // 2. Intercepción de consulta de bolsa / carrito ("¿qué llevo?", "¿cuánto es el total?")
-                    if (_isCartQueryIntent(question)) {
-                        LOG(`[Cart] Consulta de bolsa detectada: "${question}"`);
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        const count = getCartItemsCount();
-                        const total = getCartTotal();
-                        let cartReply = "";
-                        if (count === 0) {
-                            cartReply = "Tu bolsa de compras está vacía. Escanea un código de barras o dime qué buscas para agregar productos.";
-                        } else {
-                            const countStr = count === 1 ? 'un producto' : `${count} productos`;
-                            const itemsSummary = _parisCart.map(i => `${i.cantidad > 1 ? i.cantidad + ' ' : ''}${i.nombre}`).slice(0, 3).join(', ');
-                            cartReply = `Llevas ${countStr}: ${itemsSummary}, por un total de ${total.toLocaleString('es-CL')} pesos. ¿Deseas ir a pagar a la caja o ver algo más?`;
-                        }
-                        queueAvatarBubble(cartReply);
-                        stopAlwaysOnListening();
-                        const sessionid = document.getElementById('sessionid').value;
-                        fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                text: cartReply,
-                                type: 'echo',
-                                record_history: true,
-                                history_user: question,
-                                sessionid: String(sessionid),
-                                cart: _parisCart
-                            })
-                        }).catch(e => WARN('echo error:', e));
-                        return;
-                    }
-
-                    // 3. Intercepción de vaciar bolsa ("vaciar carrito", "borrar bolsa")
-                    if (_isClearCartIntent(question)) {
-                        LOG(`[Cart] Solicitud de vaciar bolsa detectada: "${question}"`);
-                        setUserText(question, false);
-                        addChatBubble('user', question);
-                        clearCartInteractive();
-                        const clearReply = "Listo, he vaciado tu bolsa de compras. ¿Te puedo ayudar a buscar algún producto?";
-                        queueAvatarBubble(clearReply);
-                        stopAlwaysOnListening();
-                        const sessionid = document.getElementById('sessionid').value;
-                        fetch('/human', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ text: clearReply, type: 'echo', sessionid: String(sessionid) })
-                        }).catch(e => WARN('echo error:', e));
-                        return;
-                    }
-
-                    // 4. Manejo de intenciones tras escaneo de producto (_pendingCartProduct activo)
-                    if (_pendingCartProduct && _pendingAction === 'CONFIRM_ADD_CART') {
-                        const prod = _pendingCartProduct;
-
-                        // A. El usuario pide UBICACIÓN ("dónde está", "dónde encontrarlo", etc.)
-                        if (_isLocationIntent(question)) {
-                            LOG(`[Scan Intent] Usuario solicitó ubicación de: ${prod.nombre}`);
-                            setUserText(question, false);
-                            addChatBubble('user', question);
-
-                            const pisoStr = prod.piso ? `Piso ${prod.piso}` : 'Piso 1';
-                            const pasilloStr = prod.pasillo ? `pasillo ${prod.pasillo}` : 'pasillo principal';
-                            const sectorStr = prod.sector ? `sector ${prod.sector}` : 'tienda';
-                            const locMsg = `El producto ${prod.nombre} se encuentra en el ${pisoStr}, ${pasilloStr}, ${sectorStr}. Te mostraré la ubicación en el mapa. ¿Deseas agregarlo a tu bolsa de compras?`;
-
-                            queueAvatarBubble(locMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: locMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
-                            }).catch(e => WARN('echo error:', e));
-
-                            // Abrir mapa interactivo
-                            openMapForProduct(prod.sku || prod.codigo_barra);
-                            return;
-                        }
-
-                        // B. El usuario pide INFORMACIÓN ADICIONAL ("características", "marca", "detalles", "dame información")
-                        if (_isInfoIntent(question)) {
-                            LOG(`[Scan Intent] Usuario solicitó información adicional de: ${prod.nombre}`);
-                            setUserText(question, false);
-                            addChatBubble('user', question);
-
-                            const precioReg = Number(prod.precio).toLocaleString('es-CL');
-                            let infoMsg = `${prod.nombre} de marca ${prod.marca || 'Paris'}. `;
-                            if (prod.oferta === 'SI' && prod.precio_oferta) {
-                                const precioOf = Number(prod.precio_oferta).toLocaleString('es-CL');
-                                const dcto = prod.descuento_pct ? ` con ${prod.descuento_pct} por ciento de descuento` : '';
-                                infoMsg += `En oferta a ${precioOf} pesos${dcto} (antes ${precioReg} pesos). `;
-                            } else {
-                                infoMsg += `Su precio regular es de ${precioReg} pesos. `;
-                            }
-                            if (prod.categoria) {
-                                infoMsg += `Categoría ${prod.categoria}. `;
-                            }
-                            if (prod.descripcion) {
-                                infoMsg += `${prod.descripcion}. `;
-                            }
-                            infoMsg += `¿Deseas agregarlo a tu bolsa de compras?`;
-
-                            queueAvatarBubble(infoMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    text: infoMsg,
-                                    type: 'echo',
-                                    record_history: true,
-                                    history_user: question,
-                                    cart: _parisCart,
-                                    sessionid: String(sessionid)
-                                })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        }
-
-                        // C. El usuario responde AFIRMATIVAMENTE ("sí", "agrégalo", "al carrito", "cómpralo")
-                        if (_isAffirmativeWord(question)) {
-                            LOG(`[Scan Intent] Confirmación afirmativa de agregar al carrito: ${prod.nombre}`);
-                            _pendingAction = null;
-                            _pendingCartProduct = null;
-                            addToCart(prod);
-
-                            const count = getCartItemsCount();
-                            const total = getCartTotal();
-                            const countStr = count === 1 ? 'un producto' : `${count} productos`;
-                            const ackMsg = `Listo, agregué ${prod.nombre} a tu bolsa. Llevas ${countStr} por ${total.toLocaleString('es-CL')} pesos. ¿Vamos a la caja a pagar o deseas ver algo más?`;
-
-                            setUserText(question, false);
-                            addChatBubble('user', question);
-                            queueAvatarBubble(ackMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: ackMsg, type: 'echo', sessionid: String(sessionid), cart: _parisCart })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        }
-
-                        // D. El usuario responde NEGATIVAMENTE ("no", "no gracias")
-                        if (_isNegativeWord(question)) {
-                            LOG(`[Scan Intent] Rechazo de compra: ${prod.nombre}`);
-                            _pendingAction = null;
-                            _pendingCartProduct = null;
-                            const noMsg = "Entendido, no lo agregaré. ¿Te gustaría buscar algún otro producto o necesitas ayuda?";
-
-                            setUserText(question, false);
-                            addChatBubble('user', question);
-                            queueAvatarBubble(noMsg);
-                            stopAlwaysOnListening();
-                            const sessionid = document.getElementById('sessionid').value;
-                            fetch('/human', {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ text: noMsg, type: 'echo', sessionid: String(sessionid) })
-                            }).catch(e => WARN('echo error:', e));
-                            return;
-                        }
-                    }
 
                     if (_isSleepWord(question)) {
                         LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
@@ -3639,7 +1622,7 @@
                         if (_conversationAwake && _lastInterimText && !_questionDispatched) {
                             LOG(`[Interim Auto-Commit] Silencio detectado tras "${_lastInterimText}" (${delayMs}ms) → enviando`);
                             const txt = _lastInterimText;
-                            try { rec.stop(); } catch (e) {}
+                            try { rec.stop(); } catch (e) { }
                             _dispatchQuestion(txt);
                         }
                     }, delayMs);
@@ -3865,10 +1848,7 @@
         // ─── Enviar al LLM / backend (con streaming y burbujas) ─────────────────
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
-            if (isCheckoutOpen()) {
-                LOG('[sendToLLM] Bolsa/checkout abierta: no se envía info al LLM');
-                return;
-            }
+
             stopAlwaysOnListening();
             LOG(`sendToLLM: "${text}" (isSleepWord=${isSleepWord})`);
             setState('thinking', 'Pensando…');
@@ -3878,11 +1858,8 @@
             const sessionid = document.getElementById('sessionid').value;
 
             if (isSleepWord) {
-                closeStoreMap();
-                if (typeof clearCheckoutPaymentTimer === 'function') clearCheckoutPaymentTimer();
-                if (typeof clearCartInteractive === 'function') clearCartInteractive();
-                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g,"");
-                let farewellText = "De acuerdo. Si necesitas algo más, aquí estaré.";
+                const clean = text.toLowerCase().trim().replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, "");
+                let farewellText = "De acuerdo. Si necesitas más información sobre Mutual de Seguridad, aquí estaré.";
                 if (clean.includes('gracias') || clean.includes('chao') || clean.includes('adios') || clean.includes('luego')) {
                     farewellText = "De nada. ¡Que tengas un excelente día!";
                 }
@@ -3918,7 +1895,7 @@
 
             try {
                 if (_activeLLMAbortController) {
-                    try { _activeLLMAbortController.abort(); } catch (e) {}
+                    try { _activeLLMAbortController.abort(); } catch (e) { }
                 }
                 _activeLLMAbortController = new AbortController();
 
@@ -3930,13 +1907,12 @@
                         type: 'chat',
                         interrupt: true,
                         stream: true,
-                        sessionid: String(sessionid),
-                        cart: _parisCart
+                        sessionid: String(sessionid)
                     }),
                     signal: _activeLLMAbortController.signal
                 });
                 LOG('sendToLLM: respuesta status', res.status);
-                
+
                 if (!res.body) {
                     throw new Error("Respuesta del servidor no soporta streaming.");
                 }
@@ -3971,8 +1947,7 @@
 
                 LOG('sendToLLM: stream de respuesta del LLM completado:', fullText);
 
-                // Detección automática de ubicación para abrir el mapa interactivo (solo si se pide o confirma explícitamente)
-                checkLocationIntentAndTriggerMap(text, fullText);
+
 
             } catch (err) {
                 if (err && err.name === 'AbortError') {
@@ -3997,7 +1972,7 @@
                 try {
                     _activeLLMAbortController.abort();
                     LOG('stopAvatarTalking: LLM stream abortado');
-                } catch (e) {}
+                } catch (e) { }
                 _activeLLMAbortController = null;
             }
 
@@ -4051,621 +2026,16 @@
             }, 350);
         }
 
-        // ══════════════════════════════════════════════════════════════════════════════
-        // MÓDULO DE PLANIMETRÍA Y MAPA INTERACTIVO (PARIS COSTANERA CENTER)
-        // ══════════════════════════════════════════════════════════════════════════════
-
-        const STORE_MAP_DATA = {
-            totem: { floor: 1, x: 500, y: 560, label: 'Tótem (Usted está aquí)' },
-            escalator: { x: 500, y: 325, label: 'Escaleras Mecánicas / Ascensores' },
-            categories: {
-                // Piso 3
-                'smartphones': { piso: 3, x: 150, y: 240, name: 'Smartphones & Celulares', sector: 'Tecnología', pasillo: 'T-01', color: '#6366f1', icon: '📱' },
-                'television': { piso: 3, x: 150, y: 420, name: 'Televisores 4K & Audio', sector: 'Tecnología', pasillo: 'T-02', color: '#3b82f6', icon: '📺' },
-                'computacion': { piso: 3, x: 850, y: 240, name: 'Computación & Notebooks', sector: 'Tecnología', pasillo: 'T-03', color: '#10b981', icon: '💻' },
-                'audio_gaming': { piso: 3, x: 850, y: 420, name: 'Audio, Gaming & Consolas', sector: 'Tecnología', pasillo: 'T-04', color: '#f59e0b', icon: '🎧' },
-                'electrohogar': { piso: 3, x: 500, y: 170, name: 'Línea Blanca & Cocina', sector: 'Línea Blanca', pasillo: 'H-11', color: '#14b8a6', icon: '🧊' },
-                'servicio_cliente': { piso: 3, x: 200, y: 550, name: 'Servicio al Cliente & Devoluciones', sector: 'Servicios', pasillo: 'Piso 3', color: '#06b6d4', icon: 'ℹ️' },
-
-                // Piso 2
-                'ropa_mujer': { piso: 2, x: 850, y: 240, name: 'Moda Mujer & Vestuario', sector: 'Moda', pasillo: 'M-01', color: '#f472b6', icon: '👗' },
-                'ropa_hombre': { piso: 2, x: 850, y: 420, name: 'Moda Hombre & Trajes', sector: 'Moda', pasillo: 'M-02', color: '#38bdf8', icon: '👔' },
-                'calzado_mujer': { piso: 2, x: 150, y: 240, name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', color: '#a855f7', icon: '👠' },
-                'decohogar': { piso: 2, x: 150, y: 420, name: 'Decohogar & Ropa de Cama', sector: 'Hogar', pasillo: 'DH-01', color: '#eab308', icon: '🛋️' },
-                'probadores': { piso: 2, x: 200, y: 550, name: 'Probadores', sector: 'Servicios', pasillo: 'Piso 2', color: '#a855f7', icon: '🚪' },
-                'banos': { piso: 2, x: 880, y: 550, name: 'Servicios Higiénicos / Baños', sector: 'Servicios', pasillo: 'SS.HH.', color: '#0ea5e9', icon: '🚻' },
-
-                // Piso 1
-                'perfumes_mujer': { piso: 1, x: 850, y: 240, name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', color: '#f43f5e', icon: '💄' },
-                'perfumes_hombre': { piso: 1, x: 850, y: 420, name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', color: '#ec4899', icon: '✨' },
-                'zapatillas': { piso: 1, x: 150, y: 240, name: 'Zapatillas & Deportes', sector: 'Deportes', pasillo: 'D-06', color: '#06b6d4', icon: '👟' },
-                'accesorios': { piso: 1, x: 150, y: 420, name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', color: '#8b5cf6', icon: '💍' },
-                'retiro_tienda': { piso: 1, x: 200, y: 560, name: 'Punto de Retiro & Cajas', sector: 'Servicios', pasillo: 'Piso 1', color: '#10b981', icon: '📦' },
-                'cajas': { piso: 1, x: 200, y: 560, name: 'Caja Principal & Retiro', sector: 'Servicios', pasillo: 'Piso 1', color: '#f59e0b', icon: '🛒' }
-            },
-            floors: {
-                1: {
-                    title: 'Piso 1 · Entrada, Belleza y Deportes',
-                    zones: [
-                        { id: 'perfumes_mujer', name: 'Perfumería Mujer', sector: 'Belleza', pasillo: 'B-01', x: 740, y: 170, w: 210, h: 145, color: '#f43f5e', icon: '💄' },
-                        { id: 'perfumes_hombre', name: 'Perfumería Hombre', sector: 'Belleza', pasillo: 'B-02', x: 740, y: 350, w: 210, h: 145, color: '#ec4899', icon: '✨' },
-                        { id: 'zapatillas', name: 'Zapatillas & Deportes', sector: 'Deportes', pasillo: 'D-06', x: 50, y: 170, w: 210, h: 145, color: '#06b6d4', icon: '👟' },
-                        { id: 'accesorios', name: 'Accesorios & Joyería', sector: 'Accesorios', pasillo: 'A-01', x: 50, y: 350, w: 210, h: 145, color: '#8b5cf6', icon: '💍' }
-                    ],
-                    services: [
-                        { id: 'entrada', name: 'Entrada Principal', x: 500, y: 615, icon: '🚪' },
-                        { id: 'retiro_tienda', name: 'Retiro en Tienda & Cajas', x: 200, y: 560, icon: '📦' },
-                        { id: 'banos_1', name: 'Baños / SS.HH.', x: 880, y: 560, icon: '🚻' }
-                    ]
-                },
-                2: {
-                    title: 'Piso 2 · Moda, Calzado y Decohogar',
-                    zones: [
-                        { id: 'ropa_mujer', name: 'Moda Mujer', sector: 'Moda', pasillo: 'M-01', x: 740, y: 170, w: 210, h: 145, color: '#f472b6', icon: '👗' },
-                        { id: 'ropa_hombre', name: 'Moda Hombre', sector: 'Moda', pasillo: 'M-02', x: 740, y: 350, w: 210, h: 145, color: '#38bdf8', icon: '👔' },
-                        { id: 'calzado_mujer', name: 'Calzado Femenino', sector: 'Calzado', pasillo: 'C-01', x: 50, y: 170, w: 210, h: 145, color: '#a855f7', icon: '👠' },
-                        { id: 'decohogar', name: 'Decohogar & Cama', sector: 'Hogar', pasillo: 'DH-01', x: 50, y: 350, w: 210, h: 145, color: '#eab308', icon: '🛋️' }
-                    ],
-                    services: [
-                        { id: 'cajas_2', name: 'Caja Express Moda', x: 500, y: 550, icon: '🛒' },
-                        { id: 'probadores', name: 'Probadores', x: 200, y: 550, icon: '🚪' },
-                        { id: 'banos', name: 'Baños / SS.HH.', x: 880, y: 550, icon: '🚻' }
-                    ]
-                },
-                3: {
-                    title: 'Piso 3 · Tecnología y Electrohogar',
-                    zones: [
-                        { id: 'smartphones', name: 'Smartphones & Celulares', sector: 'Tecno', pasillo: 'T-01', x: 50, y: 170, w: 210, h: 145, color: '#6366f1', icon: '📱' },
-                        { id: 'television', name: 'Televisores 4K & Audio', sector: 'Tecno', pasillo: 'T-02', x: 50, y: 350, w: 210, h: 145, color: '#3b82f6', icon: '📺' },
-                        { id: 'computacion', name: 'Computación & Notebooks', sector: 'Tecno', pasillo: 'T-03', x: 740, y: 170, w: 210, h: 145, color: '#10b981', icon: '💻' },
-                        { id: 'audio_gaming', name: 'Audio, Gaming & Consolas', sector: 'Tecno', pasillo: 'T-04', x: 740, y: 350, w: 210, h: 145, color: '#f59e0b', icon: '🎧' },
-                        { id: 'electrohogar', name: 'Línea Blanca & Cocina', sector: 'Línea Blanca', pasillo: 'H-11', x: 370, y: 130, w: 260, h: 110, color: '#14b8a6', icon: '🧊' }
-                    ],
-                    services: [
-                        { id: 'cajas_3', name: 'Caja Central Tecnología', x: 500, y: 550, icon: '🛒' },
-                        { id: 'servicio_cliente', name: 'Servicio al Cliente & Devoluciones', x: 200, y: 550, icon: 'ℹ️' },
-                        { id: 'banos_3', name: 'Baños / SS.HH.', x: 880, y: 550, icon: '🚻' }
-                    ]
-                }
-            }
-        };
-
-        let _currentMapFloor = 1;
-        let _currentMapStep = 1;
-        let _currentMapTarget = null; // { piso, x, y, name, pasillo, sector, id }
-        let _autoStepTimer = null;
-
-        function openStoreMap(targetPiso = null, targetX = null, targetY = null, title = null, pasillo = null, sector = null) {
-            const modal = document.getElementById('store-map-modal');
-            if (!modal) return;
-
-            clearTimeout(_autoStepTimer);
-            LOG(`openStoreMap: targetPiso=${targetPiso}, title="${title}"`);
-
-            if (targetPiso && (title || targetX !== null)) {
-                _currentMapTarget = {
-                    piso: Number(targetPiso),
-                    x: Number(targetX !== null ? targetX : 500),
-                    y: Number(targetY !== null ? targetY : 300),
-                    name: title || 'Destino seleccionado',
-                    pasillo: pasillo || '',
-                    sector: sector || ''
-                };
-            } else {
-                _currentMapTarget = null;
-            }
-
-            // Configurar vistas según si es multi-piso o mismo piso
-            if (_currentMapTarget && _currentMapTarget.piso > 1) {
-                // Destino en Piso 2 o 3: Iniciar en Paso 1 (Piso 1 hacia la Escalera)
-                _currentMapStep = 1;
-                _currentMapFloor = 1;
-                const stepper = document.getElementById('map-stepper');
-                if (stepper) stepper.style.display = 'flex';
-                const pill2Text = document.getElementById('step-pill-2-text');
-                if (pill2Text) pill2Text.textContent = `Paso 2: Llegar a Piso ${_currentMapTarget.piso} (${_currentMapTarget.name})`;
-
-                // Auto-guía: avanzar automáticamente al Paso 2 tras 4 segundos
-                _autoStepTimer = setTimeout(() => {
-                    if (_currentMapTarget && _currentMapTarget.piso > 1 && _currentMapStep === 1) {
-                        LOG('[Auto-Guide] Avanzando automáticamente a Paso 2 (Piso ' + _currentMapTarget.piso + ')');
-                        setMapStep(2);
-                    }
-                }, 4000);
-
-            } else {
-                // Destino en Piso 1 o exploración general
-                _currentMapStep = 1;
-                _currentMapFloor = _currentMapTarget ? _currentMapTarget.piso : (Number(targetPiso) || 1);
-                const stepper = document.getElementById('map-stepper');
-                if (stepper) stepper.style.display = 'none';
-            }
-
-            modal.classList.add('active');
-            updateMapHeaderAndTabs();
-            renderStoreMapSvg();
-        }
-
-        function closeStoreMap() {
-            clearTimeout(_autoStepTimer);
-            const modal = document.getElementById('store-map-modal');
-            if (modal) modal.classList.remove('active');
-            LOG('closeStoreMap: modal cerrado');
-        }
-
-        function setMapFloor(floorNumber) {
-            clearTimeout(_autoStepTimer);
-            _currentMapFloor = Number(floorNumber);
-            LOG(`setMapFloor: cambiado a Piso ${_currentMapFloor}`);
-            updateMapHeaderAndTabs();
-            renderStoreMapSvg();
-        }
-
-        function setMapStep(stepIndex) {
-            clearTimeout(_autoStepTimer);
-            _currentMapStep = Number(stepIndex);
-            if (!_currentMapTarget) return;
-
-            if (_currentMapStep === 1) {
-                _currentMapFloor = 1; // Paso 1: En Piso 1 hacia escaleras
-            } else {
-                _currentMapFloor = _currentMapTarget.piso; // Paso 2: En Piso destino hacia producto
-            }
-            LOG(`setMapStep: paso ${_currentMapStep} activado en Piso ${_currentMapFloor}`);
-            updateMapHeaderAndTabs();
-            renderStoreMapSvg();
-        }
-
-        function openMapForProduct(skuOrBarcode) {
-            LOG('openMapForProduct:', skuOrBarcode);
-            fetch(`/producto/${skuOrBarcode}`)
-                .then(res => res.json())
-                .then(res => {
-                    if (res.data) {
-                        const p = res.data;
-                        const pos = p.posicion_mapa || {};
-                        const targetPiso = pos.piso || p.piso || 1;
-                        const x = pos.x ? pos.x * 10 : 500;
-                        const y = pos.y ? pos.y * 6.5 : 300;
-                        openStoreMap(targetPiso, x, y, p.nombre, p.pasillo, p.sector);
-                    } else {
-                        openStoreMap(1);
-                    }
-                })
-                .catch(() => openStoreMap(1));
-        }
-
-        function updateMapHeaderAndTabs() {
-            // Badges en tabs
-            const floor2Badge = document.getElementById('floor-2-dest-badge');
-            const floor3Badge = document.getElementById('floor-3-dest-badge');
-            if (floor2Badge) floor2Badge.style.display = (_currentMapTarget && _currentMapTarget.piso === 2) ? 'inline-block' : 'none';
-            if (floor3Badge) floor3Badge.style.display = (_currentMapTarget && _currentMapTarget.piso === 3) ? 'inline-block' : 'none';
-
-            // Active floor tab
-            document.querySelectorAll('.map-floor-tab').forEach(tab => {
-                const f = Number(tab.getAttribute('data-piso'));
-                tab.classList.toggle('active', f === _currentMapFloor);
-            });
-
-            // Stepper pills
-            const pill1 = document.getElementById('step-pill-1');
-            const pill2 = document.getElementById('step-pill-2');
-            if (pill1 && pill2 && _currentMapTarget && _currentMapTarget.piso > 1) {
-                if (_currentMapStep === 1) {
-                    pill1.className = 'map-step-pill active';
-                    pill2.className = 'map-step-pill';
-                } else {
-                    pill1.className = 'map-step-pill done';
-                    pill2.className = 'map-step-pill active';
-                }
-            }
-
-            // Actualizar footer de ruta
-            const mainText = document.getElementById('map-route-text-main');
-            const subText = document.getElementById('map-route-text-sub');
-            const iconEl = document.getElementById('map-route-icon');
-
-            if (_currentMapTarget) {
-                if (_currentMapTarget.piso === 1) {
-                    if (mainText) mainText.textContent = `Ruta en Piso 1: Dirígete a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
-                    if (subText) subText.textContent = `Sigue la línea iluminada desde el tótem hacia el pasillo ${_currentMapTarget.pasillo || ''}.`;
-                    if (iconEl) iconEl.textContent = '📍';
-                } else {
-                    if (_currentMapStep === 1) {
-                        if (mainText) mainText.textContent = `Paso 1: Dirígete a las Escaleras Mecánicas centrales (Piso 1)`;
-                        if (subText) subText.textContent = `Sube a Piso ${_currentMapTarget.piso} para llegar a ${_currentMapTarget.name} (cambio automático en pantalla).`;
-                        if (iconEl) iconEl.textContent = '🪜';
-                    } else {
-                        if (mainText) mainText.textContent = `Paso 2 en Piso ${_currentMapTarget.piso}: Llegada a ${_currentMapTarget.name} (${_currentMapTarget.pasillo})`;
-                        if (subText) subText.textContent = `Al salir de la escalera en Piso ${_currentMapTarget.piso}, camina hacia el sector ${_currentMapTarget.sector || ''}.`;
-                        if (iconEl) iconEl.textContent = '🎯';
-                    }
-                }
-            } else {
-                const floorData = STORE_MAP_DATA.floors[_currentMapFloor];
-                if (mainText) mainText.textContent = floorData ? floorData.title : 'Plano de la tienda';
-                if (subText) subText.textContent = 'Selecciona cualquier piso para explorar los departamentos.';
-                if (iconEl) iconEl.textContent = '🗺️';
-            }
-        }
-
-        function renderStoreMapSvg() {
-            const svg = document.getElementById('store-map-svg');
-            if (!svg) return;
-
-            const floorData = STORE_MAP_DATA.floors[_currentMapFloor] || STORE_MAP_DATA.floors[1];
-            let html = '';
-
-            // 1. Grid de fondo y marco del piso
-            html += `
-                <defs>
-                    <linearGradient id="wallGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                        <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6"/>
-                        <stop offset="100%" stop-color="#a855f7" stop-opacity="0.3"/>
-                    </linearGradient>
-                    <filter id="glowFilter" x="-20%" y="-20%" width="140%" height="140%">
-                        <feGaussianBlur stdDeviation="6" result="blur" />
-                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
-                    </filter>
-                </defs>
-
-                <!-- Grid de arquitectura -->
-                <g class="svg-grid">
-                    ${[100, 200, 300, 400, 500, 600, 700, 800, 900].map(x => `<line x1="${x}" y1="30" x2="${x}" y2="620" class="svg-grid-line"/>`).join('')}
-                    ${[100, 200, 300, 400, 500, 600].map(y => `<line x1="30" y1="${y}" x2="970" y2="${y}" class="svg-grid-line"/>`).join('')}
-                </g>
-
-                <!-- Perímetro del Edificio / Piso -->
-                <rect x="30" y="30" width="940" height="590" rx="20" class="svg-store-border" stroke="url(#wallGrad)"/>
-
-                <!-- Pasillos peatonales principales (Corredor Central y Transversales) -->
-                <rect x="460" y="50" width="80" height="550" rx="10" class="svg-corridor"/>
-                <rect x="50" y="295" width="900" height="60" rx="10" class="svg-corridor"/>
-            `;
-
-            // 2. Núcleo de Escaleras Mecánicas y Ascensores (Centro geométrico x:500, y:325)
-            const isEscalatorActive = (_currentMapTarget && _currentMapTarget.piso > 1 && (_currentMapFloor === 1 || _currentMapFloor === _currentMapTarget.piso));
-            html += `
-                <g id="escalator-node" transform="translate(420, 280)">
-                    <rect x="0" y="0" width="160" height="90" rx="16" 
-                        fill="${isEscalatorActive ? 'rgba(245, 158, 11, 0.2)' : 'rgba(30, 41, 59, 0.7)'}" 
-                        stroke="${isEscalatorActive ? '#f59e0b' : 'rgba(255, 255, 255, 0.2)'}" 
-                        stroke-width="${isEscalatorActive ? '2.5' : '1.5'}"
-                        filter="${isEscalatorActive ? 'url(#glowFilter)' : 'none'}"/>
-                    <text x="80" y="38" text-anchor="middle" font-size="22">🪜</text>
-                    <text x="80" y="60" text-anchor="middle" fill="#f4f4f5" font-size="12" font-weight="700">ESCALERAS MECÁNICAS</text>
-                    <text x="80" y="76" text-anchor="middle" fill="#94a3b8" font-size="10">Acceso a Pisos 1, 2 y 3</text>
-                </g>
-            `;
-
-            // 3. Departamentos / Zonas del piso actual
-            floorData.zones.forEach(z => {
-                const isTarget = _currentMapTarget && (_currentMapTarget.piso === _currentMapFloor) && (
-                    (_currentMapTarget.pasillo && z.pasillo === _currentMapTarget.pasillo) ||
-                    (Math.abs(z.x + z.w/2 - _currentMapTarget.x) < 80 && Math.abs(z.y + z.h/2 - _currentMapTarget.y) < 80)
-                );
-
-                html += `
-                    <g class="svg-dept-zone ${isTarget ? 'highlighted' : ''}">
-                        <rect x="${z.x}" y="${z.y}" width="${z.w}" height="${z.h}" rx="14" 
-                            fill="${z.color}1c" stroke="${z.color}" stroke-width="${isTarget ? '3' : '1.5'}"/>
-                        
-                        <text x="${z.x + 20}" y="${z.y + 36}" font-size="22">${z.icon || '🛍️'}</text>
-                        <text x="${z.x + 50}" y="${z.y + 34}" fill="#ffffff" font-size="13" font-weight="700">${z.name}</text>
-                        
-                        <!-- Pasillo pill badge -->
-                        <rect x="${z.x + 20}" y="${z.y + z.h - 36}" width="70" height="22" rx="6" fill="${z.color}33" stroke="${z.color}88" stroke-width="1"/>
-                        <text x="${z.x + 55}" y="${z.y + z.h - 21}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">${z.pasillo}</text>
-                        
-                        <text x="${z.x + 100}" y="${z.y + z.h - 21}" fill="#a1a1aa" font-size="11">${z.sector}</text>
-                    </g>
-                `;
-            });
-
-            // 4. Puntos de Servicio (Baños, Cajas, Retiro, Entrada, Servicio al Cliente)
-            floorData.services.forEach(s => {
-                const isTargetService = _currentMapTarget && (_currentMapTarget.piso === _currentMapFloor) && (
-                    Math.abs(s.x - _currentMapTarget.x) < 60 && Math.abs(s.y - _currentMapTarget.y) < 60
-                );
-
-                html += `
-                    <g transform="translate(${s.x - 45}, ${s.y - 25})">
-                        <rect x="0" y="0" width="90" height="50" rx="12" 
-                            fill="${isTargetService ? 'rgba(99, 102, 241, 0.3)' : 'rgba(24, 24, 32, 0.75)'}" 
-                            stroke="${isTargetService ? '#6366f1' : 'rgba(255, 255, 255, 0.15)'}" 
-                            stroke-width="${isTargetService ? '2.5' : '1'}"/>
-                        <text x="45" y="24" text-anchor="middle" font-size="18">${s.icon}</text>
-                        <text x="45" y="40" text-anchor="middle" fill="#d4d4d8" font-size="9" font-weight="600">${s.name.split('/')[0].slice(0, 14)}</text>
-                    </g>
-                `;
-            });
-
-            // 5. TRAZADO DE RUTA
-            if (_currentMapTarget) {
-                let pathD = '';
-                const isSingleFloor = _currentMapTarget.piso === 1;
-
-                if (isSingleFloor && _currentMapFloor === 1) {
-                    // Ruta directa en Piso 1: Tótem (500, 560) -> Corredor (500, destY) -> Destino (destX, destY)
-                    const destX = _currentMapTarget.x;
-                    const destY = _currentMapTarget.y;
-                    pathD = `M 500 560 L 500 ${destY} L ${destX} ${destY}`;
-                } else if (_currentMapTarget.piso > 1) {
-                    // Ruta multi-piso
-                    if (_currentMapFloor === 1 && _currentMapStep === 1) {
-                        // Paso 1: Tótem (500, 560) -> Escaleras (500, 325)
-                        pathD = `M 500 560 L 500 325`;
-                    } else if (_currentMapFloor === _currentMapTarget.piso && _currentMapStep === 2) {
-                        // Paso 2: Escaleras (500, 325) -> Corredor (500, destY) -> Destino (destX, destY)
-                        const destX = _currentMapTarget.x;
-                        const destY = _currentMapTarget.y;
-                        pathD = `M 500 325 L 500 ${destY} L ${destX} ${destY}`;
-                    }
-                }
-
-                if (pathD) {
-                    html += `
-                        <!-- Línea de resplandor neón -->
-                        <path d="${pathD}" class="svg-route-glow" />
-                        <!-- Línea animada de flujo -->
-                        <path d="${pathD}" class="svg-route-line" />
-                    `;
-                }
-            }
-
-            // 6. MARCADORES Y PINES
-            // Tótem "Usted está aquí" (solo en Piso 1 - Color Verde Esmeralda)
-            if (_currentMapFloor === 1) {
-                html += `
-                    <g id="totem-pin" transform="translate(500, 560)">
-                        <circle cx="0" cy="0" r="24" fill="rgba(16, 185, 129, 0.25)" class="totem-pulse-circle" />
-                        <circle cx="0" cy="0" r="10" fill="#10b981" stroke="#ffffff" stroke-width="3" filter="url(#glowFilter)" />
-                        <!-- Badge label -->
-                        <rect x="-80" y="16" width="160" height="26" rx="8" fill="rgba(6, 78, 59, 0.9)" stroke="#10b981" stroke-width="1.5" />
-                        <text x="0" y="33" text-anchor="middle" fill="#ecfdf5" font-size="10" font-weight="800">📍 USTED ESTÁ AQUÍ (TÓTEM)</text>
-                    </g>
-                `;
-            }
-
-            // Pin de Escalera en Piso 1 (cuando sube de piso en Paso 1)
-            if (_currentMapTarget && _currentMapTarget.piso > 1 && _currentMapFloor === 1) {
-                html += `
-                    <g transform="translate(500, 325)" class="dest-bounce-group">
-                        <rect x="-85" y="-55" width="170" height="30" rx="10" fill="rgba(180, 83, 9, 0.95)" stroke="#f59e0b" stroke-width="2" filter="url(#glowFilter)"/>
-                        <text x="0" y="-35" text-anchor="middle" fill="#fef3c7" font-size="11" font-weight="800">🪜 SUBIR AL PISO ${_currentMapTarget.piso}</text>
-                    </g>
-                `;
-            }
-
-            // Pin de Destino (en el piso de destino - Color Rojo Neón / Rosa Vibrante)
-            if (_currentMapTarget && _currentMapFloor === _currentMapTarget.piso) {
-                const tx = _currentMapTarget.x;
-                const ty = _currentMapTarget.y;
-                const tooltipW = 180;
-                const tooltipH = 32;
-                // Clamping seguro para que el tooltip nunca se corte en los bordes del SVG
-                const tooltipX = Math.max(45, Math.min(955 - tooltipW, tx - tooltipW / 2));
-                const tooltipY = (ty - 54 < 40) ? (ty + 22) : (ty - 54);
-                const textX = tooltipX + tooltipW / 2;
-                const textY = tooltipY + 20;
-
-                html += `
-                    <g class="dest-bounce-group">
-                        <circle cx="${tx}" cy="${ty}" r="18" fill="rgba(244, 63, 94, 0.3)" class="totem-pulse-circle" />
-                        <circle cx="${tx}" cy="${ty}" r="11" fill="#f43f5e" stroke="#ffffff" stroke-width="3" filter="url(#glowFilter)" />
-                        
-                        <!-- Tooltip Destino Clamped y Seguro -->
-                        <rect x="${tooltipX}" y="${tooltipY}" width="${tooltipW}" height="${tooltipH}" rx="10" fill="rgba(15, 23, 42, 0.95)" stroke="#f43f5e" stroke-width="2" />
-                        <text x="${textX}" y="${textY}" text-anchor="middle" fill="#ffffff" font-size="11" font-weight="800">🎯 ${_currentMapTarget.pasillo ? _currentMapTarget.pasillo + ' · ' : ''}${_currentMapTarget.name.slice(0, 15)}</text>
-                    </g>
-                `;
-            }
-
-            svg.innerHTML = html;
-        }
-
-        // ─── Detección de Intención de Ubicación en Respuestas del Avatar / Usuario ───
-        function checkLocationIntentAndTriggerMap(userText, avatarText = '') {
-            const u = (userText || '').toLowerCase().trim();
-            const a = (avatarText || '').toLowerCase().trim();
-            const combined = (u + ' ' + a).toLowerCase();
-
-            // 1. ¿El avatar está solo ofreciendo / preguntando si desea saber la ubicación?
-            // (ej: "¿Te gustaría saber en qué pasillo encontrarlo?", "¿Quieres que te indique la ubicación en la tienda?")
-            const isAvatarAskingOffer = a.includes('te gustaría saber') || a.includes('te gustaria saber') || 
-                                       a.includes('quieres saber') || a.includes('deseas saber') || 
-                                       a.includes('te indico la ubicación') || a.includes('te indico la ubicacion') ||
-                                       a.includes('en qué pasillo encontrarlo') || a.includes('en que pasillo encontrarlo') ||
-                                       a.includes('indique la ubicación') || a.includes('indique la ubicacion');
-
-            // 2. ¿El usuario pidió explícitamente la ubicación o servicios que requieren mapa?
-            const isUserAskingLocation = u.includes('donde') || u.includes('dónde') || 
-                                         u.includes('ubicacion') || u.includes('ubicación') || 
-                                         u.includes('como llego') || u.includes('cómo llego') || 
-                                         u.includes('como llegar') || u.includes('cómo llegar') || 
-                                         u.includes('en que pasillo') || u.includes('en qué pasillo') || 
-                                         u.includes('en que piso') || u.includes('en qué piso') ||
-                                         u.includes('donde esta') || u.includes('dónde está') ||
-                                         u.includes('donde queda') || u.includes('dónde queda') ||
-                                         u.includes('donde encuentro') || u.includes('dónde encuentro') ||
-                                         u.includes('devolver') || u.includes('cambiar') || u.includes('retiro') || u.includes('baño') || u.includes('baños');
-
-            // 3. ¿El avatar está confirmando la ubicación en pantalla?
-            const isAvatarConfirmingLocation = a.includes('se muestra en pantalla') || a.includes('muestra en pantalla') ||
-                                              (a.includes('la ubicación') && !isAvatarAskingOffer) ||
-                                              (a.includes('debes dirigirte') && !isAvatarAskingOffer) ||
-                                              (a.includes('subir al piso') && !isAvatarAskingOffer) ||
-                                              (a.includes('sube por la escalera') && !isAvatarAskingOffer);
-
-            // CONDICIÓN CLAVE:
-            // Si el avatar solo está haciendo la pregunta "¿Te gustaría saber en qué pasillo encontrarlo?" y el usuario NO pidió explícitamente ubicación:
-            // NO se abre el mapa (esperamos a que el usuario diga "sí", "dónde", "por favor", etc.)
-            if (isAvatarAskingOffer && !isUserAskingLocation) {
-                LOG('[Location Intent] El avatar preguntó si desea la ubicación. Esperando confirmación del usuario.');
-                return false;
-            }
-
-            // Si el usuario no pidió ubicación y el avatar no está confirmando ubicación en pantalla: NO abrir mapa
-            if (!isUserAskingLocation && !isAvatarConfirmingLocation) {
-                LOG('[Location Intent] Solo asesoramiento o consulta general. Mapa permanece cerrado.');
-                return false;
-            }
-
-            // 4. Determinar la categoría y pasillo del destino a mostrar en el mapa
-            // 4.1 Prioridad Máxima: Detección por código de Pasillo exacto (ej: B-01, T-02, D-06, etc.)
-            const pasilloToCat = {
-                'b-01': 'perfumes_mujer', 'b01': 'perfumes_mujer',
-                'b-02': 'perfumes_hombre', 'b02': 'perfumes_hombre',
-                'd-06': 'zapatillas', 'd06': 'zapatillas',
-                'd-07': 'zapatillas', 'd07': 'zapatillas',
-                'a-01': 'accesorios', 'a01': 'accesorios',
-                'm-01': 'ropa_mujer', 'm01': 'ropa_mujer',
-                'm-02': 'ropa_hombre', 'm02': 'ropa_hombre',
-                'c-01': 'calzado_mujer', 'c01': 'calzado_mujer',
-                'dh-01': 'decohogar', 'dh01': 'decohogar',
-                'dh-02': 'decohogar', 'dh02': 'decohogar',
-                't-01': 'smartphones', 't01': 'smartphones',
-                't-02': 'television', 't02': 'television',
-                't-03': 'computacion', 't03': 'computacion',
-                't-04': 'audio_gaming', 't04': 'audio_gaming',
-                'h-11': 'electrohogar', 'h11': 'electrohogar',
-                'h-12': 'electrohogar', 'h12': 'electrohogar',
-                'h-13': 'electrohogar', 'h13': 'electrohogar'
-            };
-
-            for (const [code, catId] of Object.entries(pasilloToCat)) {
-                const regex = new RegExp(`\\b${code}\\b`, 'i');
-                if (regex.test(combined)) {
-                    LOG(`[Location Intent] Coincidencia directa por pasillo "${code}" → ${catId}`);
-                    const cat = STORE_MAP_DATA.categories[catId];
-                    if (cat) {
-                        setTimeout(() => {
-                            openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
-                        }, 400);
-                        return true;
-                    }
-                }
-            }
-
-            // 4.2 Prioridad Temática por Palabras Clave
-            const catMap = [
-                // 1. Servicios de Postventa / Devoluciones / Cambios / Retiro / Baños (ALTA PRIORIDAD)
-                { id: 'servicio_cliente', keywords: ['devolver', 'devolucion', 'devolución', 'devoluciones', 'cambiar', 'cambio', 'cambios', 'reclamo', 'postventa', 'servicio al cliente', 'garantia', 'garantía', 'tarjeta paris', 'tarjeta cencosud'] },
-                { id: 'retiro_tienda', keywords: ['retiro', 'retirar', 'click and collect', 'click & collect', 'recoger', 'retiro en tienda', 'compra online', 'compré online', 'compra por internet'] },
-                { id: 'banos', keywords: ['baño', 'baños', 'bano', 'banos', 'sshh', 'ss.hh', 'servicios higienicos', 'servicios higiénicos', 'wc', 'lavamanos', 'sanitario', 'sanitarios', 'toilet'] },
-                { id: 'probadores', keywords: ['probador', 'probadores', 'probarme', 'medirme', 'cambiador'] },
-                { id: 'cajas', keywords: ['caja', 'cajas', 'pagar', 'donde pago', 'dónde pago', 'cajera'] },
-
-                // 2. Departamentos de Belleza y Deportes (Piso 1)
-                { id: 'perfumes_mujer', keywords: ['perfume mujer', 'perfumes mujer', 'fragancia mujer', 'maquillaje', 'labial', 'cosmetica', 'cosmética', 'skincare', 'perfume', 'perfumes', 'fragancia', 'fragancias', 'belleza', 'colonia'] },
-                { id: 'perfumes_hombre', keywords: ['perfume hombre', 'perfumes hombre', 'colonia hombre', 'fragancia hombre'] },
-                { id: 'zapatillas', keywords: ['zapatilla', 'zapatillas', 'calzado deportivo', 'nike', 'adidas', 'puma', 'deporte', 'deportes'] },
-                { id: 'accesorios', keywords: ['accesorio', 'accesorios', 'joyeria', 'joyería', 'reloj', 'relojes', 'lentes', 'gafas'] },
-
-                // 3. Departamentos de Moda y Hogar (Piso 2)
-                { id: 'ropa_mujer', keywords: ['ropa mujer', 'vestuario mujer', 'vestido', 'vestidos', 'falda', 'faldas', 'blusa', 'blusas'] },
-                { id: 'ropa_hombre', keywords: ['ropa hombre', 'vestuario hombre', 'camisa', 'camisas', 'traje', 'trajes'] },
-                { id: 'calzado_mujer', keywords: ['calzado mujer', 'calzado femenino', 'zapato', 'zapatos', 'tacon', 'tacones', 'sandalia', 'sandalias', 'botin', 'botines', 'bota', 'botas'] },
-                { id: 'decohogar', keywords: ['decohogar', 'cama', 'camas', 'sabana', 'sabanas', 'sábana', 'sábanas', 'almohada', 'almohadas', 'plumon', 'plumón', 'cubrecama', 'toalla', 'toallas'] },
-
-                // 4. Departamentos de Tecnología (Piso 3)
-                { id: 'smartphones', keywords: ['smartphone', 'smartphones', 'celular', 'celulares', 'telefono', 'teléfono', 'telefonos', 'teléfonos', 'iphone', 'galaxy', 's25', 's24', 'xiaomi', 'motorola'] },
-                { id: 'television', keywords: ['televisor', 'televisores', 'smart tv', 'smart tvs', 'oled', 'qled', 'hisense', 'tele', 'teles', 'tv'] },
-                { id: 'computacion', keywords: ['computador', 'computadores', 'notebook', 'notebooks', 'laptop', 'laptops', 'macbook', 'pc', 'computacion', 'computación'] },
-                { id: 'audio_gaming', keywords: ['audio', 'parlante', 'parlantes', 'jbl', 'audifono', 'audifonos', 'audífono', 'audífonos', 'gaming', 'playstation', 'ps5', 'consola', 'consolas', 'nintendo', 'xbox', 'smartwatch', 'reloj inteligente'] },
-                { id: 'electrohogar', keywords: ['electrohogar', 'refrigerador', 'refrigeradores', 'lavadora', 'lavadoras', 'secadora', 'cocina', 'microondas', 'linea blanca', 'línea blanca', 'climatizacion', 'climatización', 'aire acondicionado', 'estufa'] }
-            ];
-
-            for (const item of catMap) {
-                const matched = item.keywords.some(k => {
-                    if (k.length <= 3) {
-                        return new RegExp(`\\b${k}\\b`, 'i').test(t);
-                    }
-                    return t.includes(k);
-                });
-
-                if (matched) {
-                    if (isLocationQuestion || t.includes('pasillo') || t.includes('piso') || t.includes('muestra en pantalla')) {
-                        LOG(`[Location Intent] Coincidencia por palabra clave: ${item.id}`);
-                        const cat = STORE_MAP_DATA.categories[item.id];
-                        if (cat) {
-                            setTimeout(() => {
-                                openStoreMap(cat.piso, cat.x, cat.y, cat.name, cat.pasillo, cat.sector);
-                            }, 400);
-                        }
-                        return true;
-                    }
-                }
-            }
-            return false;
-        }
-
-        // ══════════════════════════════════════════════════════════════════════════════
-        // CARRUSEL DE OFERTAS
-        // ══════════════════════════════════════════════════════════════════════════════
-        (function initCarousel() {
-            const slides = document.querySelectorAll('.carousel-slide');
-            const dotsContainer = document.getElementById('carousel-dots');
-            let current = 0;
-            let carouselTimer = null;
-            let pausedBySpeaking = false;
-
-            // Generar dots dinámicamente
-            slides.forEach((_, i) => {
-                const dot = document.createElement('div');
-                dot.className = 'carousel-dot' + (i === 0 ? ' active' : '');
-                dotsContainer.appendChild(dot);
-            });
-
-            const dots = dotsContainer.querySelectorAll('.carousel-dot');
-
-            function goTo(index) {
-                slides[current].classList.remove('active');
-                dots[current].classList.remove('active');
-                current = (index + slides.length) % slides.length;
-                slides[current].classList.add('active');
-                dots[current].classList.add('active');
-            }
-
-            function startAuto() {
-                stopAuto();
-                carouselTimer = setInterval(() => {
-                    if (!pausedBySpeaking) goTo(current + 1);
-                }, 4500);
-            }
-
-            function stopAuto() {
-                if (carouselTimer) { clearInterval(carouselTimer); carouselTimer = null; }
-            }
-
-            startAuto();
-
-            // Pausar cuando el avatar está hablando para no distraer
-            const _origStartSpeakingMonitor = typeof startSpeakingMonitor === 'function' ? startSpeakingMonitor : null;
-
-            // Observador de clase: cuando avatar-speaking se agrega/quita en #avatar-wrap
-            const speakObs = new MutationObserver(() => {
-                const wrap = document.getElementById('avatar-wrap');
-                if (wrap && wrap.classList.contains('avatar-speaking')) {
-                    pausedBySpeaking = true;
-                } else {
-                    // Reanudar tras breve pausa cuando el avatar termina
-                    setTimeout(() => { pausedBySpeaking = false; }, 2000);
-                }
-            });
-
-            const avatarWrap = document.getElementById('avatar-wrap');
-            if (avatarWrap) {
-                speakObs.observe(avatarWrap, { attributes: true, attributeFilter: ['class'] });
-            }
-
-            LOG('Carrusel de ofertas iniciado (' + slides.length + ' slides, intervalo 4.5s)');
-        })();
+        // ─── Stubs y compatibilidad ───────────────────────────────────────────────
+        function isCheckoutOpen() { return false; }
+        function closeStoreMap() { }
+        function openStoreMap() { }
+        function checkLocationIntentAndTriggerMap() { }
+        function clearCheckoutPaymentTimer() { }
+        function clearCartInteractive() { }
 
         // ─── Auto-conectar al cargar ───────────────────────────────────────────────
         window.addEventListener('DOMContentLoaded', () => {
-            initGetnetSDK();
             const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
             const isFirefox = /Firefox\//.test(navigator.userAgent);
 
@@ -4705,911 +2075,8 @@
             document.addEventListener('click', _globalUnlockAudio);
             document.addEventListener('keydown', _globalUnlockAudio);
             document.addEventListener('touchstart', _globalUnlockAudio);
-
-            // Inicializar foco y escucha del lector de código de barras
-            const barcodeInp = document.getElementById('barcode-input');
-            if (barcodeInp) {
-                barcodeInp.focus();
-                barcodeInp.addEventListener('keydown', async (e) => {
-                    if (e.key === 'Enter') {
-                        const code = barcodeInp.value.trim();
-                        barcodeInp.value = '';
-                        if (code) {
-                            await handleBarcodeScan(code);
-                        }
-                    }
-                });
-            }
-            setInterval(keepBarcodeFocus, 400);
         });
-    
-        // ══════════════════════════════════════════════════════════════════════
-        // GESTOR DE CARRITO Y CHECKOUT EMBEBIDO (PARIS COSTANERA CENTER)
-        // ══════════════════════════════════════════════════════════════════════
-        let _parisCart = JSON.parse(localStorage.getItem('paris_cart') || '[]');
-        let _pendingCartProduct = null;
-        let _pendingAction = null; // 'CONFIRM_ADD_CART' | null
-        let _selectedPaymentMethod = 'getnet';
-        let _isPaymentProcessing = false;
-
-        function _cleanText(text) {
-            if (!text) return '';
-            return String(text)
-                .toLowerCase()
-                .normalize("NFD")
-                .replace(/[\u0300-\u036f]/g, "")
-                .replace(/[.,\/#!$%\^&\*;:{}=\-_`~()¿?¡!]/g, " ")
-                .replace(/\s+/g, " ")
-                .trim();
-        }
-
-        function _isAffirmativeWord(text) {
-            // Si el cliente pide información, detalles o ubicación, NO es confirmación de agregar al carrito
-            if (_isInfoIntent(text) || _isLocationIntent(text)) {
-                return false;
-            }
-            const clean = _cleanText(text);
-            const affirmativePhrases = [
-                'si', 'claro', 'por favor', 'dale', 'bueno', 'agrega', 'agregalo', 
-                'agregalo por favor', 'anadelo', 'si por favor', 'si claro', 'obvio',
-                'pongalo', 'metelo', 'dale por favor', 'porfa', 'ok', 'bueno dale',
-                'agregar', 'anadir', 'compra', 'compralo', 'al carrito', 'a la bolsa',
-                'si agregalo', 'si al carrito', 'si a la bolsa', 'llevar', 'llevo'
-            ];
-            return affirmativePhrases.some(w => clean === w || clean.startsWith(w + ' ') || clean.endsWith(' ' + w));
-        }
-
-        function _isNegativeWord(text) {
-            const clean = _cleanText(text);
-            const negativePhrases = [
-                'no', 'no gracias', 'no por ahora', 'no lo agregues', 'cancelar', 'no por el momento',
-                'no gracias chao', 'no me interesa', 'dejarlo', 'no nada mas'
-            ];
-            return negativePhrases.some(w => clean === w || clean.startsWith(w + ' ') || clean.endsWith(' ' + w));
-        }
-
-        function _isLocationIntent(text) {
-            const clean = _cleanText(text);
-            const locationKeywords = [
-                'donde esta', 'donde queda', 'donde lo encuentro', 'donde encontrarlo',
-                'en que pasillo', 'que pasillo', 'pasillo', 'ubicacion', 'donde se encuentra',
-                'como llego', 'como llegar', 'en que piso', 'que piso', 'donde esta ubicado',
-                'quiero saber donde esta', 'quiero saber donde encontrarlo', 'ver ubicacion',
-                'mostrar en el mapa', 'mapa'
-            ];
-            return locationKeywords.some(w => clean.includes(w));
-        }
-
-        function _isInfoIntent(text) {
-            const clean = _cleanText(text);
-            const infoKeywords = [
-                'informacion', 'info', 'detalles', 'detalle', 'caracteristicas', 'caracteristica',
-                'especificaciones', 'especificacion', 'de que marca es', 'marca', 'precio',
-                'cuanto cuesta', 'cuanto vale', 'saber mas', 'cuentame mas', 'dime mas',
-                'que tiene', 'de que trata', 'explicame'
-            ];
-            return infoKeywords.some(w => clean.includes(w));
-        }
-
-        function _isPayIntent(text) {
-            const clean = _cleanText(text);
-            const payKeywords = [
-                'pagar', 'ir a pagar', 'quiero pagar', 'vamos a pagar', 'ir a la caja', 'ir a caja', 
-                'cobrar', 'terminar compra', 'finalizar compra', 'ver bolsa', 'ver carrito', 'ver carro',
-                'ir a pagar ahora', 'abrir caja', 'proceder al pago', 'hacer el pago'
-            ];
-            return payKeywords.some(w => clean === w || clean.includes(w));
-        }
-
-        function _isCartQueryIntent(text) {
-            const clean = _cleanText(text);
-            const cartQueryPhrases = [
-                'que tengo en la bolsa', 'que tengo en el carrito', 'que tengo en el carro',
-                'que hay en la bolsa', 'que hay en mi bolsa', 'que hay en el carrito', 'que hay en el carro',
-                'que llevo', 'cuanto llevo', 'cuanto es el total', 'cuanto debo', 'que productos agregue',
-                'que productos llevo', 'mostrar bolsa', 'ver bolsa', 'ver carrito', 'ver carro',
-                'cuanto tengo', 'resumen de mi compra', 'cuanto es'
-            ];
-            return cartQueryPhrases.some(p => clean.includes(p));
-        }
-
-        function _isClearCartIntent(text) {
-            const clean = _cleanText(text);
-            const clearCartPhrases = [
-                'vaciar bolsa', 'vaciar la bolsa', 'vaciar carrito', 'vaciar el carrito',
-                'vaciar carro', 'vaciar el carro', 'borrar bolsa', 'borrar la bolsa',
-                'borrar carrito', 'borrar el carrito', 'limpiar bolsa', 'limpiar carrito',
-                'eliminar productos', 'cancelar compra'
-            ];
-            return clearCartPhrases.some(p => clean.includes(p));
-        }
-
-        function getCartTotal() {
-            return _parisCart.reduce((sum, item) => sum + (Number(item.precio) * Number(item.cantidad)), 0);
-        }
-
-        function getCartOriginalTotal() {
-            return _parisCart.reduce((sum, item) => sum + (Number(item.precio_original || item.precio) * Number(item.cantidad)), 0);
-        }
-
-        function getCartItemsCount() {
-            return _parisCart.reduce((sum, item) => sum + Number(item.cantidad), 0);
-        }
-
-        function saveCart() {
-            localStorage.setItem('paris_cart', JSON.stringify(_parisCart));
-            updateCartWidget();
-            if (document.getElementById('paris-checkout-overlay').classList.contains('open')) {
-                renderCheckoutCart();
-            }
-        }
-
-        function updateCartWidget() {
-            const countEl = document.getElementById('cart-badge-count');
-            const totalEl = document.getElementById('cart-badge-total');
-            const count = getCartItemsCount();
-            const total = getCartTotal();
-
-            if (countEl) countEl.textContent = String(count);
-            if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
-        }
-
-        let _lastAddToCartSku = '';
-        let _lastAddToCartTime = 0;
-
-        function addToCart(product, quantity = 1) {
-            if (!product) return;
-            const now = Date.now();
-            const sku = product.sku || product.codigo_barra;
-
-            // Anti-duplicado: Evita que el mismo SKU se agregue dos veces dentro de 2.5s
-            if (sku === _lastAddToCartSku && (now - _lastAddToCartTime) < 2500) {
-                LOG(`[Cart] Bloqueando adición duplicada del mismo SKU dentro de 2.5s: ${sku}`);
-                return;
-            }
-            _lastAddToCartSku = sku;
-            _lastAddToCartTime = now;
-            const existing = _parisCart.find(i => i.sku === sku);
-            const isOffer = product.oferta === 'SI' && product.precio_oferta;
-            const finalPrice = isOffer ? product.precio_oferta : product.precio;
-
-            if (existing) {
-                existing.cantidad += quantity;
-            } else {
-                _parisCart.push({
-                    sku: sku,
-                    codigo_barra: product.codigo_barra,
-                    nombre: product.nombre,
-                    marca: product.marca || '',
-                    precio: finalPrice,
-                    precio_original: product.precio,
-                    en_oferta: isOffer,
-                    descuento_pct: product.descuento_pct || 0,
-                    categoria: product.categoria || '',
-                    cantidad: quantity,
-                    piso: product.piso || 1,
-                    pasillo: product.pasillo || ''
-                });
-            }
-            saveCart();
-            LOG(`[Cart] Producto añadido: ${product.nombre} (x${quantity}). Total items: ${getCartItemsCount()}`);
-        }
-
-        async function handleDirectAddToCart(skuOrBarcode) {
-            try {
-                const res = await fetch(`/api/producto/barcode/${encodeURIComponent(skuOrBarcode)}`);
-                const json = await res.json();
-                if (json.code === 0 && json.data) {
-                    addToCart(json.data);
-                    const toast = addChatBubble('system', `🛍️ ${json.data.nombre} añadido a tu bolsa.`);
-                    setTimeout(() => { if (toast && toast.parentNode) toast.parentNode.removeChild(toast); }, 3500);
-                }
-            } catch (err) {
-                ERR('Error al agregar directamente al carrito:', err);
-            }
-        }
-
-        function removeFromCart(sku) {
-            _parisCart = _parisCart.filter(i => i.sku !== sku);
-            saveCart();
-        }
-
-        function updateCartItemQuantity(sku, delta) {
-            const item = _parisCart.find(i => i.sku === sku);
-            if (!item) return;
-            item.cantidad += delta;
-            if (item.cantidad <= 0) {
-                removeFromCart(sku);
-            } else {
-                saveCart();
-            }
-        }
-
-        function clearCartInteractive() {
-            _parisCart = [];
-            saveCart();
-        }
-
-        
-        // ══════════════════════════════════════════════════════════════════════
-        // GESTOR POS GETNET (INTEGRACIÓN JAVASCRIPT REAL - WEB SERIAL API)
-        // ══════════════════════════════════════════════════════════════════════
-        const posState = {
-            connected: false,
-            port: null,
-            baudRate: 115200,
-            isCharging: false,
-            isCancelling: false,
-            activeTransaction: null,
-            lastPaidTime: 0,
-            lastCancelTime: 0
-        };
-
-        let _isAutoConnectingPos = false;
-
-        function initGetnetSDK() {
-            if (typeof Getnet === 'undefined') {
-                console.warn("[Getnet POS] SDK JS getnet.js no cargado.");
-                return;
-            }
-
-            Getnet.SetCallback((msg) => {
-                handleGetnetCallback(msg);
-            });
-
-            Getnet.SetLogCallback((log) => {
-                LOG('[Getnet Log] ' + (typeof log === 'object' ? JSON.stringify(log) : log));
-            });
-
-            Getnet.SetTimeErrorCallback((err) => {
-                handleGetnetTimeout(err);
-            });
-
-            // Autoconectar silenciosamente si el puerto ya fue previamente autorizado en este navegador
-            checkAutoConnectPos();
-
-            // Detectar conexión / desconexión física de hardware USB POS
-            if (typeof navigator !== 'undefined' && navigator.serial) {
-                navigator.serial.addEventListener('connect', async (e) => {
-                    LOG('[Getnet POS] Conexión física USB detectada:', e.target);
-                    await checkAutoConnectPos();
-                });
-                navigator.serial.addEventListener('disconnect', (e) => {
-                    LOG('[Getnet POS] Desconexión física USB detectada:', e.target);
-                    setPosConnected(false);
-                });
-            }
-        }
-
-        async function checkAutoConnectPos() {
-            if (_isAutoConnectingPos) return false;
-            if (typeof navigator === 'undefined' || !navigator.serial || typeof Getnet === 'undefined') return false;
-            _isAutoConnectingPos = true;
-            try {
-                const port = await Getnet.autoConnect(posState.baudRate);
-                if (port && Getnet.isConnected()) {
-                    posState.port = port;
-                    setPosConnected(true, "COM USB");
-                    LOG('[Getnet POS] Auto-conectado exitosamente al POS Getnet mediante barrido.');
-                    setTimeout(() => {
-                        try { Getnet.Poll(); } catch (_) {}
-                    }, 300);
-                    return true;
-                } else {
-                    setPosConnected(false);
-                    return false;
-                }
-            } catch (e) {
-                console.warn("[Getnet POS] autoConnect error:", e);
-                setPosConnected(false);
-                return false;
-            } finally {
-                _isAutoConnectingPos = false;
-            }
-        }
-
-        async function handlePosPillClick() {
-            if (typeof Getnet === 'undefined') {
-                alert("Librería de Getnet no disponible en este momento.");
-                return;
-            }
-            if (Getnet.isConnected()) {
-                LOG('[Getnet POS] Terminal ya conectado. Verificando estado con Poll...');
-                try { Getnet.Poll(); } catch (_) {}
-                return;
-            }
-            LOG('[Getnet POS] Clic en estado: iniciando barrido automático...');
-            const connected = await checkAutoConnectPos();
-            if (connected) {
-                LOG('[Getnet POS] ¡Conectado exitosamente por barrido!');
-            } else {
-                LOG('[Getnet POS] Barrido no encontró terminal activo; abriendo selector manual...');
-                await connectGetnetSerial();
-            }
-        }
-
-        function setPosConnected(connected, portDesc = "COM USB") {
-            posState.connected = connected;
-            const pill = document.getElementById('pos-header-status-pill');
-            const pillText = document.getElementById('pos-header-status-text');
-            const bullet = document.getElementById('pos-status-bullet');
-
-            if (connected) {
-                if (pill) pill.className = 'header-pos-pill online';
-                if (pillText) pillText.textContent = `POS Getnet: En Línea (${portDesc})`;
-                if (bullet) bullet.textContent = '●';
-            } else {
-                if (pill) pill.className = 'header-pos-pill';
-                if (pillText) pillText.textContent = 'POS Getnet: Desconectado (Clic)';
-                if (bullet) bullet.textContent = '○';
-            }
-        }
-
-        async function connectGetnetSerial() {
-            if (typeof Getnet === 'undefined') {
-                alert("Librería de Getnet no disponible en este momento.");
-                return false;
-            }
-            try {
-                LOG('[Getnet POS] Abriendo selector de puerto COM nativo...');
-                const port = await Getnet.connect(null, posState.baudRate);
-                if (port) {
-                    posState.port = port;
-                    setPosConnected(true, "COM Directo");
-                    LOG('[Getnet POS] ¡Puerto COM conectado exitosamente!');
-                    setTimeout(() => {
-                        try { Getnet.Poll(); } catch (_) {}
-                    }, 300);
-                    return true;
-                }
-            } catch (err) {
-                ERR('Error al conectar puerto COM:', err);
-                alert(`Error al conectar con el terminal POS: ${err.message || err}. Asegúrate de seleccionar el puerto donde está conectado el POS Getnet.`);
-                return false;
-            }
-            return false;
-        }
-
-        // ─── Callback del Hardware POS Getnet ─────────────────────────────────────
-        async function handleGetnetCallback(msg) {
-            if (!msg) return;
-            let data = msg;
-            if (msg.JsonSerialized && typeof msg.JsonSerialized === 'string') {
-                try { const inner = JSON.parse(msg.JsonSerialized); data = { ...msg, ...inner }; } catch (e) {}
-            }
-            const cmd = data.Command ?? data.FunctionCode ?? '-';
-            const rc = data.ResponseCode ?? '-';
-            LOG(`[Getnet CB] Cmd:${cmd} RC:${rc}`, data);
-
-            const posTitleEl = document.getElementById('pos-interactive-title');
-            const posDescEl = document.getElementById('pos-interactive-desc');
-
-            // 1. ACK de transporte del POS (Received: true)
-            if (data.Received === true) {
-                if (posTitleEl) posTitleEl.textContent = "Procesando en el terminal POS...";
-                if (posDescEl) posDescEl.textContent = "Acerque tarjeta, inserte chip o digite su PIN en el teclado del POS...";
-                return;
-            }
-
-            // 2. Respuesta a Poll (Cmd 106)
-            if (data.Command === 106 || data.FunctionCode === 106) {
-                setPosConnected(true);
-                return;
-            }
-
-            // 3. Respuesta explícita a CancelSale (Cmd 116)
-            if (data.Command === 116 || data.FunctionCode === 116) {
-                LOG('[Getnet POS] Venta cancelada confirmada por el terminal.');
-                posState.isCancelling = false;
-                posState.isCharging = false;
-                resetPaymentUI();
-                return;
-            }
-
-            // 4. Mensajes intermedios del POS (sin código definitivo aún)
-            if (data.ResponseCode === undefined || data.ResponseCode === null || data.ResponseCode === '') {
-                const statusMsg = data.ResponseMessage || data.Message || data.ResponseDescription;
-                if (statusMsg) {
-                    if (posTitleEl) posTitleEl.textContent = statusMsg;
-                    if (posDescEl) posDescEl.textContent = "Siga las instrucciones en la pantalla del terminal Getnet...";
-                }
-                return;
-            }
-
-            // 5. Validación con ResponseCode numérico
-            const respCode = Number(data.ResponseCode);
-
-            if (posState.isCancelling) {
-                posState.isCancelling = false;
-                posState.isCharging = false;
-                resetPaymentUI();
-                return;
-            }
-
-            // Distinguir ACK inicial del comando vs Aprobación Bancaria Final
-            const hasCardOrAuth = !!(data.AuthorizationCode || data.Last4Digits || data.CardBrand || data.CardType || data.SharesNumber !== undefined || data.AccountingDate || data.Pan || data.CardNumber);
-            if (respCode === 0 && !hasCardOrAuth) {
-                // Es solo el ACK de inicio de cobro: el POS está listo esperando tarjeta
-                if (posTitleEl) posTitleEl.textContent = "Acerque o inserte tarjeta";
-                if (posDescEl) posDescEl.textContent = data.ResponseMessage || "Por favor acerque tarjeta contactless o inserte chip en el POS Getnet.";
-                return;
-            }
-
-            const isApproved = (respCode === 0 && hasCardOrAuth);
-
-            if (isApproved) {
-                // ¡PAGO REAL APROBADO POR EL BANCO EN EL TERMINAL FÍSICO!
-                LOG('[Getnet POS] ¡VENTA APROBADA EXITOSAMENTE!', data);
-                posState.isCharging = false;
-                handlePaymentApproved(data);
-            } else {
-                // Transacción rechazada o cancelada por el cliente en el POS
-                LOG('[Getnet POS] Transacción rechazada o cancelada en el POS:', data);
-                posState.isCharging = false;
-                const errDetail = data.ResponseMessage || data.Message || `Código de rechazo: ${respCode}`;
-                
-                // Locución: el avatar anuncia el rechazo mientras la web de pago sigue activa
-                const rejectMsg = "Pago rechazado. Por favor intenta nuevamente o utiliza otro medio de pago.";
-                queueAvatarBubble(rejectMsg);
-                wakeUpModel();
-                stopAlwaysOnListening();
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: rejectMsg,
-                        type: 'echo',
-                        interrupt: true,
-                        sessionid: String(sessionid)
-                    })
-                }).catch(e => WARN('echo error:', e));
-
-                resetPaymentUI();
-                showCheckoutNotice(`Pago rechazado en el terminal: ${errDetail}`);
-            }
-        }
-
-        function handleGetnetTimeout(err) {
-            WARN('[Getnet POS] Timeout o error de tiempo:', err);
-            if (posState.isCharging) {
-                posState.isCharging = false;
-                const timeoutMsg = "Pago rechazado por tiempo de espera agotado en el terminal. Por favor intenta nuevamente.";
-                queueAvatarBubble(timeoutMsg);
-                wakeUpModel();
-                stopAlwaysOnListening();
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: timeoutMsg,
-                        type: 'echo',
-                        interrupt: true,
-                        sessionid: String(sessionid)
-                    })
-                }).catch(e => WARN('echo error:', e));
-
-                resetPaymentUI();
-                showCheckoutNotice("Tiempo de espera agotado en el terminal POS.");
-            }
-        }
-
-        function showCheckoutNotice(msg) {
-            let noticeEl = document.getElementById('checkout-status-notice');
-            if (!noticeEl) {
-                const actionContainer = document.getElementById('checkout-action-container');
-                if (actionContainer) {
-                    noticeEl = document.createElement('div');
-                    noticeEl.id = 'checkout-status-notice';
-                    noticeEl.style.cssText = 'margin:12px 0;padding:10px 14px;border-radius:10px;background:#fef2f2;border:1px solid #f87171;color:#b91c1c;font-size:13px;font-weight:600;display:flex;align-items:center;gap:8px;';
-                    actionContainer.insertBefore(noticeEl, actionContainer.firstChild);
-                }
-            }
-            if (noticeEl) {
-                noticeEl.innerHTML = `<span>⚠️</span> <span>${msg}</span>`;
-                noticeEl.style.display = 'flex';
-                setTimeout(() => {
-                    if (noticeEl) noticeEl.style.display = 'none';
-                }, 6000);
-            }
-        }
-
-        // ─── Control de Timer de Inactividad de Pago (60 Segundos) ───────────────
-        let _checkoutPaymentTimer = null;
-        let _waitingCheckoutFollowUp = false;
-
-        function startCheckoutPaymentTimer() {
-            clearCheckoutPaymentTimer();
-            _checkoutPaymentTimer = setTimeout(() => {
-                handleCheckoutPaymentTimeout();
-            }, 60000);
-        }
-
-        function clearCheckoutPaymentTimer() {
-            if (_checkoutPaymentTimer) {
-                clearTimeout(_checkoutPaymentTimer);
-                _checkoutPaymentTimer = null;
-            }
-        }
-
-        function handleCheckoutPaymentTimeout() {
-            const overlay = document.getElementById('paris-checkout-overlay');
-            if (!overlay || !overlay.classList.contains('open')) return;
-            // Si el cliente está activamente pagando en el terminal físico Getnet, no interrumpir
-            if (posState.isCharging) return;
-
-            LOG('[Checkout] 60 segundos transcurridos sin pagar. Cerrando drawer y consultando al cliente.');
-            closeParisCheckout();
-            _waitingCheckoutFollowUp = true;
-
-            const timeoutMsg = "Se agotó el tiempo para completar el pago. ¿Deseas continuar con tu compra o prefieres cancelarla?";
-            queueAvatarBubble(timeoutMsg);
-            wakeUpModel();
-            stopAlwaysOnListening();
-
-            const sessionid = document.getElementById('sessionid').value;
-            fetch('/human', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: timeoutMsg,
-                    type: 'echo',
-                    interrupt: true,
-                    sessionid: String(sessionid),
-                    cart: _parisCart
-                })
-            }).catch(e => WARN('echo error timeout checkout:', e));
-        }
-
-        // ─── Funciones de la UI del Checkout ──────────────────────────────────────
-        function openParisCheckout() {
-            const overlay = document.getElementById('paris-checkout-overlay');
-            if (!overlay) return;
-
-            const wasOpen = overlay.classList.contains('open');
-
-            // Pausar timers de seguimiento para no interrumpir el flujo de compra
-            clearTimeout(_followUpTimeoutId);
-            clearTimeout(_followUpAckTimeoutId);
-            _waitingFollowUpAck = false;
-
-            // Iniciar o reiniciar el timer de 60 segundos de inactividad en la pantalla de pago
-            startCheckoutPaymentTimer();
-
-            // Si no estamos en medio de un cobro activo, aseguramos estado limpio sin vouchers viejos
-            if (!posState.isCharging) {
-                const voucherView = document.getElementById('checkout-voucher-view');
-                if (voucherView) voucherView.style.display = 'none';
-                const posBox = document.getElementById('pos-interactive-box');
-                if (posBox) posBox.style.display = 'none';
-                const actionContainer = document.getElementById('checkout-action-container');
-                if (actionContainer) actionContainer.style.display = 'block';
-            }
-
-            renderCheckoutCart();
-            overlay.classList.add('open');
-            LOG('[Checkout] Bolsa de compras abierta.');
-
-            // Si se acaba de abrir, avisar mediante locución del avatar
-            if (!wasOpen) {
-                const transferMsg = _parisCart.length > 0
-                    ? "Estás siendo transferido a la web de pago."
-                    : "Tu bolsa de compras está vacía. Escanea un producto para comenzar.";
-                queueAvatarBubble(transferMsg);
-                wakeUpModel();
-                const sessionid = document.getElementById('sessionid').value;
-                fetch('/human', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        text: transferMsg,
-                        type: 'echo',
-                        interrupt: true,
-                        sessionid: String(sessionid),
-                        cart: _parisCart
-                    })
-                }).catch(e => WARN('echo error:', e));
-            }
-
-            // Intentar auto-conexión del POS si no estuviese conectado
-            if (!Getnet.isConnected()) {
-                checkAutoConnectPos();
-            }
-        }
-
-        function closeParisCheckout() {
-            clearCheckoutPaymentTimer();
-            const overlay = document.getElementById('paris-checkout-overlay');
-            if (overlay) overlay.classList.remove('open');
-            LOG('[Checkout] Bolsa de compras cerrada.');
-            if (_autoCloseVoucherTimeout) {
-                handleFinishSuccessfulCheckout();
-                return;
-            }
-        }
-
-        function clearCartInteractive() {
-            _parisCart = [];
-            saveCart();
-            resetPaymentUI();
-        }
-
-        function renderCheckoutCart() {
-            const listEl = document.getElementById('checkout-cart-list');
-            const countEl = document.getElementById('chk-item-count');
-            const subtotalEl = document.getElementById('chk-subtotal');
-            const rowDiscountEl = document.getElementById('chk-row-discount');
-            const discountEl = document.getElementById('chk-discount');
-            const ivaEl = document.getElementById('chk-iva');
-            const totalEl = document.getElementById('chk-total');
-            const pointsEl = document.getElementById('chk-cenco-points');
-            const submitBtn = document.getElementById('btn-submit-payment');
-
-            const count = getCartItemsCount();
-            const total = getCartTotal();
-            const originalTotal = getCartOriginalTotal();
-            const discount = Math.max(0, originalTotal - total);
-            const iva = Math.round(total * 0.19);
-            const cencoPoints = Math.floor(total / 100);
-
-            if (countEl) countEl.textContent = String(count);
-            if (subtotalEl) subtotalEl.textContent = `$${originalTotal.toLocaleString('es-CL')}`;
-            if (totalEl) totalEl.textContent = `$${total.toLocaleString('es-CL')}`;
-            if (ivaEl) ivaEl.textContent = `$${iva.toLocaleString('es-CL')}`;
-            if (pointsEl) pointsEl.textContent = cencoPoints.toLocaleString('es-CL');
-
-            if (rowDiscountEl && discountEl) {
-                if (discount > 0) {
-                    rowDiscountEl.style.display = 'flex';
-                    discountEl.textContent = `-$${discount.toLocaleString('es-CL')}`;
-                } else {
-                    rowDiscountEl.style.display = 'none';
-                }
-            }
-
-            if (submitBtn) {
-                submitBtn.disabled = (_parisCart.length === 0 || _isPaymentProcessing || posState.isCharging);
-                submitBtn.textContent = `Pagar $${total.toLocaleString('es-CL')} con POS Getnet`;
-            }
-
-            if (!listEl) return;
-            if (_parisCart.length === 0) {
-                listEl.innerHTML = '<div class="chk-empty-cart">🛍️ Tu bolsa está vacía.<br>Escanea un producto con el lector de barra para agregar.</div>';
-                return;
-            }
-
-            listEl.innerHTML = _parisCart.map(item => `
-                <div class="checkout-item-row">
-                    <div class="chk-item-info">
-                        <div class="chk-item-title">${item.nombre}</div>
-                        <div class="chk-item-sub">${item.marca ? item.marca + ' · ' : ''}SKU: ${item.sku}</div>
-                    </div>
-                    <div class="chk-item-controls">
-                        <button class="chk-qty-btn" onclick="updateCartItemQuantity('${item.sku}', -1)">-</button>
-                        <span class="chk-item-qty">${item.cantidad}</span>
-                        <button class="chk-qty-btn" onclick="updateCartItemQuantity('${item.sku}', 1)">+</button>
-                    </div>
-                    <div class="chk-item-price">$${(item.precio * item.cantidad).toLocaleString('es-CL')}</div>
-                    <button class="chk-item-remove" onclick="removeFromCart('${item.sku}')" title="Eliminar">✕</button>
-                </div>
-            `).join('');
-        }
-
-        function selectCheckoutPaymentMethod(method) {
-            _selectedPaymentMethod = method;
-            const btnGetnet = document.getElementById('btn-pay-getnet');
-            const btnCenco = document.getElementById('btn-pay-cencosud');
-            const submitBtn = document.getElementById('btn-submit-payment');
-
-            if (btnGetnet) btnGetnet.classList.toggle('active', method === 'getnet');
-            if (btnCenco) btnCenco.classList.toggle('active', method === 'cencosud');
-
-            if (submitBtn) {
-                if (method === 'getnet') {
-                    submitBtn.textContent = `Pagar $${getCartTotal().toLocaleString('es-CL')} con POS Getnet`;
-                } else {
-                    submitBtn.textContent = `Canjear Puntos Cencosud`;
-                }
-            }
-        }
-
-        async function handleStartCheckoutPayment() {
-            const total = getCartTotal();
-            if (total <= 0 || _isPaymentProcessing || posState.isCharging) return;
-
-            // Verificar conexión con hardware Getnet
-            if (typeof Getnet === 'undefined' || !Getnet.isConnected()) {
-                LOG('[Checkout] POS desconectado. Intentando barrido automático de puertos primero...');
-                const autoOk = await checkAutoConnectPos();
-                if (!autoOk || !Getnet.isConnected()) {
-                    LOG('[Checkout] Barrido no encontró POS activo. Abriendo selector nativo...');
-                    const didConnect = await connectGetnetSerial();
-                    if (!didConnect) {
-                        return; // El usuario canceló la selección de puerto
-                    }
-                }
-            }
-
-            _isPaymentProcessing = true;
-            posState.isCharging = true;
-            clearCheckoutPaymentTimer();
-
-            const actionContainer = document.getElementById('checkout-action-container');
-            const posBox = document.getElementById('pos-interactive-box');
-            const posAmountEl = document.getElementById('pos-interactive-amount');
-            const posTitleEl = document.getElementById('pos-interactive-title');
-            const posDescEl = document.getElementById('pos-interactive-desc');
-            const voucherView = document.getElementById('checkout-voucher-view');
-
-            if (actionContainer) actionContainer.style.display = 'none';
-            if (voucherView) voucherView.style.display = 'none';
-            if (posBox) posBox.style.display = 'flex';
-            if (posAmountEl) posAmountEl.textContent = `$${total.toLocaleString('es-CL')}`;
-            if (posTitleEl) posTitleEl.textContent = 'Iniciando terminal POS...';
-            if (posDescEl) posDescEl.textContent = 'Enviando orden de cobro al terminal físico Getnet...';
-
-            try {
-                const ticketNumber = String(Math.floor(Math.random() * 899999 + 100000));
-                LOG(`[Checkout] Enviando orden Getnet.Sale(${total}, ${ticketNumber}) al terminal...`);
-                // Getnet.Sale(amount, ticketNumber, printOnPos, saleType, sendMessage, employeeId, timeout)
-                Getnet.Sale(total, ticketNumber, false, 0, false, 1, 180);
-            } catch (err) {
-                ERR('Error enviando cobro a Getnet.Sale:', err);
-                alert(`Error al comunicarse con el terminal POS: ${err.message || err}`);
-                resetPaymentUI();
-            }
-        }
-
-        function handleCancelCheckoutPayment() {
-            LOG('[Checkout] Cancelando cobro en el POS...');
-            posState.lastCancelTime = Date.now();
-            posState.isCharging = false;
-            posState.isCancelling = true;
-
-            try {
-                if (typeof Getnet !== 'undefined' && Getnet.isConnected()) {
-                    Getnet.CancelSale();
-                }
-            } catch (e) {
-                WARN('Error enviando CancelSale:', e);
-            }
-
-            resetPaymentUI();
-        }
-
-        // ─── Reseteo Integral de la UI Post-Cobro (Elimina el bug de persistencia $189.000) ───
-        function resetPaymentUI() {
-            clearTimeout(_autoCloseVoucherTimeout);
-            _autoCloseVoucherTimeout = null;
-            clearCheckoutPaymentTimer();
-            _isPaymentProcessing = false;
-            posState.isCharging = false;
-            posState.isCancelling = false;
-
-            const actionContainer = document.getElementById('checkout-action-container');
-            const posBox = document.getElementById('pos-interactive-box');
-            const voucherView = document.getElementById('checkout-voucher-view');
-
-            // 1. Ocultar cajas interactivas y voucher
-            if (posBox) posBox.style.display = 'none';
-            if (voucherView) voucherView.style.display = 'none';
-            if (actionContainer) actionContainer.style.display = 'block';
-
-            // 2. Limpiar datos del voucher en el DOM
-            const opEl = document.getElementById('v-op-number');
-            const authEl = document.getElementById('v-auth');
-            const cardEl = document.getElementById('v-card');
-            const itemsListEl = document.getElementById('v-items-list');
-            const totalEl = document.getElementById('v-total');
-            if (opEl) opEl.textContent = '';
-            if (authEl) authEl.textContent = '';
-            if (cardEl) cardEl.textContent = '';
-            if (itemsListEl) itemsListEl.innerHTML = '';
-            if (totalEl) totalEl.textContent = '$0';
-
-            renderCheckoutCart();
-        }
-
-        let _autoCloseVoucherTimeout = null;
-
-        function handlePaymentApproved(saleResult) {
-            clearTimeout(_autoCloseVoucherTimeout);
-            clearCheckoutPaymentTimer();
-            // Timer de 15 segundos para volver automáticamente al avatar si el usuario no presiona Finalizar
-            _autoCloseVoucherTimeout = setTimeout(() => {
-                LOG('[Checkout Voucher] 15s transcurridos sin presionar Finalizar → Volviendo automáticamente al avatar.');
-                handleFinishSuccessfulCheckout();
-            }, 15000);
-            const posBox = document.getElementById('pos-interactive-box');
-            const voucherView = document.getElementById('checkout-voucher-view');
-            const actionContainer = document.getElementById('checkout-action-container');
-
-            if (posBox) posBox.style.display = 'none';
-            if (actionContainer) actionContainer.style.display = 'none';
-            if (voucherView) voucherView.style.display = 'flex';
-
-            const total = saleResult.Amount || getCartTotal();
-            const now = new Date();
-            const dateStr = now.toLocaleDateString('es-CL') + ' ' + now.toLocaleTimeString('es-CL');
-
-            const opEl = document.getElementById('v-op-number');
-            const dateEl = document.getElementById('v-date');
-            const authEl = document.getElementById('v-auth');
-            const cardEl = document.getElementById('v-card');
-            const itemsListEl = document.getElementById('v-items-list');
-            const totalEl = document.getElementById('v-total');
-
-            if (opEl) opEl.textContent = saleResult.OperationNumber || ('OP-' + Math.floor(Math.random() * 89999 + 10000));
-            if (dateEl) dateEl.textContent = dateStr;
-            if (authEl) authEl.textContent = saleResult.AuthorizationCode || ('GET-' + Math.floor(Math.random() * 89999 + 10000));
-            if (cardEl) cardEl.textContent = (saleResult.CardBrand || 'TARJETA') + ' ' + (saleResult.CardNumber || '**** **** **** 1111');
-            if (totalEl) totalEl.textContent = `$${Number(total).toLocaleString('es-CL')}`;
-
-            if (itemsListEl && _parisCart.length > 0) {
-                itemsListEl.innerHTML = _parisCart.map(i => `
-                    <div class="v-row">
-                        <span>${i.cantidad}x ${i.nombre.slice(0, 22)}</span>
-                        <span>$${(i.precio * i.cantidad).toLocaleString('es-CL')}</span>
-                    </div>
-                `).join('');
-            }
-
-            // VACIAR COMPLETAMENTE EL CARRITO TRAS PAGO EXITOSO:
-            _parisCart = [];
-            localStorage.removeItem('paris_cart');
-            updateCartWidget();
-
-            LOG('[Checkout] Transacción completada con éxito. Carrito reseteado a $0.');
-
-            // Locución con la página de comprobante aún activa en pantalla:
-            const successMsg = "¡Pago exitoso! Tu comprobante ha sido emitido.";
-            queueAvatarBubble(successMsg);
-            wakeUpModel();
-            stopAlwaysOnListening();
-            const sessionid = document.getElementById('sessionid').value;
-            fetch('/human', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: successMsg,
-                    type: 'echo',
-                    interrupt: true,
-                    sessionid: String(sessionid)
-                })
-            }).catch(e => WARN('echo error:', e));
-        }
-
-        function handleFinishSuccessfulCheckout() {
-            if (_autoCloseVoucherTimeout) {
-                clearTimeout(_autoCloseVoucherTimeout);
-                _autoCloseVoucherTimeout = null;
-            }
-            closeParisCheckout();
-            resetPaymentUI();
-
-            // Agradecimiento por comprar tras cerrarse la ventana de pago:
-            const thankMsg = "¡Muchas gracias por tu compra en Paris! Que tengas un excelente día.";
-            queueAvatarBubble(thankMsg);
-            wakeUpModel();
-            stopAlwaysOnListening();
-
-            const sessionid = document.getElementById('sessionid').value;
-            fetch('/human', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    text: thankMsg,
-                    type: 'echo',
-                    interrupt: true,
-                    sessionid: String(sessionid)
-                })
-            }).catch(e => WARN('echo error:', e));
-
-            setTimeout(() => {
-                sleepModel(false);
-            }, 5500);
-        }
-</script>
+    </script>
 </body>
+
 </html>
