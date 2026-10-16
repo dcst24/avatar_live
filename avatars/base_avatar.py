@@ -63,8 +63,9 @@ class AudioFrameData:
 class BaseAvatar:
     def __init__(self, opt):
         self.opt = opt
+        self.fps = getattr(opt, 'fps', 25)
         self.sample_rate = 16000
-        self.chunk = self.sample_rate // (opt.fps*2) # 320 samples per chunk (20ms)
+        self.chunk = self.sample_rate // (self.fps * 2) # 320 samples per chunk (20ms)
         self.sessionid = self.opt.sessionid
 
         self.speaking = False
@@ -448,7 +449,8 @@ class BaseAvatar:
             _last_speaking_frame = None  # 说话帧缓存
 
         self.output.start()
-        frame_interval = 1.0 / self.fps
+        fps = getattr(self, 'fps', getattr(self.opt, 'fps', 25))
+        frame_interval = 1.0 / (fps if fps and fps > 0 else 25)
         last_frame_time = time.perf_counter()
         
         fallback_idx = 0
