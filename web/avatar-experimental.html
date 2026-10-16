@@ -1279,7 +1279,15 @@
             clearTimeout(_followUpAckTimeoutId);
             _waitingFollowUpAck = false;
             if (!_conversationAwake) return;
+            if (isSpeaking) {
+                LOG("scheduleFollowUp omitido: avatar aún está hablando");
+                return;
+            }
             _followUpTimeoutId = setTimeout(() => {
+                if (isSpeaking) {
+                    LOG("Follow-up cancelado porque el avatar está hablando");
+                    return;
+                }
                 LOG("20 segundos de silencio → preguntando si necesita algo más.");
                 const followUpText = "¿Necesitas algo más sobre Mutual de Seguridad?";
                 _waitingFollowUpAck = true;
@@ -1292,6 +1300,7 @@
                     body: JSON.stringify({
                         text: followUpText,
                         type: 'echo',
+                        interrupt: false,
                         sessionid: String(sessionid)
                     })
                 }).catch(e => WARN('Error al enviar follow-up:', e));
@@ -1577,6 +1586,9 @@
                             if (wrap) wrap.classList.add('avatar-speaking');
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
+                            clearTimeout(_followUpTimeoutId);
+                            clearTimeout(_followUpAckTimeoutId);
+                            _waitingFollowUpAck = false;
                             // Pausar reconocimiento de inmediato para evitar eco acústico
                             if (isListening || _alwaysOnActive) {
                                 LOG('[Speaking Monitor] Avatar comenzó a hablar → pausando micrófono');
@@ -1594,7 +1606,7 @@
 
                             // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
                             setState('ready', 'Preparando micrófono…');
-                            if (_conversationAwake) {
+                            if (_conversationAwake && !isSpeaking) {
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
                                 } else {
@@ -1683,6 +1695,12 @@
                 return;
             }
             if (_questionDispatched) return;
+            if (isSpeaking) {
+                LOG('[_dispatchQuestion] Descartando locución: avatar aún está hablando');
+                _accumulatedFinalText = '';
+                _lastInterimText = '';
+                return;
+            }
             const now = Date.now();
             const cleanRaw = rawText.trim().toLowerCase();
             if (cleanRaw === _lastDispatchedSpeechText && (now - _lastDispatchedSpeechTime) < 2200) {
@@ -2055,6 +2073,13 @@
 
         // ─── Saludo del avatar al detectar wake-word sin pregunta ────────────────
         async function sendGreetingAsAvatar() {
+            if (isSpeaking) {
+                LOG('sendGreetingAsAvatar: omitido porque el avatar ya está hablando');
+                return;
+            }
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
             stopAlwaysOnListening();
             wakeUpModel();
             const greetingText = _randomGreeting();
@@ -2077,7 +2102,7 @@
                     body: JSON.stringify({
                         text: greetingText,
                         type: 'echo',
-                        interrupt: true,
+                        interrupt: false,
                         record_history: true,
                         history_user: 'Hola',
                         sessionid: String(sessionid)
@@ -2092,6 +2117,9 @@
         async function sendToLLM(text, isSleepWord = false) {
             if (!text) return;
 
+            clearTimeout(_followUpTimeoutId);
+            clearTimeout(_followUpAckTimeoutId);
+            _waitingFollowUpAck = false;
             stopAlwaysOnListening();
             _accumulatedFinalText = '';
             _lastInterimText = '';

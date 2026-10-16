@@ -125,28 +125,17 @@ class PlayerStreamTrack(MediaStreamTrack):
         frame = None
         eventpoint = None
 
-        # Esperar hasta 40ms (8 retries de 5ms) por un frame en cola.
-        # Si la cola está temporalmente vacía, emitir frame de continuidad (video: repetir último frame;
-        # audio: silencio sintético) para NUNCA desincronizar audio/video ni congelar WebRTC.
-        retries = 0
-        while self.readyState == "live":
-            try:
-                frame, eventpoint = self._queue.get_nowait()
-                break
-            except queue.Empty:
-                await asyncio.sleep(0.005)
-                retries += 1
-                if retries >= 8:
-                    if self.kind == 'video':
-                        if self._last_frame is not None:
-                            frame = self._last_frame
-                            break
-                    else:
-                        silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
-                        frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
-                        frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
-                        frame.sample_rate = SAMPLE_RATE
-                        break
+        try:
+            frame, eventpoint = self._queue.get_nowait()
+        except queue.Empty:
+            if self.kind == 'video':
+                if self._last_frame is not None:
+                    frame = self._last_frame
+            else:
+                silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
+                frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
+                frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
+                frame.sample_rate = SAMPLE_RATE
 
         if self.readyState != "live" or frame is None:
             raise Exception("Track stopped")
@@ -231,7 +220,7 @@ class HumanPlayer:
         from av import VideoFrame
         new_frame = VideoFrame.from_ndarray(frame, format="bgr24")
         try:
-            self.__video._queue.put((new_frame, None), block=True, timeout=0.04)
+            self.__video._queue.put_nowait((new_frame, None))
         except queue.Full:
             try:
                 self.__video._queue.get_nowait()
@@ -248,7 +237,7 @@ class HumanPlayer:
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
         try:
-            self.__audio._queue.put((new_frame, eventpoint), block=True, timeout=0.04)
+            self.__audio._queue.put_nowait((new_frame, eventpoint))
         except queue.Full:
             try:
                 self.__audio._queue.get_nowait()  # descarta el más viejo solo si se acumularon > 7s
@@ -260,7 +249,9 @@ class HumanPlayer:
                 pass
 
     def get_buffer_size(self) -> int:
-        return self.__video._queue.qsize()
+        v_size = self.__video._queue.qsize() if self.__video else 0
+        a_size = (self.__audio._queue.qsize() // 2) if self.__audio else 0
+        return max(v_size, a_size)
 
     def notify(self, eventpoint):
         if self.__container is not None:

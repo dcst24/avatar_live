@@ -68,7 +68,9 @@ class BaseAvatar:
         self.sessionid = self.opt.sessionid
 
         self.speaking = False
+        self._speech_in_flight = False
         self._last_speech_time = 0.0
+        self._last_speech_end_time = 0.0
         self.recording = False
         self._record_video_pipe = None
         self._record_audio_pipe = None
@@ -125,6 +127,7 @@ class BaseAvatar:
 
     # 如果系统没有使用 pipeline，或者为了向后兼容原来的 ttsreal.py
     def put_msg_txt(self, msg, datainfo:dict={}):
+        self._speech_in_flight = True
         if hasattr(self, 'tts'):
             self.tts.put_msg_txt(msg, datainfo)
     
@@ -195,7 +198,9 @@ class BaseAvatar:
         if hasattr(self, 'output') and hasattr(self.output, 'purge'):
             self.output.purge()
         self.speaking = False
+        self._speech_in_flight = False
         self._last_speech_time = 0.0
+        self._last_speech_end_time = 0.0
 
     # def flush(self):
     #     self.flush_talk()
@@ -203,7 +208,7 @@ class BaseAvatar:
     def is_speaking(self) -> bool:
         """
         Determina con precisión si el avatar está emitiendo habla real o tiene
-        audio de voz en proceso de generación/reproducción.
+        audio de voz en proceso de generación/reproducción en WebRTC.
         """
         # 1. Si el renderizador actualmente tiene frames de habla activos (audio type == 0)
         if self.speaking:
@@ -218,11 +223,33 @@ class BaseAvatar:
         if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
-        # 4. Margen de drenaje acústico: Si el habla acaba de finalizar, mantener speaking=True
-        # durante 1.38s (aumentado en 1 segundo) para que los últimos chunks terminen de cruzar WebRTC
-        # y sonar en los parlantes sin que el avatar se corte en las frases finales.
+        # 4. Si la cola de frames renderizados aún tiene frames pendientes
+        if hasattr(self, 'res_frame_queue') and self.res_frame_queue.qsize() > 0:
+            return True
+
+        # 5. Si hay voz en vuelo hacia WebRTC que aún no ha terminado de salir (no ha llegado notify 'end')
+        if getattr(self, '_speech_in_flight', False):
+            # Watchdog de seguridad: si no ha habido frames de habla renderizados en más tiempo
+            # que el buffer máximo + 2.5s, evitar que quede colgado
+            buffer_frames = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
+            max_flight_time = (buffer_frames / 25.0) + 2.5
+            if getattr(self, '_last_speech_time', 0.0) > 0 and (time.time() - self._last_speech_time > max_flight_time):
+                self._speech_in_flight = False
+            else:
+                return True
+
+        # 6. Margen de drenaje acústico post-WebRTC:
+        # Cuando WebRTC despacha el último frame de audio (notify 'end'), se da un margen de 1.2s
+        # para que el audio termine de cruzar la red, jitter buffer y sonar en los parlantes.
+        if getattr(self, '_last_speech_end_time', 0.0) > 0:
+            if time.time() - self._last_speech_end_time < 1.2:
+                return True
+
+        # 7. Fallback de drenaje por si la notificación 'end' se retrasó
         if getattr(self, '_last_speech_time', 0.0) > 0:
-            if time.time() - self._last_speech_time < 1.38:
+            buffer_frames = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
+            buffer_drain_time = (buffer_frames / 25.0) + 1.2
+            if time.time() - self._last_speech_time < buffer_drain_time:
                 return True
 
         return False
@@ -251,6 +278,12 @@ class BaseAvatar:
     def notify(self, eventpoint:dict):
         if eventpoint and eventpoint.get('status'):
             logger.info("notify:%s", eventpoint)
+            status = eventpoint.get('status')
+            if status == 'end':
+                self._speech_in_flight = False
+                self._last_speech_end_time = time.time()
+            elif status == 'start':
+                self._speech_in_flight = True
 
     def start_recording(self):
         if self.recording:
@@ -449,6 +482,7 @@ class BaseAvatar:
                     combine_frame = target_frame
             else:
                 self.speaking = True
+                self._speech_in_flight = True
                 self._last_speech_time = time.time()
                 try:
                     current_frame = self.paste_back_frame(res_frame,idx)
