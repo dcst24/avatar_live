@@ -1331,12 +1331,11 @@
                     body: JSON.stringify({
                         text: farewellText,
                         type: 'echo',
-                        interrupt: false,
+                        interrupt: true,
                         sessionid: String(sessionid)
                     })
                 }).then(() => {
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('ready', 'Esperando activación…');
                     setTimeout(() => {
                         if (!isListening && isConnected && !isSpeaking) {
                             _alwaysOnActive = false;
@@ -1621,6 +1620,8 @@
                                 } else {
                                     scheduleFollowUp();
                                 }
+                            } else if (!isSpeaking) {
+                                setState('ready', 'Esperando activación…');
                             }
 
                             // Margen acústico (300ms) para asegurar que no haya eco residual antes de reabrir
@@ -2210,7 +2211,7 @@
                     body: JSON.stringify({
                         text: greetingText,
                         type: 'echo',
-                        interrupt: false,
+                        interrupt: true,
                         record_history: true,
                         history_user: 'Hola',
                         sessionid: String(sessionid)
@@ -2265,7 +2266,7 @@
                         body: JSON.stringify({
                             text: farewellText,
                             type: 'echo',
-                            interrupt: false,
+                            interrupt: true,
                             sessionid: String(sessionid)
                         })
                     });
@@ -2273,7 +2274,9 @@
                     ERR('sendToLLM farewell error:', err);
                 } finally {
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
-                    setState('ready', 'Esperando activación…');
+                    if (!isSpeaking) {
+                        setState('speaking', 'Despidiéndose…');
+                    }
                 }
                 return;
             }
