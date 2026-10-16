@@ -125,17 +125,22 @@ class PlayerStreamTrack(MediaStreamTrack):
         frame = None
         eventpoint = None
 
-        try:
-            frame, eventpoint = self._queue.get_nowait()
-        except queue.Empty:
-            if self.kind == 'video':
-                if self._last_frame is not None:
-                    frame = self._last_frame
-            else:
-                silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
-                frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
-                frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
-                frame.sample_rate = SAMPLE_RATE
+        while self.readyState == "live":
+            try:
+                frame, eventpoint = self._queue.get_nowait()
+                break
+            except queue.Empty:
+                if self.kind == 'video':
+                    if self._last_frame is not None:
+                        frame = self._last_frame
+                        break
+                else:
+                    silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
+                    frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
+                    frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
+                    frame.sample_rate = SAMPLE_RATE
+                    break
+                await asyncio.sleep(0.01)
 
         if self.readyState != "live" or frame is None:
             raise Exception("Track stopped")
@@ -206,6 +211,10 @@ class HumanPlayer:
         self.__container = avatar_session
         if hasattr(self.__container, 'output'):
             self.__container.output._player = self
+
+        if hasattr(self.__container, 'frame_list_cycle') and len(self.__container.frame_list_cycle) > 0:
+            from av import VideoFrame
+            self.__video._last_frame = VideoFrame.from_ndarray(self.__container.frame_list_cycle[0], format="bgr24")
 
     def purge(self):
         """Purga buffers de audio y video WebRTC de forma sincronizada.

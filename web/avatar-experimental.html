@@ -1602,10 +1602,8 @@
                         } else {
                             if (wrap) wrap.classList.remove('avatar-speaking');
                             _clearSpeakingWatchdog();
-                            LOG('Avatar terminó de hablar → preparando escucha (awake: ' + _conversationAwake + ')');
+                            LOG('Avatar terminó de hablar → reabriendo micrófono (awake: ' + _conversationAwake + ')');
 
-                            // Estado intermedio sincronizado: NO decir "Escuchando" hasta que el mic esté abierto
-                            setState('ready', 'Preparando micrófono…');
                             if (_conversationAwake && !isSpeaking) {
                                 if (_waitingFollowUpAck) {
                                     scheduleFollowUpAckTimeout();
@@ -1614,13 +1612,13 @@
                                 }
                             }
 
-                            // Margen acústico optimizado (450ms) para asegurar que el parlante termine de reproducir la última palabra y evitar eco/corte
+                            // Margen acústico (300ms) para asegurar que no haya eco residual antes de reabrir
                             setTimeout(() => {
                                 if (!isListening && isConnected && !isSpeaking) {
                                     _alwaysOnActive = false;
-                                    startAlwaysOnListening();
+                                    startAlwaysOnListening(false);
                                 }
-                            }, 450);
+                            }, 300);
                         }
                     }
                 } catch (e) {
@@ -1853,10 +1851,10 @@
                 const isConnector = connectors.includes(lastWord);
                 const isStarterOnly = (words <= 2 && starters.includes(tokens[0]));
 
-                // Margen calibrado para pausas naturales sin cortes prematuros
-                let delayMs = (words <= 2) ? 1600 : ((words <= 5) ? 1800 : 2000);
-                if (isStarterOnly) delayMs = 2400;
-                else if (isConnector) delayMs += 800;
+                // Margen calibrado para pausas naturales: permitir pausas cómodas sin cortes
+                let delayMs = (words <= 2) ? 2600 : ((words <= 5) ? 2800 : 3000);
+                if (isStarterOnly) delayMs = 3200;
+                else if (isConnector) delayMs += 1000;
 
                 _pendingCommitTimeout = setTimeout(() => {
                     if (_conversationAwake && currentSpoken && !_questionDispatched) {
@@ -1878,8 +1876,7 @@
                     return;
                 }
                 if (e.error === 'no-speech') {
-                    LOG('no-speech: timeout normal sin voz');
-                    stopListening();
+                    LOG('no-speech: ciclo normal de silencio, reiniciando silenciosamente');
                     return;
                 }
                 if (e.error === 'audio-capture') {
@@ -1929,22 +1926,11 @@
                 }
 
                 if (_alwaysOnActive && !isSpeaking) {
-                    // En Android/móvil, dar respiro de 900ms para que AudioRecord HAL cierre y libere hardware limpiamente
-                    const restartDelay = _isMobileDevice ? 900 : 350;
-
-                    // Si en móvil llevamos 4 ciclos vacíos consecutivos (sin habla), pausar para no flapear el micro ni gastar batería
-                    if (_isMobileDevice && _emptySessionCount >= 4) {
-                        LOG('[Android/Mobile] 4 ciclos vacíos consecutivos → pausando para evitar parpadeo de micro.');
-                        _alwaysOnActive = false;
-                        setState('ready', 'Micrófono en espera. Toca el botón para hablar.');
-                        updateMicButtonState();
-                        return;
-                    }
-
-                    LOG(`SpeechRecognition onend: reiniciando en ${restartDelay}ms (intentos vacíos: ${_emptySessionCount})`);
+                    // Reinicio fluido inmediato (100ms) sin parpadear la interfaz ni interrumpir al usuario
+                    const restartDelay = 100;
                     setTimeout(() => {
                         if (_alwaysOnActive && !isListening && !isSpeaking) {
-                            startAlwaysOnListening();
+                            startAlwaysOnListening(true);
                         }
                     }, restartDelay);
                 }
@@ -1980,7 +1966,7 @@
         }
 
         // ─── Escucha siempre activa con wake-word ────────────────────────────────
-        function startAlwaysOnListening() {
+        function startAlwaysOnListening(silentRestart = false) {
             if (!isConnected) {
                 LOG('startAlwaysOnListening: avatar no conectado, ignorando');
                 return;
@@ -1995,10 +1981,11 @@
             }
 
             _alwaysOnActive = true;
-            LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake})`);
+            LOG(`startAlwaysOnListening: iniciando escucha continua (awake: ${_conversationAwake}, silent: ${silentRestart})`);
 
-            // Transición suave: estado 'ready' hasta que rec.onstart confirme hardware activo
-            setState('ready', _conversationAwake ? 'Preparando micrófono…' : 'Esperando activación…');
+            if (!silentRestart) {
+                setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
+            }
             if (_conversationAwake) {
                 resetInactivityTimer();
             }
