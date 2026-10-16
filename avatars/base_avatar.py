@@ -63,9 +63,8 @@ class AudioFrameData:
 class BaseAvatar:
     def __init__(self, opt):
         self.opt = opt
-        self.fps = getattr(opt, 'fps', 25)
         self.sample_rate = 16000
-        self.chunk = self.sample_rate // (self.fps * 2) # 320 samples per chunk (20ms)
+        self.chunk = self.sample_rate // (opt.fps*2) # 320 samples per chunk (20ms)
         self.sessionid = self.opt.sessionid
 
         self.speaking = False
@@ -188,7 +187,6 @@ class BaseAvatar:
         return stream
 
     def flush_talk(self):
-        self._flush_id = getattr(self, '_flush_id', 0) + 1
         if hasattr(self, 'tts') and hasattr(self.tts, 'flush_talk'):
             self.tts.flush_talk()
         if hasattr(self, 'asr') and hasattr(self.asr, 'flush_talk'):
@@ -383,7 +381,6 @@ class BaseAvatar:
             except queue.Empty:
                 continue
                 
-            gen_id = getattr(self, '_flush_id', 0)
             is_all_silence = True
             audio_frames: list[AudioFrameData] = []
             for _ in range(self.batch_size * 2):
@@ -396,17 +393,11 @@ class BaseAvatar:
                     is_all_silence = False               
                 audio_frames.append(audioframe)
 
-            # Si durante la extracción de audio ocurrió un flush_talk, descartar este batch
-            if getattr(self, '_flush_id', 0) != gen_id:
-                continue
-
-            # 检测状态变化
+             # 检测状态变化
             current_speaking = not is_all_silence
 
             if is_all_silence: #全为静音数据，只需要取fullimg，不需要推理
                 for i in range(self.batch_size):
-                    if getattr(self, '_flush_id', 0) != gen_id:
-                        break
                     idx = mirror_index(length, index)
                     self.res_frame_queue.put((None, audio_frames[i*2:i*2+2], idx))
                     index = index + 1
@@ -417,10 +408,6 @@ class BaseAvatar:
 
                 pred = self.inference_batch(index, audiofeat_batch)
 
-                # Si durante la inferencia en GPU ocurrió un flush_talk, descartar frames obsoletos
-                if getattr(self, '_flush_id', 0) != gen_id:
-                    continue
-
                 counttime += (time.perf_counter() - t)
                 count += self.batch_size
                 if count >= 100:
@@ -428,8 +415,6 @@ class BaseAvatar:
                     count = 0
                     counttime = 0
                 for i, res_frame in enumerate(pred):
-                    if getattr(self, '_flush_id', 0) != gen_id:
-                        break
                     self.res_frame_queue.put((res_frame, audio_frames[i*2:i*2+2], mirror_index(length, index)))
                     index = index + 1
                     
@@ -449,9 +434,6 @@ class BaseAvatar:
             _last_speaking_frame = None  # 说话帧缓存
 
         self.output.start()
-        fps = getattr(self, 'fps', getattr(self.opt, 'fps', 25))
-        frame_interval = 1.0 / (fps if fps and fps > 0 else 25)
-        last_frame_time = time.perf_counter()
         
         fallback_idx = 0
         while not quit_event.is_set():
@@ -530,32 +512,11 @@ class BaseAvatar:
                 self.output.push_audio_frame(frame, audio_frame.userdata)
                 self.record_audio_data(frame)
 
-            # Control de flujo adaptativo en lazo cerrado: mantener WebRTC en ~8-15 frames (0.32s - 0.6s)
-            # Evita desbordamiento de cola, paquetes descartados y desincronización A/V acumulativa
+            # Control de flujo adaptativo: mantener buffer de WebRTC sincronizado (~1.5s)
+            # Evita desbordamiento de cola, paquetes descartados y que el navegador acelere el audio para sincronizar
             buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            now = time.perf_counter()
-            elapsed = now - last_frame_time
-            target_sleep = frame_interval - elapsed
-
-            if buffer_size > 35:
-                # Buffer excesivo (>1.4s): frenar para drenar hacia 10-15 frames
-                time.sleep(max(target_sleep, 0.0) + 0.025)
-            elif buffer_size > 20:
-                # Buffer ligeramente alto (>0.8s): frenar levemente
-                time.sleep(max(target_sleep, 0.0) + 0.010)
-            elif buffer_size >= 8:
-                # Buffer en rango óptimo (8 a 20 frames): cadencia exacta de 25.0 FPS en tiempo real
-                if target_sleep > 0:
-                    time.sleep(target_sleep)
-            elif buffer_size >= 4:
-                # Buffer recuperándose tras corte o silencio: llenar suavemente
-                if target_sleep > 0:
-                    time.sleep(target_sleep * 0.5)
-            else:
-                # Buffer bajo (<4 frames): sin espera para alimentar WebRTC de inmediato
-                pass
-
-            last_frame_time = time.perf_counter()
+            if buffer_size > 45:
+                time.sleep(0.015)
                 
             # if self.opt.transport == 'virtualcam' and hasattr(self.output, '_cam') and self.output._cam:
             #     self.output._cam.sleep_until_next_frame()

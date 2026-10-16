@@ -55,13 +55,13 @@ class PlayerStreamTrack(MediaStreamTrack):
         super().__init__()
         self.kind = kind
         self._player = player
-        # Video: buffer de 100 frames (4.0s @ 25fps)
-        # Audio: buffer simétrico de 200 frames (4.0s @ 50 chunks/s de 20ms)
-        # Ratio exacto 1:2 para sincronización absoluta de audio y video
+        # Video: buffer de 200 frames (8s @ 25fps)
+        # Audio: buffer amplio de 1000 frames (20s @ 50 chunks/s de 20ms)
+        # Asegura que ningún chunk de audio sea descartado durante respuestas largas
         if self.kind == 'video':
-            self._queue = queue.Queue(maxsize=100)
-        else:
             self._queue = queue.Queue(maxsize=200)
+        else:
+            self._queue = queue.Queue(maxsize=1000)
         self.timelist = []
         self.current_frame_count = 0
         self._last_frame = None
@@ -217,33 +217,24 @@ class HumanPlayer:
             self.__video._last_frame = VideoFrame.from_ndarray(self.__container.frame_list_cycle[0], format="bgr24")
 
     def purge(self):
-        """Purga buffers de audio y video WebRTC de forma sincronizada a 0 items.
-        VideoTrack utiliza su _last_frame interno en caso de cola vacía, evitando
-        pantalla negra y garantizando que los nuevos frames de A/V arranquen en t=0 exacto."""
+        """Purga buffers de audio y video WebRTC de forma sincronizada.
+        En video se conserva solo el último frame para mantener continuidad visual
+        sin pantalla negra y eliminar el desfase (lag) de la primera interacción."""
         if self.__audio:
             self.__audio.purge(keep_last=False)
         if self.__video:
-            self.__video.purge(keep_last=False)
+            self.__video.purge(keep_last=True)
 
     def push_video(self, frame):
         from av import VideoFrame
         new_frame = VideoFrame.from_ndarray(frame, format="bgr24")
-        if self.__video is None:
-            return
         try:
             self.__video._queue.put_nowait((new_frame, None))
         except queue.Full:
-            # Descarte simétrico en caso de congestión de red: 1 frame de video + 2 chunks de audio
             try:
                 self.__video._queue.get_nowait()
             except queue.Empty:
                 pass
-            if self.__audio:
-                for _ in range(2):
-                    try:
-                        self.__audio._queue.get_nowait()
-                    except queue.Empty:
-                        break
             try:
                 self.__video._queue.put_nowait((new_frame, None))
             except queue.Full:
@@ -254,25 +245,13 @@ class HumanPlayer:
         new_frame = AudioFrame(format='s16', layout='mono', samples=frame.shape[0])
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
-        if self.__audio is None:
-            return
         try:
             self.__audio._queue.put_nowait((new_frame, eventpoint))
         except queue.Full:
-            # Descarte simétrico: 2 chunks de audio + 1 frame de video
             try:
-                self.__audio._queue.get_nowait()
+                self.__audio._queue.get_nowait()  # descarta el más viejo solo si se acumularon > 7s
             except queue.Empty:
                 pass
-            try:
-                self.__audio._queue.get_nowait()
-            except queue.Empty:
-                pass
-            if self.__video:
-                try:
-                    self.__video._queue.get_nowait()
-                except queue.Empty:
-                    pass
             try:
                 self.__audio._queue.put_nowait((new_frame, eventpoint))
             except queue.Full:
