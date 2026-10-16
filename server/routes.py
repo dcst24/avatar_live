@@ -70,6 +70,34 @@ async def async_generator_from_sync(sync_gen, *args, **kwargs):
 
 # ─── 路由处理函数 ──────────────────────────────────────────────────────────
 
+def clean_repeated_phrases(text: str) -> str:
+    """Colapsa repeticiones consecutivas de palabras y frases causadas por bugs de ASR en navegadores."""
+    if not text:
+        return ""
+    tokens = text.strip().split()
+    if not tokens:
+        return ""
+    collapsed = []
+    for w in tokens:
+        if not collapsed or collapsed[-1].lower() != w.lower():
+            collapsed.append(w)
+    changed = True
+    while changed:
+        changed = False
+        n = len(collapsed)
+        for phrase_len in range(n // 2, 0, -1):
+            i = 0
+            while i + 2 * phrase_len <= len(collapsed):
+                phrase1 = [w.lower() for w in collapsed[i:i+phrase_len]]
+                phrase2 = [w.lower() for w in collapsed[i+phrase_len:i+2*phrase_len]]
+                if phrase1 == phrase2:
+                    del collapsed[i+phrase_len:i+2*phrase_len]
+                    changed = True
+                else:
+                    i += 1
+    return " ".join(collapsed)
+
+
 async def human(request):
     """文本输入（echo/chat 模式），支持 voice/emotion 参数"""
     try:
@@ -79,6 +107,9 @@ async def human(request):
         avatar_session = get_session(request, sessionid)
         if avatar_session is None:
             return json_error("session not found")
+
+        if 'text' in params and isinstance(params['text'], str):
+            params['text'] = clean_repeated_phrases(params['text'])
 
         if params.get('interrupt'):
             abort_gen = request.app.get("abort_generation")

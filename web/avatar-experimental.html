@@ -1727,23 +1727,128 @@
                 question = rawText.trim();
             }
 
-            LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
+                LOG(`Texto procesado para enviar: "${question}" | awake: ${_conversationAwake}`);
 
-            if (question) {
-                clearTimeout(_wakeBufferTimeout);
+                question = cleanRepeatedPhrases(question);
 
-                if (_isSleepWord(question)) {
-                    LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
-                    sendToLLM(question, true);
-                    sleepModel(false);
-                    return;
+                if (question) {
+                    clearTimeout(_wakeBufferTimeout);
+
+                    if (_isSleepWord(question)) {
+                        LOG(`Palabra de despedida detectada: "${question}" → durmiendo modelo`);
+                        sendToLLM(question, true);
+                        sleepModel(false);
+                        return;
+                    }
+
+                    LOG(`Enviando al LLM: "${question}"`);
+                    _alwaysOnActive = false;
+                    sendToLLM(question);
                 }
-
-                LOG(`Enviando al LLM: "${question}"`);
-                _alwaysOnActive = false;
-                sendToLLM(question);
             }
         };
+
+        // ─── Deduplicación Robusta de Transcripción (Fix para Android Chrome) ──────
+        function cleanRepeatedPhrases(text) {
+            if (!text) return '';
+            const tokens = text.trim().split(/\s+/);
+            if (!tokens.length) return '';
+
+            // Paso 1: Colapsar palabras consecutivas idénticas (ej: "gracias gracias" -> "gracias", "sobre sobre" -> "sobre")
+            const collapsed = [];
+            for (let i = 0; i < tokens.length; i++) {
+                const w = tokens[i];
+                if (collapsed.length === 0 || collapsed[collapsed.length - 1].toLowerCase() !== w.toLowerCase()) {
+                    collapsed.push(w);
+                }
+            }
+
+            // Paso 2: Colapsar frases o n-gramas repetidos consecutivamente
+            // Ej: ["sobre", "accidentes", "de", "trabajo", "sobre", "accidentes", "de", "trabajo"]
+            let changed = true;
+            while (changed) {
+                changed = false;
+                const n = collapsed.length;
+                for (let phraseLen = Math.floor(n / 2); phraseLen >= 1; phraseLen--) {
+                    let i = 0;
+                    while (i + 2 * phraseLen <= collapsed.length) {
+                        let match = true;
+                        for (let k = 0; k < phraseLen; k++) {
+                            if (collapsed[i + k].toLowerCase() !== collapsed[i + phraseLen + k].toLowerCase()) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            collapsed.splice(i + phraseLen, phraseLen);
+                            changed = true;
+                        } else {
+                            i++;
+                        }
+                    }
+                }
+            }
+            return collapsed.join(' ');
+        }
+
+        function mergeSegments(transcripts) {
+            const segments = [];
+            for (let idx = 0; idx < transcripts.length; idx++) {
+                const t = (transcripts[idx] || '').trim();
+                if (!t) continue;
+                if (segments.length === 0) {
+                    segments.push(t);
+                    continue;
+                }
+                const last = segments[segments.length - 1];
+                const tLow = t.toLowerCase();
+                const lastLow = last.toLowerCase();
+
+                // Si el nuevo segmento es una extensión/superconjunto del anterior (ej: "sobre" seguido de "sobre accidentes")
+                if (tLow.startsWith(lastLow)) {
+                    segments[segments.length - 1] = t;
+                } else if (lastLow.startsWith(tLow)) {
+                    continue;
+                } else {
+                    // Verificar si se solapan en los bordes
+                    const lastWords = last.split(/\s+/);
+                    const tWords = t.split(/\s+/);
+                    let merged = false;
+                    const maxOverlap = Math.min(lastWords.length, tWords.length);
+                    for (let overlap = maxOverlap; overlap >= 1; overlap--) {
+                        let match = true;
+                        for (let k = 0; k < overlap; k++) {
+                            if (lastWords[lastWords.length - overlap + k].toLowerCase() !== tWords[k].toLowerCase()) {
+                                match = false;
+                                break;
+                            }
+                        }
+                        if (match) {
+                            segments[segments.length - 1] = lastWords.concat(tWords.slice(overlap)).join(' ');
+                            merged = true;
+                            break;
+                        }
+                    }
+                    if (!merged) {
+                        segments.push(t);
+                    }
+                }
+            }
+            return segments.join(' ');
+        }
+
+        function combineFinalAndInterim(finalTxt, interimTxt) {
+            const f = (finalTxt || '').trim();
+            const i = (interimTxt || '').trim();
+            if (!f) return i;
+            if (!i) return f;
+            const fLow = f.toLowerCase();
+            const iLow = i.toLowerCase();
+            if (iLow.startsWith(fLow)) return i;
+            if (fLow.startsWith(iLow)) return f;
+            if (fLow === iLow) return f;
+            return mergeSegments([f, i]);
+        }
 
         function setupRecognition() {
             LOG('setupRecognition: creando instancia...');
@@ -1756,7 +1861,8 @@
             const rec = new SpeechRec();
             rec.lang = 'es-CL';
             rec.interimResults = true;
-            rec.continuous = true;
+            // En móvil usar continuous = false para evitar el bug de buffers solapados de Android Chrome
+            rec.continuous = !_isMobileDevice;
             rec.maxAlternatives = 1;
 
             rec.onstart = () => {
@@ -1786,19 +1892,24 @@
                 _gotAnyResult = true;
                 _emptySessionCount = 0; // Reiniciar contador de inactividad
 
-                let sessionFinal = '';
-                let sessionInterim = '';
+                const finalSegments = [];
+                const interimSegments = [];
                 for (let i = 0; i < event.results.length; i++) {
                     const t = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        sessionFinal += (sessionFinal ? ' ' : '') + t;
+                        finalSegments.push(t);
                     } else {
-                        sessionInterim += (sessionInterim ? ' ' : '') + t;
+                        interimSegments.push(t);
                     }
                 }
 
-                _lastInterimText = sessionInterim.trim();
-                _lastCurrentSpoken = (sessionFinal + (_lastInterimText ? (' ' + _lastInterimText) : '')).trim();
+                const mergedFinal = mergeSegments(finalSegments);
+                const mergedInterim = mergeSegments(interimSegments);
+                const combined = combineFinalAndInterim(mergedFinal, mergedInterim);
+                const cleanedSpoken = cleanRepeatedPhrases(combined);
+
+                _lastInterimText = mergedInterim.trim();
+                _lastCurrentSpoken = cleanedSpoken.trim();
                 const currentSpoken = _lastCurrentSpoken;
                 if (!currentSpoken) return;
 
@@ -1825,7 +1936,7 @@
                     _waitingFollowUpAck = false;
                 }
 
-                setUserText(currentSpoken, !interim);
+                setUserText(currentSpoken, !_lastInterimText);
                 updateMicButtonState();
 
                 // CRUCIAL: No despachamos de inmediato con `if (finalBatch)`.
@@ -1899,7 +2010,7 @@
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
                 clearTimeout(_pendingCommitTimeout);
 
-                const pendingText = (_lastCurrentSpoken || '').trim();
+                const pendingText = cleanRepeatedPhrases((_lastCurrentSpoken || '').trim());
 
                 // Si Android/Chrome cerró la sesión y había texto reconocido no despachado:
                 if (_conversationAwake && pendingText && !_questionDispatched) {
