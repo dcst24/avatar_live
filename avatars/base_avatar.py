@@ -223,32 +223,29 @@ class BaseAvatar:
         if hasattr(self, 'asr') and self.asr.queue.qsize() > 0:
             return True
 
-        # 4. Si la cola de frames renderizados aún tiene frames pendientes
-        if hasattr(self, 'res_frame_queue') and self.res_frame_queue.qsize() > 0:
-            return True
-
-        # 5. Si hay voz en vuelo hacia WebRTC que aún no ha terminado de salir (no ha llegado notify 'end')
+        # 4. Si hay voz en vuelo hacia WebRTC que aún no ha terminado de salir (no ha llegado notify 'end')
         if getattr(self, '_speech_in_flight', False):
-            # Watchdog de seguridad: si no ha habido frames de habla renderizados en más tiempo
-            # que el buffer máximo + 2.5s, evitar que quede colgado
-            buffer_frames = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            max_flight_time = (buffer_frames / 25.0) + 2.5
-            if getattr(self, '_last_speech_time', 0.0) > 0 and (time.time() - self._last_speech_time > max_flight_time):
-                self._speech_in_flight = False
+            if getattr(self, '_last_speech_time', 0.0) > 0:
+                buffer_frames = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
+                max_flight_time = (buffer_frames / 25.0) + 1.5
+                if time.time() - self._last_speech_time > max_flight_time:
+                    self._speech_in_flight = False
+                else:
+                    return True
             else:
-                return True
+                self._speech_in_flight = False
 
-        # 6. Margen de drenaje acústico post-WebRTC:
-        # Cuando WebRTC despacha el último frame de audio (notify 'end'), se da un margen de 1.2s
+        # 5. Margen de drenaje acústico post-WebRTC:
+        # Cuando WebRTC despacha el último frame de audio (notify 'end'), se da un margen de 0.8s
         # para que el audio termine de cruzar la red, jitter buffer y sonar en los parlantes.
         if getattr(self, '_last_speech_end_time', 0.0) > 0:
-            if time.time() - self._last_speech_end_time < 1.2:
+            if time.time() - self._last_speech_end_time < 0.8:
                 return True
 
-        # 7. Fallback de drenaje por si la notificación 'end' se retrasó
+        # 6. Fallback de drenaje por si la notificación 'end' se retrasó
         if getattr(self, '_last_speech_time', 0.0) > 0:
             buffer_frames = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            buffer_drain_time = (buffer_frames / 25.0) + 1.2
+            buffer_drain_time = (buffer_frames / 25.0) + 0.8
             if time.time() - self._last_speech_time < buffer_drain_time:
                 return True
 

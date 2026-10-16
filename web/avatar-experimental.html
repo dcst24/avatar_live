@@ -1362,7 +1362,7 @@
                 btn.title = 'Toca para interrumpir al avatar y hablar tú';
             } else if (isListening) {
                 btn.classList.add('listening');
-                const hasText = ((typeof _accumulatedFinalText !== 'undefined' ? _accumulatedFinalText : '') + (typeof _lastInterimText !== 'undefined' ? (' ' + _lastInterimText) : '')).trim();
+                const hasText = (_lastCurrentSpoken || '').trim();
                 label.textContent = hasText ? 'Enviar ahora ➔' : 'Escuchando…';
                 btn.title = hasText ? 'Toca para enviar tu pregunta ahora' : 'Toca para pausar el micrófono';
             } else if (document.body.className.includes('state-thinking')) {
@@ -1393,7 +1393,7 @@
 
             // 2. Si está escuchando:
             if (isListening) {
-                const pending = ((typeof _accumulatedFinalText !== 'undefined' ? _accumulatedFinalText : '') + (typeof _lastInterimText !== 'undefined' ? (' ' + _lastInterimText) : '')).trim();
+                const pending = (_lastCurrentSpoken || '').trim();
                 if (pending && !_questionDispatched) {
                     LOG(`handleMicToggle: [Tap-to-Send] enviando de inmediato: "${pending}"`);
                     clearTimeout(_pendingCommitTimeout);
@@ -1413,6 +1413,7 @@
             wakeUpModel();
             _emptySessionCount = 0;
             _accumulatedFinalText = '';
+            _lastCurrentSpoken = '';
             _lastInterimText = '';
             _alwaysOnActive = true;
             startAlwaysOnListening();
@@ -1679,8 +1680,9 @@
         let _gotAnyResult = false;
         let _audioCaptureErrors = 0;
         let _networkSpeechErrors = 0;
-        let _pendingCommitTimeout = null;
+        let _accumulatedFinalText = '';
         let _lastCurrentSpoken = '';
+        let _pendingCommitTimeout = null;
         let _lastInterimText = '';
         let _questionDispatched = false;
         let _emptySessionCount = 0;
@@ -1696,6 +1698,7 @@
             if (isSpeaking) {
                 LOG('[_dispatchQuestion] Descartando locución: avatar aún está hablando');
                 _accumulatedFinalText = '';
+                _lastCurrentSpoken = '';
                 _lastInterimText = '';
                 return;
             }
@@ -1709,6 +1712,7 @@
             _lastDispatchedSpeechTime = now;
             _questionDispatched = true;
             clearTimeout(_pendingCommitTimeout);
+            _accumulatedFinalText = '';
             _lastCurrentSpoken = '';
             _lastInterimText = '';
             updateMicButtonState();
@@ -1760,10 +1764,10 @@
                 _gotAnyResult = false;
                 _questionDispatched = false;
                 clearTimeout(_pendingCommitTimeout);
-                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake}, acc: "${_accumulatedFinalText}")`);
+                LOG(`SpeechRecognition.onstart — ESCUCHANDO (awake: ${_conversationAwake})`);
                 isListening = true;
                 setState('listening', _conversationAwake ? 'Escuchando pregunta…' : 'Esperando activación…');
-                if (!_accumulatedFinalText) {
+                if (!_lastCurrentSpoken) {
                     setUserText('', false);
                 }
                 updateMicButtonState();
@@ -1846,9 +1850,9 @@
                 const isStarterOnly = (words <= 2 && starters.includes(tokens[0]));
 
                 // Margen calibrado para pausas naturales: permitir pausas cómodas sin cortes
-                let delayMs = (words <= 2) ? 2600 : ((words <= 5) ? 2800 : 3000);
-                if (isStarterOnly) delayMs = 3200;
-                else if (isConnector) delayMs += 1000;
+                let delayMs = (words <= 2) ? 1700 : ((words <= 5) ? 2000 : 2200);
+                if (isStarterOnly) delayMs = 2500;
+                else if (isConnector) delayMs += 800;
 
                 _pendingCommitTimeout = setTimeout(() => {
                     if (_conversationAwake && currentSpoken && !_questionDispatched) {
@@ -1957,6 +1961,8 @@
 
             if (!isSpeaking && !_alwaysOnActive && _conversationAwake) {
                 setState('thinking', 'Pensando…');
+            } else {
+                updateMicButtonState();
             }
         }
 
@@ -2104,6 +2110,7 @@
             _waitingFollowUpAck = false;
             stopAlwaysOnListening();
             _accumulatedFinalText = '';
+            _lastCurrentSpoken = '';
             _lastInterimText = '';
             _questionDispatched = true;
             clearTimeout(_pendingCommitTimeout);
@@ -2256,6 +2263,7 @@
             // Asegurar que el micrófono esté detenido de inmediato
             stopAlwaysOnListening();
             _accumulatedFinalText = '';
+            _lastCurrentSpoken = '';
             _lastInterimText = '';
             _questionDispatched = false;
             _emptySessionCount = 0;
