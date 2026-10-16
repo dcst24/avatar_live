@@ -1679,8 +1679,8 @@
         let _gotAnyResult = false;
         let _audioCaptureErrors = 0;
         let _networkSpeechErrors = 0;
-        let _accumulatedFinalText = '';
         let _pendingCommitTimeout = null;
+        let _lastCurrentSpoken = '';
         let _lastInterimText = '';
         let _questionDispatched = false;
         let _emptySessionCount = 0;
@@ -1709,7 +1709,7 @@
             _lastDispatchedSpeechTime = now;
             _questionDispatched = true;
             clearTimeout(_pendingCommitTimeout);
-            _accumulatedFinalText = '';
+            _lastCurrentSpoken = '';
             _lastInterimText = '';
             updateMicButtonState();
 
@@ -1782,26 +1782,20 @@
                 _gotAnyResult = true;
                 _emptySessionCount = 0; // Reiniciar contador de inactividad
 
-                let interim = '';
-                let finalBatch = '';
-                for (let i = event.resultIndex; i < event.results.length; i++) {
+                let sessionFinal = '';
+                let sessionInterim = '';
+                for (let i = 0; i < event.results.length; i++) {
                     const t = event.results[i][0].transcript;
-                    const conf = event.results[i][0].confidence;
                     if (event.results[i].isFinal) {
-                        LOG(`Resultado FINAL recibido: "${t}" (confidence=${conf ? conf.toFixed(2) : '1.0'})`);
-                        finalBatch += (finalBatch ? ' ' : '') + t;
+                        sessionFinal += (sessionFinal ? ' ' : '') + t;
                     } else {
-                        interim += (interim ? ' ' : '') + t;
+                        sessionInterim += (sessionInterim ? ' ' : '') + t;
                     }
                 }
 
-                if (finalBatch) {
-                    _accumulatedFinalText = (_accumulatedFinalText ? (_accumulatedFinalText + ' ' + finalBatch) : finalBatch).trim();
-                    LOG(`[Speech Accumulator] Texto acumulado: "${_accumulatedFinalText}"`);
-                }
-
-                _lastInterimText = interim.trim();
-                const currentSpoken = (_accumulatedFinalText + (_lastInterimText ? (' ' + _lastInterimText) : '')).trim();
+                _lastInterimText = sessionInterim.trim();
+                _lastCurrentSpoken = (sessionFinal + (_lastInterimText ? (' ' + _lastInterimText) : '')).trim();
+                const currentSpoken = _lastCurrentSpoken;
                 if (!currentSpoken) return;
 
                 if (!_conversationAwake) {
@@ -1901,12 +1895,13 @@
                 LOG(`SpeechRecognition.onend — elapsed=${elapsed}ms, gotResult=${_gotAnyResult}, alwaysOn=${_alwaysOnActive}`);
                 clearTimeout(_pendingCommitTimeout);
 
-                const pendingText = (_accumulatedFinalText + (_lastInterimText ? (' ' + _lastInterimText) : '')).trim();
+                const pendingText = (_lastCurrentSpoken || '').trim();
 
-                // Si Android cerró la sesión y había texto en el buffer no despachado:
+                // Si Android/Chrome cerró la sesión y había texto reconocido no despachado:
                 if (_conversationAwake && pendingText && !_questionDispatched) {
-                    LOG(`[onend Auto-Commit] Android cerró reconocimiento con texto acumulado: "${pendingText}" → enviando`);
+                    LOG(`[onend Auto-Commit] Reconocimiento cerró con texto: "${pendingText}" → enviando`);
                     const textToSend = pendingText;
+                    _lastCurrentSpoken = '';
                     _dispatchQuestion(textToSend);
                     stopListening();
                     return;
@@ -2143,7 +2138,7 @@
                         body: JSON.stringify({
                             text: farewellText,
                             type: 'echo',
-                            interrupt: true,
+                            interrupt: false,
                             sessionid: String(sessionid)
                         })
                     });

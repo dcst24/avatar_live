@@ -514,6 +514,12 @@ class BaseAvatar:
                 # 使用统一输出接口推送音频帧
                 self.output.push_audio_frame(frame, audio_frame.userdata)
                 self.record_audio_data(frame)
+
+            # Control de flujo adaptativo: mantener buffer de WebRTC sincronizado (~1.5s)
+            # Evita desbordamiento de cola, paquetes descartados y que el navegador acelere el audio para sincronizar
+            buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
+            if buffer_size > 45:
+                time.sleep(0.015)
                 
             # if self.opt.transport == 'virtualcam' and hasattr(self.output, '_cam') and self.output._cam:
             #     self.output._cam.sleep_until_next_frame()
