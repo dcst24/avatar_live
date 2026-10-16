@@ -1323,6 +1323,7 @@
                 _wakeDetected = false;
                 clearTimeout(_inactivityTimeoutId);
                 clearTimeout(_followUpTimeoutId);
+                clearTimeout(_followUpAckTimeoutId);
                 const sessionid = document.getElementById('sessionid').value;
                 fetch('/human', {
                     method: 'POST',
@@ -1330,11 +1331,18 @@
                     body: JSON.stringify({
                         text: farewellText,
                         type: 'echo',
+                        interrupt: false,
                         sessionid: String(sessionid)
                     })
                 }).then(() => {
                     addChatBubble('system', 'Conversación finalizada. Di "Hola" para activar de nuevo.');
                     setState('ready', 'Esperando activación…');
+                    setTimeout(() => {
+                        if (!isListening && isConnected && !isSpeaking) {
+                            _alwaysOnActive = false;
+                            startAlwaysOnListening(false);
+                        }
+                    }, 500);
                 }).catch(e => WARN('Error al enviar despedida final:', e));
             }, 15000);
         }
@@ -1588,8 +1596,9 @@
                             setState('speaking', 'Hablando…');
                             _armSpeakingWatchdog();
                             clearTimeout(_followUpTimeoutId);
-                            clearTimeout(_followUpAckTimeoutId);
-                            _waitingFollowUpAck = false;
+                            // NO borrar _waitingFollowUpAck aquí: si el avatar está diciendo "¿Necesitas algo más?",
+                            // se mantiene en true para que al terminar pase a scheduleFollowUpAckTimeout()
+                            // y tras 15s de inactividad se despida y duerma la sesión definitivamente.
                             // Pausar reconocimiento de inmediato para evitar eco acústico
                             if (isListening || _alwaysOnActive) {
                                 LOG('[Speaking Monitor] Avatar comenzó a hablar → pausando micrófono');
@@ -1603,10 +1612,11 @@
                         } else {
                             if (wrap) wrap.classList.remove('avatar-speaking');
                             _clearSpeakingWatchdog();
-                            LOG('Avatar terminó de hablar → reabriendo micrófono (awake: ' + _conversationAwake + ')');
+                            LOG('Avatar terminó de hablar → reabriendo micrófono (awake: ' + _conversationAwake + ', waitingAck: ' + _waitingFollowUpAck + ')');
 
                             if (_conversationAwake && !isSpeaking) {
                                 if (_waitingFollowUpAck) {
+                                    LOG('[Speaking Monitor] Follow-up terminado de hablar → esperando 15s respuesta o despedida final');
                                     scheduleFollowUpAckTimeout();
                                 } else {
                                     scheduleFollowUp();
@@ -1745,7 +1755,6 @@
                     _alwaysOnActive = false;
                     sendToLLM(question);
                 }
-            }
         };
 
         // ─── Deduplicación Robusta de Transcripción (Fix para Android Chrome) ──────
