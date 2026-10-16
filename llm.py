@@ -253,13 +253,30 @@ def _append_to_history(sessionid: str, user_message: str, assistant_reply: str) 
 append_to_history = _append_to_history
 
 
+def split_into_sentences(text: str) -> list[str]:
+    """
+    Divide un texto largo en oraciones completas y naturales respetando
+    signos de puntuación (. ! ? \n), evitando fragmentar números o abreviaturas.
+    """
+    if not text:
+        return []
+    pattern = re.compile(r'(?<=[.!?])\s+(?=[A-Z¿¡ÁÉÍÓÚ0-9])')
+    raw_sentences = pattern.split(text.strip())
+    sentences = []
+    for s in raw_sentences:
+        clean_s = s.strip()
+        if clean_s:
+            sentences.append(clean_s)
+    return sentences
+
+
 def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
-    Envía `message` al LLM y alimenta al avatar con los fragmentos de respuesta
-    a medida que van llegando (chunking por puntuación).
+    Envía `message` a Ollama (chat completions) y despacha la respuesta al avatar.
     Mantiene historial de conversación por sesión.
     """
     sessionid: str = datainfo.get("sessionid", "")
+    _clear_cancellation(sessionid)
     try:
         start = time.perf_counter()
         logger.info(f"[LLM] Enviando mensaje (sesión={sessionid}): {message}")
@@ -293,10 +310,16 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
         clean_text = normalizar(full_text)
         _append_to_history(sessionid, message, clean_text)
 
-        # Enviar respuesta completa al avatar en un solo bloque para máxima fluidez y perfecta sincronización
+        # Enviar al avatar oraciones manejables para evitar desbordar los búferes en textos largos
         if clean_text:
-            logger.info(f"[LLM] -> avatar: {clean_text}")
-            avatar_session.put_msg_txt(clean_text, datainfo)
+            sentences = split_into_sentences(clean_text)
+            if len(sentences) > 1:
+                for s in sentences:
+                    logger.info(f"[LLM] -> avatar (oración): {s}")
+                    avatar_session.put_msg_txt(s, datainfo)
+            else:
+                logger.info(f"[LLM] -> avatar: {clean_text}")
+                avatar_session.put_msg_txt(clean_text, datainfo)
 
         return clean_text
 
@@ -317,7 +340,7 @@ def llm_response(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}
 def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: dict = {}):
     """
     Envía `message` al LLM y rinde los fragmentos de respuesta a medida que van llegando
-    de Ollama, alimentando al avatar en tiempo real y haciendo yield para el streaming HTTP.
+    de Ollama, alimentando al avatar en tiempo real por oraciones y haciendo yield para el streaming HTTP.
     Mantiene historial de conversación por sesión.
     """
     sessionid: str = datainfo.get("sessionid", "")
@@ -345,6 +368,7 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
         response.raise_for_status()
 
         full_text = ""
+        sentence_buffer = ""
 
         for line in response.iter_lines():
             if _is_cancelled(sessionid):
@@ -360,9 +384,19 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
                     continue
 
                 full_text += content
+                sentence_buffer += content
 
                 # Rinde el token de inmediato para la interfaz de chat en tiempo real
                 yield content
+
+                # Streaming por oraciones: si detectamos fin de oración con suficiente longitud,
+                # despachar de inmediato al avatar para que hable en fragmentos manejables y fluidos
+                if re.search(r'[.!?]\s+$', sentence_buffer) and len(sentence_buffer.strip()) >= 25:
+                    sentence = normalizar(sentence_buffer.strip())
+                    if sentence:
+                        logger.info(f"[LLM Stream] -> avatar (oración fluida): {sentence}")
+                        avatar_session.put_msg_txt(sentence, datainfo)
+                    sentence_buffer = ""
 
                 if _is_cancelled(sessionid):
                     break
@@ -370,14 +404,17 @@ def llm_response_stream(message: str, avatar_session: "BaseAvatar", datainfo: di
             except Exception as e:
                 logger.error(f"[LLM Stream] Error parseando línea: {e}")
 
-        # Enviar respuesta normalizada completa al avatar en un solo bloque fluido si no fue cancelado
+        # Enviar cualquier oración o fragmento remanente al finalizar el streaming
+        if not _is_cancelled(sessionid) and sentence_buffer.strip():
+            sentence = normalizar(sentence_buffer.strip())
+            if sentence:
+                logger.info(f"[LLM Stream] -> avatar (oración final): {sentence}")
+                avatar_session.put_msg_txt(sentence, datainfo)
+
+        # Guardar turno completo en historial (normalizado)
         if not _is_cancelled(sessionid) and full_text.strip():
-            clean_text = normalizar(full_text.strip())
-            if clean_text:
-                logger.info(f"[LLM Stream] -> avatar (completo fluido): {clean_text}")
-                avatar_session.put_msg_txt(clean_text, datainfo)
-            # Guardar turno completo en historial (normalizado)
-            _append_to_history(sessionid, message, clean_text)
+            clean_full_text = normalizar(full_text.strip())
+            _append_to_history(sessionid, message, clean_full_text)
 
         elapsed = time.perf_counter() - start
         logger.info(f"[LLM Stream] Finalizado en {elapsed:.2f}s (cancelado={_is_cancelled(sessionid)}), total chars={len(full_text)}")

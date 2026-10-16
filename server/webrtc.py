@@ -64,6 +64,7 @@ class PlayerStreamTrack(MediaStreamTrack):
             self._queue = queue.Queue(maxsize=350)
         self.timelist = []
         self.current_frame_count = 0
+        self._last_frame = None
         if self.kind == 'video':
             self.framecount = 0
             self.lasttime = time.perf_counter()
@@ -124,8 +125,9 @@ class PlayerStreamTrack(MediaStreamTrack):
         frame = None
         eventpoint = None
 
-        # Esperar hasta 20ms por un frame en cola; si está vacía en audio tras un STOP/corte,
-        # emitir silencio sintético para NUNCA congelar ni cerrar la conexión WebRTC.
+        # Esperar hasta 40ms (8 retries de 5ms) por un frame en cola.
+        # Si la cola está temporalmente vacía, emitir frame de continuidad (video: repetir último frame;
+        # audio: silencio sintético) para NUNCA desincronizar audio/video ni congelar WebRTC.
         retries = 0
         while self.readyState == "live":
             try:
@@ -134,16 +136,23 @@ class PlayerStreamTrack(MediaStreamTrack):
             except queue.Empty:
                 await asyncio.sleep(0.005)
                 retries += 1
-                # Si en audio la cola está vacía por más de 15ms (3 sleeps), generar silencio sintético
-                if self.kind != 'video' and retries >= 3:
-                    silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
-                    frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
-                    frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
-                    frame.sample_rate = SAMPLE_RATE
-                    break
+                if retries >= 8:
+                    if self.kind == 'video':
+                        if self._last_frame is not None:
+                            frame = self._last_frame
+                            break
+                    else:
+                        silence_samples = int(AUDIO_PTIME * SAMPLE_RATE)  # 320 samples (20ms @ 16kHz)
+                        frame = AudioFrame(format='s16', layout='mono', samples=silence_samples)
+                        frame.planes[0].update(np.zeros(silence_samples, dtype=np.int16).tobytes())
+                        frame.sample_rate = SAMPLE_RATE
+                        break
 
         if self.readyState != "live" or frame is None:
             raise Exception("Track stopped")
+
+        if self.kind == 'video':
+            self._last_frame = frame
 
         pts, time_base = await self.next_timestamp()
         frame.pts = pts
@@ -222,7 +231,7 @@ class HumanPlayer:
         from av import VideoFrame
         new_frame = VideoFrame.from_ndarray(frame, format="bgr24")
         try:
-            self.__video._queue.put((new_frame, None), block=False)
+            self.__video._queue.put((new_frame, None), block=True, timeout=0.04)
         except queue.Full:
             try:
                 self.__video._queue.get_nowait()
@@ -239,10 +248,10 @@ class HumanPlayer:
         new_frame.planes[0].update(frame.tobytes())
         new_frame.sample_rate = 16000
         try:
-            self.__audio._queue.put((new_frame, eventpoint), block=True, timeout=0.05)
+            self.__audio._queue.put((new_frame, eventpoint), block=True, timeout=0.04)
         except queue.Full:
             try:
-                self.__audio._queue.get_nowait()  # descarta el más viejo solo si se acumularon > 6s
+                self.__audio._queue.get_nowait()  # descarta el más viejo solo si se acumularon > 7s
             except queue.Empty:
                 pass
             try:

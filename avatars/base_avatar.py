@@ -510,9 +510,10 @@ class BaseAvatar:
             self.asr.run_step()
 
             buffer_size = self.output.get_buffer_size() if hasattr(self.output, 'get_buffer_size') else 0
-            if buffer_size >= 5:
-                logger.debug('sleep qsize=%d', buffer_size)
-                time.sleep(0.04 * buffer_size * 0.8)
+            if buffer_size >= 40:
+                # Regulación suave progresiva: máximo 25ms para no congelar la extracción de audio
+                sleep_time = min(0.025, 0.002 * (buffer_size - 30))
+                time.sleep(sleep_time)
         logger.info('baseavatar render thread stop')
 
         infer_quit_event.set()

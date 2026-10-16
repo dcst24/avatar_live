@@ -1106,14 +1106,22 @@
                 container.removeChild(container.firstChild);
             }
 
-            setTimeout(() => {
-                bubble.classList.add('fade-out');
+            const scheduleFadeOut = () => {
                 setTimeout(() => {
-                    if (bubble.parentNode) {
-                        bubble.parentNode.removeChild(bubble);
+                    // Si el avatar aún está hablando, posponer el desvanecimiento para que no desaparezca durante la locución
+                    if (isSpeaking && role === 'avatar') {
+                        scheduleFadeOut();
+                        return;
                     }
-                }, 500);
-            }, 30000);
+                    bubble.classList.add('fade-out');
+                    setTimeout(() => {
+                        if (bubble.parentNode) {
+                            bubble.parentNode.removeChild(bubble);
+                        }
+                    }, 500);
+                }, 30000);
+            };
+            scheduleFadeOut();
 
             return bubble;
         }
@@ -1313,7 +1321,7 @@
         // ─── Monitor de "avatar hablando" ──────────────────────────────────────────
         // Watchdog: si el avatar lleva más de MAX_SPEAKING_MS en estado "hablando"
         // sin que el backend reporte speaking=false (latencia / corte de red), lo resetea forzosamente.
-        const MAX_SPEAKING_MS = 35000;
+        const MAX_SPEAKING_MS = 65000;
         let _speakingWatchdog = null;
 
         function _clearSpeakingWatchdog() {
